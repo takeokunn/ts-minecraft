@@ -44,6 +44,22 @@ export type RemoteContainerUpdate = {
   readonly slots: ReadonlyArray<RemoteContainerSlot | null>
 }
 
+// Dropped-item sync: a peer's spawn/upsert (itemId is the OWNER's local id)
+// and a removal addressed by original owner+id.
+export type RemoteDroppedItemSpawn = {
+  readonly ownerId: string
+  readonly itemId: string
+  readonly itemType: string
+  readonly count: number
+  readonly position: { readonly x: number; readonly y: number; readonly z: number }
+  readonly velocity: { readonly x: number; readonly y: number; readonly z: number }
+}
+
+export type RemoteDroppedItemRemove = {
+  readonly ownerId: string
+  readonly itemId: string
+}
+
 export type LocalEntitySnapshot = {
   readonly entityId: string
   readonly entityType: string

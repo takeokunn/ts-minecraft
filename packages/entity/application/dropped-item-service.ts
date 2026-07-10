@@ -54,6 +54,8 @@ const canMergeDroppedItems = (
   target: DroppedItemEntity,
   candidate: DroppedItemEntity,
 ): boolean =>
+  target.noMerge !== true &&
+  candidate.noMerge !== true &&
   target.itemType === candidate.itemType &&
   target.count < DROPPED_ITEM_MAX_MERGED_STACK &&
   distanceSquared(target.position, candidate.position) <= DROPPED_ITEM_MERGE_DISTANCE_SQUARED
@@ -120,6 +122,10 @@ export type DroppedItemSpawnInput = {
   readonly position: DroppedItemPosition
   readonly velocity?: DroppedItemPosition
   readonly pickupDelayTicks?: number
+  // Explicit id + merge opt-out for multiplayer mirror items; local spawns
+  // omit both and get a generated id.
+  readonly id?: string
+  readonly noMerge?: boolean
 }
 
 export class DroppedItemService extends Effect.Service<DroppedItemService>()(
@@ -134,20 +140,33 @@ export class DroppedItemService extends Effect.Service<DroppedItemService>()(
           Effect.gen(function* () {
             const nextId = yield* Ref.updateAndGet(nextIdRef, (value) => value + 1)
             const entity: DroppedItemEntity = {
-              id: `dropped-item-${nextId}`,
+              id: input.id ?? `dropped-item-${nextId}`,
               itemType: input.itemType,
               count: normalizeCount(input.count),
               position: input.position,
               velocity: input.velocity ?? ZERO_VELOCITY,
               ageTicks: 0,
               pickupDelayTicks: normalizeTicks(input.pickupDelayTicks ?? 0),
+              ...(input.noMerge === true ? { noMerge: true } : {}),
             }
 
-            yield* Ref.update(itemsRef, (items) => [...items, entity])
+            // Explicit-id spawns are upserts: re-spawning an existing mirror id
+            // replaces it (the owner's count/position update) instead of duping.
+            yield* Ref.update(itemsRef, (items) =>
+              input.id === undefined ? [...items, entity] : [...items.filter((item) => item.id !== entity.id), entity],
+            )
             return entity
           }),
 
         getAll: (): Effect.Effect<readonly DroppedItemEntity[], never> => Ref.get(itemsRef),
+
+        // Remove a single item by id (multiplayer removal sync). Returns
+        // whether the id existed — callers treat a miss as an idempotent no-op.
+        removeById: (id: string): Effect.Effect<boolean, never> =>
+          Ref.modify(itemsRef, (items) => {
+            const remaining = items.filter((item) => item.id !== id)
+            return [remaining.length !== items.length, remaining]
+          }),
 
         // isSolidAt (optional): world solidity probe used to land falling items.
         // Without it, gravity still applies but items have no floor to rest on

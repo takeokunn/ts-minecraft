@@ -236,6 +236,123 @@ export const applyInboundContainerUpdates = (
     ),
   )
 
+// ─── Dropped-item sync ────────────────────────────────────────────────────────
+// The owner broadcasts spawns/upserts (new id, or count change from merging)
+// and removals (id vanished: collected, expired, merged away, hopper-eaten).
+// Peers mirror items under `remote:<owner>:<id>` with merging disabled — the
+// owner's upserts are the single source of truth for a mirror's count. A peer
+// collecting a mirror makes it vanish locally, which the same diff turns into
+// a removal addressed to the ORIGINAL owner, deleting the authoritative copy.
+// Known limitation: two players grabbing one item inside the network round
+// trip both keep it (no server-side pickup arbitration).
+const MIRROR_ID_PREFIX = 'remote:'
+
+const mirrorDroppedItemId = (ownerId: string, itemId: string): string =>
+  `${MIRROR_ID_PREFIX}${ownerId}:${itemId}`
+
+// itemId never contains ':' (locally generated `dropped-item-N`), so the last
+// colon splits owner from item even if owner ids ever contain colons.
+const parseMirrorDroppedItemId = (id: string): { readonly ownerId: string; readonly itemId: string } | null => {
+  if (!id.startsWith(MIRROR_ID_PREFIX)) return null
+  const rest = id.slice(MIRROR_ID_PREFIX.length)
+  const splitAt = rest.lastIndexOf(':')
+  if (splitAt <= 0) return null
+  return { ownerId: rest.slice(0, splitAt), itemId: rest.slice(splitAt + 1) }
+}
+
+let lastLocalDroppedItems: ReadonlyMap<string, number> = new Map()
+let lastMirrorDroppedItemIds: ReadonlySet<string> = new Set()
+export const resetDroppedItemSyncStateForTest = (): void => {
+  lastLocalDroppedItems = new Map()
+  lastMirrorDroppedItemIds = new Set()
+}
+
+export const syncDroppedItems = (
+  multiplayer: MultiplayerService,
+  services: Pick<FrameHandlerServices, 'droppedItemService'>,
+): Effect.Effect<void, never> =>
+  Effect.gen(function* () {
+    const localPlayerId = yield* multiplayer.getLocalPlayerId().pipe(Effect.catchAll(() => Effect.succeed(null)))
+    if (localPlayerId === null) return
+    const items = yield* services.droppedItemService.getAll()
+    const currentLocal = new Map<string, number>()
+    const currentMirrors = new Set<string>()
+    for (const item of items) {
+      if (item.id.startsWith(MIRROR_ID_PREFIX)) currentMirrors.add(item.id)
+      else currentLocal.set(item.id, item.count)
+    }
+    // Own items: broadcast new ids and count changes (merge absorptions).
+    for (const item of items) {
+      if (item.id.startsWith(MIRROR_ID_PREFIX)) continue
+      if (lastLocalDroppedItems.get(item.id) === item.count) continue
+      yield* multiplayer
+        .sendDroppedItemSpawn({
+          itemId: item.id,
+          itemType: String(item.itemType),
+          count: item.count,
+          position: item.position,
+          velocity: item.velocity,
+        })
+        .pipe(Effect.catchAll(() => Effect.void))
+    }
+    // Own items that vanished: tell peers to drop their mirrors.
+    for (const id of lastLocalDroppedItems.keys()) {
+      if (currentLocal.has(id)) continue
+      yield* multiplayer.sendDroppedItemRemove(localPlayerId, id).pipe(Effect.catchAll(() => Effect.void))
+    }
+    // Mirrors that vanished (we collected them, or they expired): tell the
+    // owner — and everyone else — to remove the original.
+    for (const id of lastMirrorDroppedItemIds) {
+      if (currentMirrors.has(id)) continue
+      const parsed = parseMirrorDroppedItemId(id)
+      if (parsed === null) continue
+      yield* multiplayer.sendDroppedItemRemove(parsed.ownerId, parsed.itemId).pipe(Effect.catchAll(() => Effect.void))
+    }
+    lastLocalDroppedItems = currentLocal
+    lastMirrorDroppedItemIds = currentMirrors
+  })
+
+export const applyInboundDroppedItems = (
+  multiplayer: MultiplayerService,
+  services: Pick<FrameHandlerServices, 'droppedItemService'>,
+): Effect.Effect<void, never> =>
+  Effect.gen(function* () {
+    const localPlayerId = yield* multiplayer.getLocalPlayerId().pipe(Effect.catchAll(() => Effect.succeed(null)))
+    const spawns = yield* multiplayer.drainDroppedItemSpawns
+    for (const spawn of spawns) {
+      if (!Schema.is(InventoryItemSchema)(spawn.itemType)) continue
+      if (!Number.isInteger(spawn.count) || spawn.count <= 0) continue
+      yield* services.droppedItemService
+        .spawn({
+          id: mirrorDroppedItemId(spawn.ownerId, spawn.itemId),
+          noMerge: true,
+          itemType: spawn.itemType,
+          count: spawn.count,
+          position: spawn.position,
+          velocity: spawn.velocity,
+          // Normal pickup delay so a peer standing on the drop point doesn't
+          // vacuum it before the thrower's own delay elapses.
+          pickupDelayTicks: 10,
+        })
+        .pipe(Effect.catchAll(() => Effect.void))
+      // An upsert must not later read as "vanished → broadcast remove": keep
+      // the mirror bookkeeping in step with what we just applied.
+      lastMirrorDroppedItemIds = new Set([...lastMirrorDroppedItemIds, mirrorDroppedItemId(spawn.ownerId, spawn.itemId)])
+    }
+    const removes = yield* multiplayer.drainDroppedItemRemoves
+    for (const remove of removes) {
+      const id = remove.ownerId === localPlayerId
+        ? remove.itemId // a peer collected OUR item: remove the original
+        : mirrorDroppedItemId(remove.ownerId, remove.itemId)
+      yield* services.droppedItemService.removeById(id).pipe(Effect.catchAll(() => Effect.void))
+      if (remove.ownerId === localPlayerId) {
+        lastLocalDroppedItems = new Map([...lastLocalDroppedItems].filter(([key]) => key !== id))
+      } else {
+        lastMirrorDroppedItemIds = new Set([...lastMirrorDroppedItemIds].filter((key) => key !== id))
+      }
+    }
+  })
+
 export const applyInboundEntitySnapshots = (
   multiplayer: MultiplayerService,
   services: Pick<FrameHandlerServices, 'entityManager'>,

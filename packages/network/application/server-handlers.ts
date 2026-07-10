@@ -1,7 +1,7 @@
 import { Effect, Ref } from 'effect'
 import { NetworkError } from '../domain/errors'
 import { MessageType, PlayerId, WorldId } from '../domain/schemas'
-import type { BlockBreakMessage, BlockPlaceMessage, ChatMessage, ContainerUpdateMessage, EntityDamageMessage, EntitySnapshotMessage, NetworkMessage, PlayerJoinMessage, PlayerMoveMessage } from '../domain/schemas'
+import type { BlockBreakMessage, BlockPlaceMessage, ChatMessage, ContainerUpdateMessage, DroppedItemRemoveMessage, DroppedItemSpawnMessage, EntityDamageMessage, EntitySnapshotMessage, NetworkMessage, PlayerJoinMessage, PlayerMoveMessage } from '../domain/schemas'
 import type { WebSocketConnection } from '../domain/websocket-ports'
 import { decodeNetworkMessage, sendEncodedToConnection } from './codec'
 import type { ConnectedPlayer, GameServer, ServerServiceShape } from './server-service'
@@ -278,6 +278,13 @@ export const handleContainerUpdate = (
     Effect.flatMap(() => services.serverService.broadcast(message, message.playerId)),
   )
 
+// Dropped items are transient (5-minute lifetime, constant churn): relay only,
+// no join-replay log — a late joiner misses items already on the ground.
+export const handleDroppedItemMessage = (
+  services: ServerHandlerServices,
+  message: DroppedItemSpawnMessage | DroppedItemRemoveMessage,
+): Effect.Effect<void, NetworkError> => services.serverService.broadcast(message, message.playerId)
+
 export const handleChat = (
   services: ServerHandlerServices,
   message: ChatMessage,
@@ -328,6 +335,11 @@ export const dispatchMessage = (
       case MessageType.ContainerUpdate:
         yield* verifyPlayerOwnership(services, connection.id, message.playerId)
         yield* handleContainerUpdate(services, message)
+        return
+      case MessageType.DroppedItemSpawn:
+      case MessageType.DroppedItemRemove:
+        yield* verifyPlayerOwnership(services, connection.id, message.playerId)
+        yield* handleDroppedItemMessage(services, message)
         return
       case MessageType.Chat:
         yield* verifyPlayerOwnership(services, connection.id, message.playerId)

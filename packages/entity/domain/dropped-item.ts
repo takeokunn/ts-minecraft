@@ -22,4 +22,7 @@ export type DroppedItemEntity = DroppedItemStack & {
   readonly velocity: DroppedItemPosition
   readonly ageTicks: number
   readonly pickupDelayTicks: number
+  // Multiplayer mirrors are owner-driven (count updates arrive as upserts by
+  // id); local merging would orphan the id the owner keeps broadcasting under.
+  readonly noMerge?: boolean
 }

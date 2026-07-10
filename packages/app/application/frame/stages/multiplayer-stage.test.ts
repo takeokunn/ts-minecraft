@@ -5,11 +5,14 @@ import { EntityId, EntityType } from '@ts-minecraft/entity/domain/mob/entity'
 import {
   applyInboundBlockEdits,
   applyInboundContainerUpdates,
+  applyInboundDroppedItems,
   applyInboundEntityDamages,
   applyInboundEntitySnapshots,
   broadcastChestOnClose,
   multiplayerStage,
   resetChestSyncStateForTest,
+  resetDroppedItemSyncStateForTest,
+  syncDroppedItems,
 } from '@ts-minecraft/app/frame/stages/multiplayer-stage'
 import type {
   LocalEntitySnapshot,
@@ -377,5 +380,127 @@ describe('applyInboundContainerUpdates', () => {
       { x: 0, y: 0, z: 0, slots: [{ itemType: 'DIAMOND', count: 999, durability: null }] },
     ])
     expect(applyBadCount).not.toHaveBeenCalled()
+  })
+})
+
+describe('dropped-item sync', () => {
+  type Item = {
+    id: string
+    itemType: string
+    count: number
+    position: { x: number; y: number; z: number }
+    velocity: { x: number; y: number; z: number }
+  }
+  const item = (id: string, count = 1, itemType = 'DIRT'): Item => ({
+    id,
+    itemType,
+    count,
+    position: { x: 1, y: 64, z: 1 },
+    velocity: { x: 0, y: 0, z: 0 },
+  })
+
+  const makeSyncHarness = (items: ReadonlyArray<Item>, localPlayerId: string | null = 'me') => {
+    const sendDroppedItemSpawn = vi.fn(() => Effect.void)
+    const sendDroppedItemRemove = vi.fn(() => Effect.void)
+    const mp = {
+      getLocalPlayerId: () => Effect.succeed(localPlayerId),
+      sendDroppedItemSpawn,
+      sendDroppedItemRemove,
+    } as unknown as MultiplayerService
+    const services = {
+      droppedItemService: { getAll: () => Effect.succeed(items) },
+    } as unknown as Pick<FrameHandlerServices, 'droppedItemService'>
+    return { mp, services, sendDroppedItemSpawn, sendDroppedItemRemove }
+  }
+
+  it('broadcasts new local items once and count changes as upserts', async () => {
+    resetDroppedItemSyncStateForTest()
+    const first = makeSyncHarness([item('dropped-item-1', 2)])
+    await Effect.runPromise(syncDroppedItems(first.mp, first.services))
+    expect(first.sendDroppedItemSpawn).toHaveBeenCalledTimes(1)
+    expect(first.sendDroppedItemSpawn).toHaveBeenCalledWith({
+      itemId: 'dropped-item-1',
+      itemType: 'DIRT',
+      count: 2,
+      position: { x: 1, y: 64, z: 1 },
+      velocity: { x: 0, y: 0, z: 0 },
+    })
+
+    const unchanged = makeSyncHarness([item('dropped-item-1', 2)])
+    await Effect.runPromise(syncDroppedItems(unchanged.mp, unchanged.services))
+    expect(unchanged.sendDroppedItemSpawn).not.toHaveBeenCalled()
+
+    const merged = makeSyncHarness([item('dropped-item-1', 5)])
+    await Effect.runPromise(syncDroppedItems(merged.mp, merged.services))
+    expect(merged.sendDroppedItemSpawn).toHaveBeenCalledTimes(1)
+  })
+
+  it('broadcasts removal when a local item vanishes (collected or expired)', async () => {
+    resetDroppedItemSyncStateForTest()
+    const withItem = makeSyncHarness([item('dropped-item-7')])
+    await Effect.runPromise(syncDroppedItems(withItem.mp, withItem.services))
+    const empty = makeSyncHarness([])
+    await Effect.runPromise(syncDroppedItems(empty.mp, empty.services))
+    expect(empty.sendDroppedItemRemove).toHaveBeenCalledWith('me', 'dropped-item-7')
+  })
+
+  it('a collected mirror broadcasts a removal addressed to the ORIGINAL owner', async () => {
+    resetDroppedItemSyncStateForTest()
+    const withMirror = makeSyncHarness([item('remote:alice:dropped-item-3')])
+    await Effect.runPromise(syncDroppedItems(withMirror.mp, withMirror.services))
+    expect(withMirror.sendDroppedItemSpawn).not.toHaveBeenCalled() // mirrors never rebroadcast
+    const collected = makeSyncHarness([])
+    await Effect.runPromise(syncDroppedItems(collected.mp, collected.services))
+    expect(collected.sendDroppedItemRemove).toHaveBeenCalledWith('alice', 'dropped-item-3')
+  })
+
+  it('does nothing before the local identity is assigned', async () => {
+    resetDroppedItemSyncStateForTest()
+    const harness = makeSyncHarness([item('dropped-item-1')], null)
+    await Effect.runPromise(syncDroppedItems(harness.mp, harness.services))
+    expect(harness.sendDroppedItemSpawn).not.toHaveBeenCalled()
+  })
+
+  it('applies inbound spawns as noMerge mirrors and skips invalid items', async () => {
+    resetDroppedItemSyncStateForTest()
+    const spawn = vi.fn(() => Effect.succeed({} as never))
+    const removeById = vi.fn(() => Effect.succeed(true))
+    const mp = {
+      getLocalPlayerId: () => Effect.succeed('me'),
+      drainDroppedItemSpawns: Effect.succeed([
+        { ownerId: 'alice', itemId: 'dropped-item-3', itemType: 'DIAMOND', count: 2, position: { x: 1, y: 64, z: 1 }, velocity: { x: 0, y: 0, z: 0 } },
+        { ownerId: 'alice', itemId: 'dropped-item-4', itemType: 'NOT_AN_ITEM', count: 1, position: { x: 1, y: 64, z: 1 }, velocity: { x: 0, y: 0, z: 0 } },
+      ]),
+      drainDroppedItemRemoves: Effect.succeed([]),
+    } as unknown as MultiplayerService
+    const services = { droppedItemService: { spawn, removeById } } as unknown as Pick<FrameHandlerServices, 'droppedItemService'>
+    await Effect.runPromise(applyInboundDroppedItems(mp, services))
+    expect(spawn).toHaveBeenCalledTimes(1)
+    expect(spawn).toHaveBeenCalledWith({
+      id: 'remote:alice:dropped-item-3',
+      noMerge: true,
+      itemType: 'DIAMOND',
+      count: 2,
+      position: { x: 1, y: 64, z: 1 },
+      velocity: { x: 0, y: 0, z: 0 },
+      pickupDelayTicks: 10,
+    })
+  })
+
+  it('routes inbound removals to the original for own items and to the mirror otherwise', async () => {
+    resetDroppedItemSyncStateForTest()
+    const removeById = vi.fn(() => Effect.succeed(true))
+    const mp = {
+      getLocalPlayerId: () => Effect.succeed('me'),
+      drainDroppedItemSpawns: Effect.succeed([]),
+      drainDroppedItemRemoves: Effect.succeed([
+        { ownerId: 'me', itemId: 'dropped-item-9' },        // peer collected OUR item
+        { ownerId: 'alice', itemId: 'dropped-item-3' },      // owner removed theirs
+      ]),
+    } as unknown as MultiplayerService
+    const services = { droppedItemService: { spawn: vi.fn(), removeById } } as unknown as Pick<FrameHandlerServices, 'droppedItemService'>
+    await Effect.runPromise(applyInboundDroppedItems(mp, services))
+    expect(removeById).toHaveBeenCalledWith('dropped-item-9')
+    expect(removeById).toHaveBeenCalledWith('remote:alice:dropped-item-3')
   })
 })

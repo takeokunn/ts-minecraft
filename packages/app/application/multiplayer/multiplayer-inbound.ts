@@ -10,6 +10,8 @@ import type {
   LocalPlayerIdentity,
   RemoteBlockEdit,
   RemoteContainerUpdate,
+  RemoteDroppedItemRemove,
+  RemoteDroppedItemSpawn,
   RemoteEntityDamage,
   RemoteEntitySnapshot,
   RemotePlayerSnapshot,
@@ -23,6 +25,8 @@ export const processInbound = (
   chatMessagesRef: Ref.Ref<ReadonlyArray<ChatEntry>>,
   inboundBlockEditsRef: Ref.Ref<ReadonlyArray<RemoteBlockEdit>>,
   inboundContainerUpdatesRef: Ref.Ref<ReadonlyArray<RemoteContainerUpdate>>,
+  inboundDroppedItemSpawnsRef: Ref.Ref<ReadonlyArray<RemoteDroppedItemSpawn>>,
+  inboundDroppedItemRemovesRef: Ref.Ref<ReadonlyArray<RemoteDroppedItemRemove>>,
   inboundEntitySnapshotsRef: Ref.Ref<ReadonlyArray<RemoteEntitySnapshot>>,
   inboundEntityDamagesRef: Ref.Ref<ReadonlyArray<RemoteEntityDamage>>,
   playerNameRef: Ref.Ref<Option.Option<PlayerName>>,
@@ -116,6 +120,35 @@ export const processInbound = (
               slot === null ? null : { itemType: slot.itemType, count: slot.count, durability: slot.durability },
             ),
           },
+        ])
+      })
+    case MessageType.DroppedItemSpawn:
+      return Effect.gen(function* () {
+        const localPlayer = yield* Ref.get(localPlayerRef)
+        if (Option.isSome(localPlayer) && localPlayer.value.playerId === msg.playerId) return
+        if (String(msg.worldId) !== getMultiplayerEditDimension()) return
+        const spawns = yield* Ref.get(inboundDroppedItemSpawnsRef)
+        yield* Ref.set(inboundDroppedItemSpawnsRef, [
+          ...spawns,
+          {
+            ownerId: String(msg.playerId),
+            itemId: msg.itemId,
+            itemType: msg.itemType,
+            count: msg.count,
+            position: msg.position,
+            velocity: msg.velocity,
+          },
+        ])
+      })
+    case MessageType.DroppedItemRemove:
+      return Effect.gen(function* () {
+        const localPlayer = yield* Ref.get(localPlayerRef)
+        if (Option.isSome(localPlayer) && localPlayer.value.playerId === msg.playerId) return
+        if (String(msg.worldId) !== getMultiplayerEditDimension()) return
+        const removes = yield* Ref.get(inboundDroppedItemRemovesRef)
+        yield* Ref.set(inboundDroppedItemRemovesRef, [
+          ...removes,
+          { ownerId: msg.ownerId, itemId: msg.itemId },
         ])
       })
     case MessageType.PlayerJoin:

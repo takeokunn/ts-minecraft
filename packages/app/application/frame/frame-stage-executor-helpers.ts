@@ -26,7 +26,9 @@ import {
   multiplayerStage,
   applyInboundBlockEdits,
   applyInboundContainerUpdates,
+  applyInboundDroppedItems,
   broadcastChestOnClose,
+  syncDroppedItems,
   applyInboundEntitySnapshots,
   applyInboundEntityDamages,
 } from '@ts-minecraft/app/frame/stages/multiplayer-stage'
@@ -188,6 +190,8 @@ export const runPresentationFrameStages = (
           Effect.flatMap(() => applyInboundBlockEdits(mp, services, refs.dirtyChunksRef)),
           Effect.flatMap(() => broadcastChestOnClose(mp, services)),
           Effect.flatMap(() => applyInboundContainerUpdates(mp, services)),
+          Effect.flatMap(() => syncDroppedItems(mp, services)),
+          Effect.flatMap(() => applyInboundDroppedItems(mp, services)),
           Effect.flatMap(() => applyInboundEntitySnapshots(mp, services)),
           Effect.flatMap(() => applyInboundEntityDamages(mp, services)),
           Effect.flatMap(() => syncRemotePlayersForFrame(mp, services, refs, inputs.totalTimeSecs)),

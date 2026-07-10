@@ -13,6 +13,8 @@ import type {
   RemoteBlockEdit,
   RemoteContainerSlot,
   RemoteContainerUpdate,
+  RemoteDroppedItemRemove,
+  RemoteDroppedItemSpawn,
   RemoteEntityDamage,
   RemoteEntitySnapshot,
   RemotePlayerSnapshot,
@@ -26,6 +28,8 @@ export type {
   RemoteBlockEdit,
   RemoteContainerSlot,
   RemoteContainerUpdate,
+  RemoteDroppedItemRemove,
+  RemoteDroppedItemSpawn,
   RemoteEntityDamage,
   RemoteEntitySnapshot,
   RemotePlayerSnapshot,
@@ -93,6 +97,18 @@ export type MultiplayerService = {
   // FR-3 block sync: drain and clear the queue of remote edits to apply locally.
   readonly drainBlockEdits: Effect.Effect<ReadonlyArray<RemoteBlockEdit>, never>
   readonly drainContainerUpdates: Effect.Effect<ReadonlyArray<RemoteContainerUpdate>, never>
+  readonly sendDroppedItemSpawn: (spawn: {
+    readonly itemId: string
+    readonly itemType: string
+    readonly count: number
+    readonly position: { readonly x: number; readonly y: number; readonly z: number }
+    readonly velocity: { readonly x: number; readonly y: number; readonly z: number }
+  }) => Effect.Effect<void, never>
+  readonly sendDroppedItemRemove: (ownerId: string, itemId: string) => Effect.Effect<void, never>
+  // Assigned player id once joined (null before the join echo lands).
+  readonly getLocalPlayerId: () => Effect.Effect<string | null, never>
+  readonly drainDroppedItemSpawns: Effect.Effect<ReadonlyArray<RemoteDroppedItemSpawn>, never>
+  readonly drainDroppedItemRemoves: Effect.Effect<ReadonlyArray<RemoteDroppedItemRemove>, never>
   readonly drainEntitySnapshots: Effect.Effect<ReadonlyArray<RemoteEntitySnapshot>, never>
   readonly drainEntityDamages: Effect.Effect<ReadonlyArray<RemoteEntityDamage>, never>
   readonly drainInbound: Effect.Effect<void, never>
@@ -114,6 +130,8 @@ export const MultiplayerServiceImpl = (
     const chatMessagesRef = yield* Ref.make<ReadonlyArray<ChatEntry>>([])
     const inboundBlockEditsRef = yield* Ref.make<ReadonlyArray<RemoteBlockEdit>>([])
     const inboundContainerUpdatesRef = yield* Ref.make<ReadonlyArray<RemoteContainerUpdate>>([])
+    const inboundDroppedItemSpawnsRef = yield* Ref.make<ReadonlyArray<RemoteDroppedItemSpawn>>([])
+    const inboundDroppedItemRemovesRef = yield* Ref.make<ReadonlyArray<RemoteDroppedItemRemove>>([])
     const inboundEntitySnapshotsRef = yield* Ref.make<ReadonlyArray<RemoteEntitySnapshot>>([])
     const inboundEntityDamagesRef = yield* Ref.make<ReadonlyArray<RemoteEntityDamage>>([])
     const playerNameRef = yield* Ref.make<Option.Option<PlayerName>>(Option.none())
@@ -132,6 +150,8 @@ export const MultiplayerServiceImpl = (
       yield* Ref.set(chatMessagesRef, [])
       yield* Ref.set(inboundBlockEditsRef, [])
       yield* Ref.set(inboundContainerUpdatesRef, [])
+      yield* Ref.set(inboundDroppedItemSpawnsRef, [])
+      yield* Ref.set(inboundDroppedItemRemovesRef, [])
       yield* Ref.set(inboundEntitySnapshotsRef, [])
       yield* Ref.set(inboundEntityDamagesRef, [])
       yield* Ref.set(localPlayerRef, Option.none())
@@ -179,6 +199,8 @@ export const MultiplayerServiceImpl = (
               chatMessagesRef,
               inboundBlockEditsRef,
               inboundContainerUpdatesRef,
+              inboundDroppedItemSpawnsRef,
+              inboundDroppedItemRemovesRef,
               inboundEntitySnapshotsRef,
               inboundEntityDamagesRef,
               playerNameRef,
@@ -332,6 +354,29 @@ export const MultiplayerServiceImpl = (
           timestamp: Date.now(),
         } as NetworkMessage)),
 
+      sendDroppedItemSpawn: (spawn) =>
+        sendIfConnected((identity) => ({
+          type: MessageType.DroppedItemSpawn,
+          playerId: identity.playerId,
+          worldId: WorldId.make(activeEditDimension),
+          itemId: spawn.itemId,
+          itemType: spawn.itemType,
+          count: spawn.count,
+          position: spawn.position as Vec3,
+          velocity: spawn.velocity as Vec3,
+          timestamp: Date.now(),
+        } as NetworkMessage)),
+
+      sendDroppedItemRemove: (ownerId, itemId) =>
+        sendIfConnected((identity) => ({
+          type: MessageType.DroppedItemRemove,
+          playerId: identity.playerId,
+          worldId: WorldId.make(activeEditDimension),
+          ownerId,
+          itemId,
+          timestamp: Date.now(),
+        } as NetworkMessage)),
+
       sendEntitySnapshot: (snapshot) =>
         sendIfConnected((identity) => ({
           type: MessageType.EntitySnapshot,
@@ -371,6 +416,15 @@ export const MultiplayerServiceImpl = (
       drainBlockEdits: Ref.getAndSet(inboundBlockEditsRef, []),
 
       drainContainerUpdates: Ref.getAndSet(inboundContainerUpdatesRef, []),
+
+      getLocalPlayerId: () =>
+        Effect.map(Ref.get(localPlayerRef), (identity) =>
+          Option.isSome(identity) ? String(identity.value.playerId) : null,
+        ),
+
+      drainDroppedItemSpawns: Ref.getAndSet(inboundDroppedItemSpawnsRef, []),
+
+      drainDroppedItemRemoves: Ref.getAndSet(inboundDroppedItemRemovesRef, []),
 
       drainEntitySnapshots: Ref.getAndSet(inboundEntitySnapshotsRef, []),
 

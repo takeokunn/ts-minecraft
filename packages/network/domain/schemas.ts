@@ -49,6 +49,8 @@ export const MessageType = {
   BlockPlace: 'BlockPlace',
   BlockBreak: 'BlockBreak',
   ContainerUpdate: 'ContainerUpdate',
+  DroppedItemSpawn: 'DroppedItemSpawn',
+  DroppedItemRemove: 'DroppedItemRemove',
   Chat: 'Chat',
   WorldInfo: 'WorldInfo',
   Ping: 'Ping',
@@ -65,6 +67,8 @@ export const MessageTypeSchema = Schema.Literal(
   MessageType.BlockPlace,
   MessageType.BlockBreak,
   MessageType.ContainerUpdate,
+  MessageType.DroppedItemSpawn,
+  MessageType.DroppedItemRemove,
   MessageType.Chat,
   MessageType.WorldInfo,
   MessageType.Ping,
@@ -194,6 +198,33 @@ export const ContainerUpdateMessageSchema = Schema.Struct({
 })
 export type ContainerUpdateMessage = Schema.Schema.Type<typeof ContainerUpdateMessageSchema>
 
+// Dropped-item sync: the owner broadcasts spawn/upsert (itemId is the OWNER's
+// local id; peers mirror it under a namespaced id). Remove propagates by the
+// ORIGINAL owner+id so a peer collecting someone else's drop deletes the
+// owner's authoritative copy too.
+export const DroppedItemSpawnMessageSchema = Schema.Struct({
+  type: Schema.Literal(MessageType.DroppedItemSpawn),
+  playerId: PlayerIdSchema,
+  worldId: WorldIdSchema,
+  itemId: Schema.String,
+  itemType: Schema.String,
+  count: Schema.Number.pipe(Schema.int(), Schema.positive()),
+  position: Vec3Schema,
+  velocity: Vec3Schema,
+  timestamp: TimestampSchema,
+})
+export type DroppedItemSpawnMessage = Schema.Schema.Type<typeof DroppedItemSpawnMessageSchema>
+
+export const DroppedItemRemoveMessageSchema = Schema.Struct({
+  type: Schema.Literal(MessageType.DroppedItemRemove),
+  playerId: PlayerIdSchema,
+  worldId: WorldIdSchema,
+  ownerId: Schema.String,
+  itemId: Schema.String,
+  timestamp: TimestampSchema,
+})
+export type DroppedItemRemoveMessage = Schema.Schema.Type<typeof DroppedItemRemoveMessageSchema>
+
 export const ChatMessageSchema = Schema.Struct({
   type: Schema.Literal(MessageType.Chat),
   playerId: PlayerIdSchema,
@@ -250,6 +281,8 @@ export const NetworkMessageSchema = Schema.Union(
   BlockPlaceMessageSchema,
   BlockBreakMessageSchema,
   ContainerUpdateMessageSchema,
+  DroppedItemSpawnMessageSchema,
+  DroppedItemRemoveMessageSchema,
   ChatMessageSchema,
   WorldInfoMessageSchema,
   PingMessageSchema,
