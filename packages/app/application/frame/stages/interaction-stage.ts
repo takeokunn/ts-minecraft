@@ -69,7 +69,12 @@ export const interactionStage = (
           blockIdAtCached(x, y, z, targetingChunkCache, targetingPlayerChunk.cx, targetingPlayerChunk.cz, 3)
       : undefined
     yield* services.blockHighlight.update(deps.camera, deps.scene, targetingBlockIdAt)
-    yield* services.blockHighlight.setVisible(debugFlags['ui.blockHighlight'])
+    // Only force-hide when the debug flag is off. Forcing visible=true here
+    // overrode update()'s own decisions (fluid targets draw no outline), which
+    // painted a wireframe around invisible water in front of a swimming player.
+    if (!debugFlags['ui.blockHighlight']) {
+      yield* services.blockHighlight.setVisible(false)
+    }
 
     yield* logErrors(
       runInteractionStageFrame(deps, services, refs, inputs),

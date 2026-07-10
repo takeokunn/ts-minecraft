@@ -1,7 +1,14 @@
 import { Effect, MutableRef, Option, Schema } from 'effect'
 import * as THREE from 'three'
+import { blockTypeToIndex } from '@ts-minecraft/core'
 import { DEFAULT_RAY_DISTANCE, RaycastHit, RaycastingService } from '@ts-minecraft/rendering'
 import { voxelRaycast } from '@ts-minecraft/world'
+
+// Fluids stay targetable (buckets scoop via getTargetBlock) but never get the
+// wireframe outline — vanilla draws no outline on fluids, and a submerged camera
+// sitting inside an outlined water cell projected the cube across the whole screen.
+const WATER_BLOCK_ID = blockTypeToIndex('WATER')
+const LAVA_BLOCK_ID = blockTypeToIndex('LAVA')
 
 export const BlockTargetSchema = Schema.Struct({
   x: Schema.Int,
@@ -124,11 +131,17 @@ export class BlockHighlightService extends Effect.Service<BlockHighlightService>
         // World position via matrixWorld — the frame composes the camera pose
         // into matrixWorld directly, so `.position` can lag (or stay at origin).
         camera.getWorldPosition(scratchOrigin)
+        // The cell containing the camera is never a target: a submerged camera
+        // sits inside a targetable WATER cell, which the DDA would hit at t=0.
+        const originX = Math.floor(scratchOrigin.x)
+        const originY = Math.floor(scratchOrigin.y)
+        const originZ = Math.floor(scratchOrigin.z)
         return Option.getOrNull(voxelRaycast(
           { x: scratchOrigin.x, y: scratchOrigin.y, z: scratchOrigin.z },
           { x: scratchDirection.x, y: scratchDirection.y, z: scratchDirection.z },
           DEFAULT_RAY_DISTANCE,
           (x, y, z) => {
+            if (x === originX && y === originY && z === originZ) return false
             const blockId = blockIdAt(x, y, z)
             return blockId !== null && blockId !== 0
           },
@@ -150,7 +163,9 @@ export class BlockHighlightService extends Effect.Service<BlockHighlightService>
             yield* Effect.sync(() => {
               // Position highlight at block coordinates (center of the block)
               mesh.position.set(hit.blockX + 0.5, hit.blockY + 0.5, hit.blockZ + 0.5)
-              mesh.visible = true
+              // Fluids keep the target (bucket scooping) but draw no outline.
+              const hitBlockId = blockIdAt?.(hit.blockX, hit.blockY, hit.blockZ) ?? null
+              mesh.visible = hitBlockId !== WATER_BLOCK_ID && hitBlockId !== LAVA_BLOCK_ID
               MutableRef.set(hitStateRef, {
                 target: Option.some({ x: hit.blockX, y: hit.blockY, z: hit.blockZ }),
                 hit: Option.some(hit),

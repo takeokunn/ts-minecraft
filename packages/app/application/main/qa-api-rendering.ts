@@ -134,6 +134,7 @@ export const getLightAtForQA = (chunkManagerService: ChunkManagerService, x: num
     }
     return {
       block: Option.getOrNull(decodeBlockType(chunk.blocks[flatIdx])),
+      rawId: chunk.blocks[flatIdx] ?? -1,
       sky: unpack(chunk.skyLight),
       blockLight: unpack(chunk.blockLight),
       hasSkyGrid: chunk.skyLight !== undefined,

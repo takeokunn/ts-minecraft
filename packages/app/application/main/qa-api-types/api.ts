@@ -55,7 +55,7 @@ export type QaApi = {
   readonly getRemotePlayersForQA: () => Promise<ReadonlyArray<RemotePlayerSnapshot>>
   readonly getLoadedWaterBlockCount: () => Promise<number>
   readonly getBlockTypeAtForQA: (x: number, y: number, z: number) => Promise<string | null>
-  readonly getLightAtForQA: (x: number, y: number, z: number) => Promise<{ block: string | null; sky: number; blockLight: number; hasSkyGrid: boolean } | null>
+  readonly getLightAtForQA: (x: number, y: number, z: number) => Promise<{ block: string | null; rawId: number; sky: number; blockLight: number; hasSkyGrid: boolean } | null>
   readonly getMobMovementSnapshot: (durationMs: number) => Promise<{
     tracked: number
     moved: number
