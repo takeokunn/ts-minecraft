@@ -97,6 +97,7 @@ const makeDeps = (overrides?: {
   }
   const netherService = {
     getDimension: vi.fn(() => Effect.succeed('overworld' as const)),
+    serializePortals: vi.fn(() => Effect.succeed([])),
   }
   const statisticsService = {
     serialize: vi.fn(() => Effect.succeed({ blocksMinedTotal: 0, blocksMinedByType: {}, mobsKilledTotal: 0, mobsKilledByType: {}, itemsCraftedTotal: 0, itemsCraftedByType: {}, deathsTotal: 0, dimensionsVisited: [] })),

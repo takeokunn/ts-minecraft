@@ -13,11 +13,12 @@ export type SessionSaveMetadataInput = {
   readonly statistics: NonNullable<WorldMetadata['statistics']>
   readonly unlockedAchievements: NonNullable<WorldMetadata['unlockedAchievements']>
   readonly activeDimension: NonNullable<WorldMetadata['activeDimension']>
+  readonly portals: WorldMetadata['portals']
   readonly gameMode: WorldMetadata['gameMode']
 }
 
 export const buildSessionSaveMetadata = (input: SessionSaveMetadataInput): WorldMetadata => {
-  const { worldBootstrap, lastPlayed, playerState, chestStates, furnaceStates, weatherState, entityStates, statistics, unlockedAchievements, activeDimension, gameMode } = input
+  const { worldBootstrap, lastPlayed, playerState, chestStates, furnaceStates, weatherState, entityStates, statistics, unlockedAchievements, activeDimension, portals, gameMode } = input
 
   return {
     seed: worldBootstrap.seed,
@@ -32,6 +33,7 @@ export const buildSessionSaveMetadata = (input: SessionSaveMetadataInput): World
     statistics,
     unlockedAchievements,
     activeDimension,
+    portals,
     gameMode,
     saveVersion: CURRENT_WORLD_SAVE_VERSION,
   }

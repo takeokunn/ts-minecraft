@@ -2,11 +2,18 @@ import { Array as Arr, Effect, HashMap, Option, Ref } from 'effect'
 import type { Position } from '@ts-minecraft/core'
 import type { Dimension } from '../domain/nether/nether-travel'
 
+export type SerializedPortals = ReadonlyArray<{
+  readonly dimension: Dimension
+  readonly positions: ReadonlyArray<Position>
+}>
+
 export type NetherServiceImpl = {
   readonly getDimension: () => Effect.Effect<Dimension>
   readonly setDimension: (dim: Dimension) => Effect.Effect<void>
   readonly registerPortal: (pos: Position, dim: Dimension) => Effect.Effect<void>
   readonly getPortals: (dim: Dimension) => Effect.Effect<ReadonlyArray<Position>>
+  readonly serializePortals: () => Effect.Effect<SerializedPortals>
+  readonly deserializePortals: (saved: SerializedPortals) => Effect.Effect<void>
 }
 
 type NetherState = {
@@ -46,6 +53,25 @@ export class NetherService extends Effect.Service<NetherService>()('@ts-minecraf
         return Option.getOrElse(HashMap.get(s.portals, dim), () => [] as ReadonlyArray<Position>)
       })
 
-    return { getDimension, setDimension, registerPortal, getPortals } satisfies NetherServiceImpl
+    const serializePortals = (): Effect.Effect<SerializedPortals> =>
+      Effect.gen(function* () {
+        const s2 = yield* Ref.get(stateRef)
+        const out: Array<{ dimension: Dimension; positions: ReadonlyArray<Position> }> = []
+        HashMap.forEach(s2.portals, (positions, dimension) => {
+          if (positions.length > 0) out.push({ dimension, positions })
+        })
+        return out
+      })
+
+    const deserializePortals = (saved: SerializedPortals): Effect.Effect<void> =>
+      Ref.update(stateRef, (s2) => ({
+        ...s2,
+        portals: saved.reduce(
+          (acc, entry) => HashMap.set(acc, entry.dimension, entry.positions),
+          s2.portals,
+        ),
+      }))
+
+    return { getDimension, setDimension, registerPortal, getPortals, serializePortals, deserializePortals } satisfies NetherServiceImpl
   }),
 }) {}

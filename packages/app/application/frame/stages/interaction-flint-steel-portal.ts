@@ -67,7 +67,10 @@ export const handlePortalIgnition = (
       if (chunk) updatedDirtyChunks = HashMap.set(updatedDirtyChunks, coordKey, { chunk, dirtyAABB: Option.none() })
     }
     MutableRef.set(refs.dirtyChunksRef, updatedDirtyChunks)
-    yield* services.netherService.registerPortal(ignitionPos, 'overworld')
+    // Register in the dimension the portal was actually lit in — a nether-lit
+    // portal registered as 'overworld' broke return-link reuse.
+    const ignitionDimension = yield* services.netherService.getDimension()
+    yield* services.netherService.registerPortal(ignitionPos, ignitionDimension)
     yield* services.soundManager.playEffect('blockPlace', { position: ignitionPos })
     return true
   })

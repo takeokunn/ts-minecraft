@@ -31,7 +31,7 @@ export const restoreSavedState = (
     readonly furnaceService: FurnaceService
     readonly weatherService: WeatherService
     readonly cropGrowthService: CropGrowthService
-    readonly netherService: Pick<NetherService, 'setDimension'>
+    readonly netherService: Pick<NetherService, 'setDimension' | 'deserializePortals'>
     readonly chunkManagerService: Pick<ChunkManagerService, 'setActiveDimension'>
     readonly entityManager: EntityManager
     readonly gameState: Pick<GameStateService, 'enterBoat' | 'enterMinecart'>
@@ -108,6 +108,10 @@ export const restoreSavedState = (
       // dimension, apply that dimension's snapshots, then land on the dimension
       // the world was saved in (untagged legacy entities default to overworld).
       const savedEntityStates = Option.getOrNull(worldBootstrap.savedEntityStates)
+      const savedPortals = Option.getOrNull(worldBootstrap.savedPortals)
+      if (savedPortals !== null) {
+        yield* netherService.deserializePortals(savedPortals)
+      }
       const savedActiveDimension = Option.getOrElse(worldBootstrap.savedActiveDimension, () => 'overworld' as const)
       if (savedEntityStates !== null) {
         const dimensions = ['overworld', 'nether', 'end'] as const

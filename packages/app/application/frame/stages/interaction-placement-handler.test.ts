@@ -92,7 +92,7 @@ const makeServices = (opts: {
     gameMode: {
       isSpectator: vi.fn(() => Effect.succeed(false)),
     },
-    netherService: { registerPortal: registerPortalSpy },
+    netherService: { registerPortal: registerPortalSpy, getDimension: () => Effect.succeed('overworld' as const) },
     hotbarService: { getSelectedSlot: getSelectedSlotSpy },
     inventoryService: { damageSlot: damageSlotSpy },
     healthService: {
@@ -118,7 +118,7 @@ const makeServices = (opts: {
     chunkManagerService: { getChunk: (coord: { x: number; z: number }) => Effect.Effect<Chunk, Error> }
     gameState: { getPlayerPosition: ReturnType<typeof vi.fn> }
     gameMode: { isSpectator: ReturnType<typeof vi.fn> }
-    netherService: { registerPortal: ReturnType<typeof vi.fn> }
+    netherService: { registerPortal: ReturnType<typeof vi.fn>; getDimension: () => unknown }
     hotbarService: { getSelectedSlot: ReturnType<typeof vi.fn> }
     inventoryService: { damageSlot: ReturnType<typeof vi.fn> }
     healthService: { getHealth: ReturnType<typeof vi.fn>; applyDamage: ReturnType<typeof vi.fn> }

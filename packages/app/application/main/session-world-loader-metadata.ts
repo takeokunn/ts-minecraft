@@ -10,6 +10,7 @@ export type SavedEntityStates = NonNullable<WorldMetadata['entityStates']>
 export type SavedStatistics = NonNullable<WorldMetadata['statistics']>
 export type SavedUnlockedAchievements = NonNullable<WorldMetadata['unlockedAchievements']>
 export type SavedActiveDimension = NonNullable<WorldMetadata['activeDimension']>
+export type SavedPortals = NonNullable<WorldMetadata['portals']>
 
 export type WorldBootstrap = {
   readonly seed: number
@@ -23,6 +24,7 @@ export type WorldBootstrap = {
   readonly savedStatistics: Option.Option<SavedStatistics>
   readonly savedUnlockedAchievements: Option.Option<SavedUnlockedAchievements>
   readonly savedActiveDimension: Option.Option<SavedActiveDimension>
+  readonly savedPortals: Option.Option<SavedPortals>
   readonly gameMode: GameMode
 }
 
@@ -50,6 +52,7 @@ const buildWorldBootstrap = (input: {
   readonly savedStatistics: Option.Option<SavedStatistics>
   readonly savedUnlockedAchievements: Option.Option<SavedUnlockedAchievements>
   readonly savedActiveDimension: Option.Option<SavedActiveDimension>
+  readonly savedPortals: Option.Option<SavedPortals>
   readonly gameMode: GameMode
 }): WorldBootstrap => ({
   seed: input.seed,
@@ -63,6 +66,7 @@ const buildWorldBootstrap = (input: {
   savedStatistics: input.savedStatistics,
   savedUnlockedAchievements: input.savedUnlockedAchievements,
   savedActiveDimension: input.savedActiveDimension,
+  savedPortals: input.savedPortals,
   gameMode: input.gameMode,
 })
 
@@ -79,6 +83,7 @@ export const buildLoadedWorldBootstrap = (metadata: WorldMetadata): WorldBootstr
     savedStatistics: Option.fromNullable(metadata.statistics),
     savedUnlockedAchievements: Option.fromNullable(metadata.unlockedAchievements),
     savedActiveDimension: Option.fromNullable(metadata.activeDimension),
+    savedPortals: Option.fromNullable(metadata.portals),
     gameMode: metadata.gameMode,
   })
 
@@ -95,6 +100,7 @@ export const buildFreshWorldState = (input: FreshWorldMetadataInput): FreshWorld
     savedStatistics: Option.none<SavedStatistics>(),
     savedUnlockedAchievements: Option.none<SavedUnlockedAchievements>(),
     savedActiveDimension: Option.none<SavedActiveDimension>(),
+    savedPortals: Option.none<SavedPortals>(),
     gameMode: input.gameMode,
   })
 

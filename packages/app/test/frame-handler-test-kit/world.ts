@@ -173,6 +173,8 @@ export const makeNetherService = () => ({
   getDimension: () => Effect.succeed('overworld' as const),
   setDimension: (_dim: unknown) => Effect.void,
   registerPortal: (_pos: unknown, _dim: unknown) => Effect.void,
+  serializePortals: () => Effect.succeed([]),
+  deserializePortals: (_saved: unknown) => Effect.void,
   getPortals: (_dim: unknown) => Effect.succeed([]),
 }) as unknown as InstanceType<typeof import('@ts-minecraft/world').NetherService>
 

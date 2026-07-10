@@ -141,6 +141,11 @@ export const WorldMetadataSchema = Schema.Struct({
   entityStates: Schema.optional(Schema.Array(EntityStateSchema)),
   // Dimension the player was in when the world was saved (absent → overworld).
   activeDimension: Schema.optional(Schema.Literal('overworld', 'nether', 'end')),
+  // Nether/End portal registry — restoring it keeps portal links across reloads.
+  portals: Schema.optional(Schema.Array(Schema.Struct({
+    dimension: Schema.Literal('overworld', 'nether', 'end'),
+    positions: Schema.Array(Schema.Struct({ x: Schema.Number, y: Schema.Number, z: Schema.Number })),
+  }))),
   gameMode: GameModeSchema,
   saveVersion: Schema.Number.pipe(Schema.int(), Schema.positive()),
 })

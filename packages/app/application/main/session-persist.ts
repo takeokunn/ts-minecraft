@@ -71,6 +71,7 @@ export const buildPersistSessionState = (deps: PersistSessionStateDeps) => (): E
       dimension,
     }))
     const activeDimension = yield* netherService.getDimension()
+    const portals = yield* netherService.serializePortals()
     const statistics = yield* statisticsService.serialize()
     const unlockedAchievements = yield* achievementService.serialize()
     const metadata = buildSessionSaveMetadata({
@@ -95,6 +96,7 @@ export const buildPersistSessionState = (deps: PersistSessionStateDeps) => (): E
       statistics,
       unlockedAchievements,
       activeDimension,
+      portals,
       gameMode,
     })
     yield* storageService.saveWorldMetadata(worldId, metadata)
