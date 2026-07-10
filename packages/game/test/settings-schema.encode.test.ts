@@ -12,6 +12,7 @@ describe('SettingsSchema encode round-trip', () => {
     difficulty: 'normal',
   reducedMotion: false,
   uiScale: 1,
+  colorVisionMode: 'off',
   keyBindings: {},
     graphicsQuality: 'high',
     adaptivePerformanceMode: false,

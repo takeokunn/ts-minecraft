@@ -67,3 +67,4 @@ export {
 export { DebugOverlayService } from './debug-overlay'
 export * from './weather-visibility'
 export { applyHudScale } from './hud-scale'
+export { applyColorVisionMode, type ColorVisionModeValue } from './color-vision'

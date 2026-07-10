@@ -8,10 +8,11 @@ import type { FrameHudServices } from '@ts-minecraft/app/frame/frame-service-typ
 import type { FrameSettingsServices } from '@ts-minecraft/app/frame/frame-service-types/settings'
 import { decideAdaptiveQuality } from '@ts-minecraft/app/frame/frame-adaptive-quality'
 import type { DeltaTimeSecs } from '@ts-minecraft/core'
-import { applyHudScale, getAttackSwingOffset, isGameplayHudHidden } from '@ts-minecraft/presentation'
+import { applyColorVisionMode, applyHudScale, getAttackSwingOffset, isGameplayHudHidden } from '@ts-minecraft/presentation'
 
-// Change-gate for the HUD scale DOM write (visual-only module scratch).
+// Change-gates for accessibility DOM writes (visual-only module scratch).
 let lastAppliedUiScale = Number.NaN
+let lastAppliedColorVisionMode: string | null = null
 
 export const hudStage = (
   deps: Pick<FrameHandlerDeps, 'renderer'>,
@@ -29,6 +30,10 @@ export const hudStage = (
     if (inputs.currentSettings.uiScale !== lastAppliedUiScale) {
       lastAppliedUiScale = inputs.currentSettings.uiScale
       applyHudScale(inputs.currentSettings.uiScale)
+    }
+    if (inputs.currentSettings.colorVisionMode !== lastAppliedColorVisionMode) {
+      lastAppliedColorVisionMode = inputs.currentSettings.colorVisionMode
+      applyColorVisionMode(inputs.currentSettings.colorVisionMode)
     }
     const debugFlags = inputs.debugFlags
 

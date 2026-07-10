@@ -28,6 +28,7 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
         difficultySelect,
         reducedMotionInput,
         uiScaleInput,
+        colorVisionSelect,
         keyBindingsContainer,
         closeBtn,
         gearBtn,
@@ -90,6 +91,16 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
           musicVolume: parseFloat(Option.getOrNull(musicVolumeInput)?.value ?? '0.55'),
           reducedMotion: Option.getOrNull(reducedMotionInput)?.checked ?? false,
           uiScale: parseFloat(Option.getOrNull(uiScaleInput)?.value ?? '1'),
+          colorVisionMode: (() => {
+            const val = Option.getOrNull(colorVisionSelect)?.value
+            if (!val) return 'off' as const
+            return Match.value(val).pipe(
+              Match.when('protanopia', () => 'protanopia' as const),
+              Match.when('deuteranopia', () => 'deuteranopia' as const),
+              Match.when('tritanopia', () => 'tritanopia' as const),
+              Match.orElse(() => 'off' as const),
+            )
+          })(),
           keyBindings: Object.fromEntries(keyBindingValues),
           difficulty: (() => {
             const val = Option.getOrNull(difficultySelect)?.value
@@ -198,6 +209,8 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
             const rmInput = Option.getOrNull(reducedMotionInput)
             if (rmInput !== null) rmInput.checked = settings.reducedMotion
             syncInputAndLabel(uiScaleInput, '#us-val', String(settings.uiScale), formatVolumePercent)
+            const cvSel = Option.getOrNull(colorVisionSelect)
+            if (cvSel !== null) cvSel.value = settings.colorVisionMode
             keyBindingValues.clear()
             for (const [action, code] of Object.entries(settings.keyBindings ?? {})) keyBindingValues.set(action, code)
             buildKeyBindingRows()
@@ -387,6 +400,7 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
         Option.getOrNull(adaptivePerformanceInput)?.addEventListener('change', handleAdaptivePerformanceChange)
         Option.getOrNull(difficultySelect)?.addEventListener('change', handleAdaptivePerformanceChange)
         Option.getOrNull(reducedMotionInput)?.addEventListener('change', handleAdaptivePerformanceChange)
+        Option.getOrNull(colorVisionSelect)?.addEventListener('change', handleAdaptivePerformanceChange)
         Option.getOrNull(uiScaleInput)?.addEventListener('input', handleUiScaleInput)
         Option.getOrNull(renderDistanceInput)?.addEventListener('input', handleRdInput)
         Option.getOrNull(sensitivityInput)?.addEventListener('input', handleMsInput)
@@ -408,6 +422,7 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
         Option.getOrNull(adaptivePerformanceInput)?.removeEventListener('change', handleAdaptivePerformanceChange)
         Option.getOrNull(difficultySelect)?.removeEventListener('change', handleAdaptivePerformanceChange)
         Option.getOrNull(reducedMotionInput)?.removeEventListener('change', handleAdaptivePerformanceChange)
+        Option.getOrNull(colorVisionSelect)?.removeEventListener('change', handleAdaptivePerformanceChange)
         Option.getOrNull(uiScaleInput)?.removeEventListener('input', handleUiScaleInput)
         Option.getOrNull(renderDistanceInput)?.removeEventListener('input', handleRdInput)
         Option.getOrNull(sensitivityInput)?.removeEventListener('input', handleMsInput)

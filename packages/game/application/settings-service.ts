@@ -1,13 +1,13 @@
 import { Cause, Effect, MutableRef, Option, Schema } from 'effect'
 import { SettingsError } from '../domain/errors'
 import { EnvironmentPort } from '@ts-minecraft/core'
-import { GameDifficulty as GameDifficultySchema, GraphicsQuality, ResolvedGraphicsSchema, SettingsSchema } from './settings.schema'
+import { ColorVisionMode, GameDifficulty as GameDifficultySchema, GraphicsQuality, ResolvedGraphicsSchema, SettingsSchema } from './settings.schema'
 import type { Settings } from './settings.schema'
 import { applySettingsEnvironmentPolicy } from './settings-service-environment'
 import { SettingsStoragePort } from '../domain/settings-storage-port'
 export type { Settings }
 export type { GameDifficulty, ResolvedGraphics } from './settings.schema'
-export { GameDifficultySchema, GraphicsQuality, ResolvedGraphicsSchema, SettingsSchema }
+export { ColorVisionMode, GameDifficultySchema, GraphicsQuality, ResolvedGraphicsSchema, SettingsSchema }
 
 const DEFAULT_SETTINGS: Settings = {
   // Vanilla look: distance 3 puts the fog wall ~50 blocks out and washes the
@@ -21,6 +21,7 @@ const DEFAULT_SETTINGS: Settings = {
   difficulty: 'normal',
   reducedMotion: false,
   uiScale: 1,
+  colorVisionMode: 'off',
   keyBindings: {},
   fov: 75,
   // 'low' renders at HALF resolution (pixelRatioCap 0.5) with no sky and no

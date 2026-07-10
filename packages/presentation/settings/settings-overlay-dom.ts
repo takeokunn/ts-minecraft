@@ -8,6 +8,7 @@ export type SettingsOverlayDom = {
   readonly difficultySelect: Option.Option<HTMLSelectElement>
   readonly reducedMotionInput: Option.Option<HTMLInputElement>
   readonly uiScaleInput: Option.Option<HTMLInputElement>
+  readonly colorVisionSelect: Option.Option<HTMLSelectElement>
   readonly keyBindingsContainer: Option.Option<HTMLDivElement>
   readonly sensitivityInput: Option.Option<HTMLInputElement>
   readonly fovInput: Option.Option<HTMLInputElement>
@@ -90,6 +91,7 @@ export const buildSettingsOverlayDom = (dom: DomOperationsService): SettingsOver
       difficultySelect: Option.none<HTMLSelectElement>(),
       reducedMotionInput: Option.none<HTMLInputElement>(),
       uiScaleInput: Option.none<HTMLInputElement>(),
+      colorVisionSelect: Option.none<HTMLSelectElement>(),
       keyBindingsContainer: Option.none<HTMLDivElement>(),
       sensitivityInput: Option.none<HTMLInputElement>(),
       fovInput: Option.none<HTMLInputElement>(),
@@ -146,6 +148,15 @@ export const buildSettingsOverlayDom = (dom: DomOperationsService): SettingsOver
       UI Scale: <span id="us-val">100%</span>
       <input id="us-input" type="range" min="0.75" max="1.5" step="0.05" value="1"
         style="${rangeCss}">
+    </label>
+    <label style="${labelBlockCss}">
+      Colorblind Filter:
+      <select id="color-vision-select" style="${controlCss}">
+        <option value="off" selected>Off</option>
+        <option value="protanopia">Protanopia (red-blind)</option>
+        <option value="deuteranopia">Deuteranopia (green-blind)</option>
+        <option value="tritanopia">Tritanopia (blue-blind)</option>
+      </select>
     </label>
     <hr style="border:0;border-top:3px solid #3f3f3f;border-bottom:3px solid #ababab;margin:16px 0">
     <h3 style="margin:0 0 8px;font-size:14px">Controls</h3>
@@ -245,6 +256,7 @@ export const buildSettingsOverlayDom = (dom: DomOperationsService): SettingsOver
     difficultySelect: dom.querySelector<HTMLSelectElement>(el, '#difficulty-select'),
     reducedMotionInput: dom.querySelector<HTMLInputElement>(el, '#reduced-motion-input'),
     uiScaleInput: dom.querySelector<HTMLInputElement>(el, '#us-input'),
+    colorVisionSelect: dom.querySelector<HTMLSelectElement>(el, '#color-vision-select'),
     keyBindingsContainer: dom.querySelector<HTMLDivElement>(el, '#key-bindings'),
     closeBtn: dom.querySelector<HTMLButtonElement>(el, '#settings-close'),
     gearBtn: Option.some(btn),

@@ -7,6 +7,10 @@ export type GraphicsQuality = Schema.Schema.Type<typeof GraphicsQuality>
 export const GameDifficulty = Schema.Literal('peaceful', 'easy', 'normal', 'hard')
 export type GameDifficulty = Schema.Schema.Type<typeof GameDifficulty>
 
+// Accessibility: daltonization correction filter applied to the world canvas.
+export const ColorVisionMode = Schema.Literal('off', 'protanopia', 'deuteranopia', 'tritanopia')
+export type ColorVisionMode = Schema.Schema.Type<typeof ColorVisionMode>
+
 export const ResolvedGraphicsSchema = Schema.Struct({
   shadowsEnabled: Schema.Boolean,
   ssaoEnabled: Schema.Boolean,
@@ -54,6 +58,9 @@ export const SettingsSchema = Schema.Struct({
   reducedMotion: Schema.optionalWith(Schema.Boolean, { default: () => false }),
   // Accessibility: scales the DOM HUD (bars, effects, counters). 1 = default.
   uiScale: Schema.optionalWith(Schema.Number.pipe(Schema.between(0.75, 1.5)), { default: () => 1 }),
+  // Accessibility: colorblind correction filter for the world canvas.
+  // optionalWith default keeps previously-saved settings decodable.
+  colorVisionMode: Schema.optionalWith(ColorVisionMode, { default: () => 'off' as const }),
   // Accessibility: player key rebinds (action name -> KeyboardEvent.code).
   // Partial overrides — unbound actions keep their defaults.
   keyBindings: Schema.optionalWith(Schema.Record({ key: Schema.String, value: Schema.String }), { default: () => ({}) }),

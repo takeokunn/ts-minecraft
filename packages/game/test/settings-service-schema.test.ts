@@ -20,6 +20,7 @@ describe('application/settings/settings-service', () => {
       difficulty: 'normal' as const,
   reducedMotion: false,
   uiScale: 1,
+  colorVisionMode: 'off',
   keyBindings: {},
       graphicsQuality: 'medium' as const,
       adaptivePerformanceMode: true,
@@ -58,6 +59,7 @@ describe('application/settings/settings-service', () => {
         difficulty: 'normal',
   reducedMotion: false,
   uiScale: 1,
+  colorVisionMode: 'off',
   keyBindings: {},
         graphicsQuality: 'medium',
         adaptivePerformanceMode: false,
@@ -94,6 +96,7 @@ describe('application/settings/settings-service', () => {
         musicVolume: 0.55,
         reducedMotion: false,
         uiScale: 1,
+        colorVisionMode: 'off',
         keyBindings: {},
       })
     })
