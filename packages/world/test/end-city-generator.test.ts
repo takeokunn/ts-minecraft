@@ -18,7 +18,7 @@ const PURPUR_BLOCK = blockTypeToIndex('PURPUR_BLOCK')
 const END_STONE_BRICKS = blockTypeToIndex('END_STONE_BRICKS')
 const END_ROD = blockTypeToIndex('END_ROD')
 const AIR = blockTypeToIndex('AIR')
-const END_PORTAL = blockTypeToIndex('END_PORTAL')
+const BEDROCK = blockTypeToIndex('BEDROCK')
 
 const mockChunkService: ChunkFactory = {
   createChunk: (coord) => Effect.succeed({
@@ -55,7 +55,7 @@ describe('end city generator', () => {
     const chunk = buildIntegratedEndChunk(MAIN_COORD)
     expect(countBlock(chunk.blocks, PURPUR_BLOCK)).toBe(0)
     expect(blockAt(chunk.blocks, 8, 66, 8)).toBe(AIR)
-    expect(blockAt(chunk.blocks, 0, 64, 0)).toBe(END_PORTAL)
+    expect(blockAt(chunk.blocks, 0, 64, 0)).toBe(BEDROCK)
   })
 
   it('uses End City and End Ship structure block composition', () => {

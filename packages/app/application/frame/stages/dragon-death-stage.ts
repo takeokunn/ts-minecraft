@@ -47,8 +47,14 @@ const applyDragonDeathEvent = (
       })
     case 'ReturnPortalActivate':
       return Effect.gen(function* () {
-        yield* services.blockService.forceSetBlock(event.position, 'END_PORTAL').pipe(Effect.catchAll(() => Effect.void))
-        yield* markChunkDirty(refs, services, event.position)
+        // Activate the full 3×3 exit portal the generator left as inert bedrock.
+        for (let dx = -1; dx <= 1; dx++) {
+          for (let dz = -1; dz <= 1; dz++) {
+            const cell = { x: event.position.x + dx, y: event.position.y, z: event.position.z + dz }
+            yield* services.blockService.forceSetBlock(cell, 'END_PORTAL').pipe(Effect.catchAll(() => Effect.void))
+            yield* markChunkDirty(refs, services, cell)
+          }
+        }
       })
     case 'XPFountain':
       // XP fountain ticks every frame during the final phase; floor so partial XP/tick

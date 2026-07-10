@@ -6,7 +6,8 @@ import { buildTerrainLayer, buildEndProgram, toChunkBlocks } from '@ts-minecraft
 
 const END_STONE    = blockTypeToIndex('END_STONE')
 const OBSIDIAN     = blockTypeToIndex('OBSIDIAN')
-const END_PORTAL   = blockTypeToIndex('END_PORTAL')
+const BEDROCK = blockTypeToIndex('BEDROCK')
+const END_CRYSTAL = blockTypeToIndex('END_CRYSTAL')
 const AIR          = blockTypeToIndex('AIR')
 
 // Builds the full end chunk at coord (0,0) — static island, no seed needed.
@@ -43,13 +44,19 @@ describe('end terrain generator', () => {
     expect(blockAt(chunk.blocks, 8, 64, 8)).toBe(AIR)
   })
 
-  it('island center has END_PORTAL blocks at y=64', () => {
+  it('island center is inert BEDROCK until the dragon dies (fight not skippable)', () => {
     // Chunk at origin — the 3×3 portal is at world (0,0) which is chunk-local (0,0)
     const chunk = buildEndChunk({ x: 0, z: 0 })
-    expect(blockAt(chunk.blocks, 0, 64, 0)).toBe(END_PORTAL)
-    expect(blockAt(chunk.blocks, 1, 64, 0)).toBe(END_PORTAL)
-    expect(blockAt(chunk.blocks, 0, 64, 1)).toBe(END_PORTAL)
-    expect(blockAt(chunk.blocks, 1, 64, 1)).toBe(END_PORTAL)
+    expect(blockAt(chunk.blocks, 0, 64, 0)).toBe(BEDROCK)
+    expect(blockAt(chunk.blocks, 1, 64, 0)).toBe(BEDROCK)
+    expect(blockAt(chunk.blocks, 0, 64, 1)).toBe(BEDROCK)
+    expect(blockAt(chunk.blocks, 1, 64, 1)).toBe(BEDROCK)
+  })
+
+  it('places an END_CRYSTAL atop each pillar (pillar (43,0) → chunk (2,0))', () => {
+    const chunk = buildEndChunk({ x: 2, z: 0 })
+    // world (43, 77, 0) → local (43-32, 77, 0)
+    expect(blockAt(chunk.blocks, 11, 77, 0)).toBe(END_CRYSTAL)
   })
 
   it('contains obsidian pillars at their expected positions', () => {

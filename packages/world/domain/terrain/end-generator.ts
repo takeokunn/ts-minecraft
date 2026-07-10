@@ -15,7 +15,7 @@ const END_SURFACE_Y = 64
 
 // Obsidian pillar positions relative to the island center (0, 0).
 // Pillars are spaced every 40 blocks on a circle of radius 43.
-const PILLAR_POSITIONS: ReadonlyArray<{ readonly x: number; readonly z: number; readonly height: number }> = [
+export const PILLAR_POSITIONS: ReadonlyArray<{ readonly x: number; readonly z: number; readonly height: number }> = [
   { x:  43, z:   0, height: 76 }, { x:  30, z:  30, height: 79 },
   { x:   0, z:  43, height: 82 }, { x: -30, z:  30, height: 85 },
   { x: -43, z:   0, height: 79 }, { x: -30, z: -30, height: 73 },
@@ -35,7 +35,8 @@ export const generateEndTerrain = (
 
     const endStoneIndex = blockTypeToIndex('END_STONE')
     const obsidianIndex = blockTypeToIndex('OBSIDIAN')
-    const endPortalIndex = blockTypeToIndex('END_PORTAL')
+    const endCrystalIndex = blockTypeToIndex('END_CRYSTAL')
+    const bedrockIndex = blockTypeToIndex('BEDROCK')
 
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       const wx = baseX + lx
@@ -61,14 +62,20 @@ export const generateEndTerrain = (
             for (let y = END_SURFACE_Y; y <= Math.min(pillar.height, CHUNK_HEIGHT - 1); y++) {
               blocks[chunkBlockIndexUnchecked(lx, y, lz)] = obsidianIndex
             }
+            // End crystal atop the pillar — heals the dragon until destroyed.
+            if (wx === pillar.x && wz === pillar.z && pillar.height + 1 < CHUNK_HEIGHT) {
+              blocks[chunkBlockIndexUnchecked(lx, pillar.height + 1, lz)] = endCrystalIndex
+            }
           }
         }
 
-        // Return END_PORTAL at island center (3×3 portal at y=64)
+        // Exit-portal site at island center: inert BEDROCK until the dragon
+        // dies (the death sequence writes the live END_PORTAL) — the fight is
+        // no longer skippable.
         const absCx = Math.abs(wx)
         const absCz = Math.abs(wz)
         if (absCx <= 1 && absCz <= 1) {
-          blocks[chunkBlockIndexUnchecked(lx, END_SURFACE_Y, lz)] = endPortalIndex
+          blocks[chunkBlockIndexUnchecked(lx, END_SURFACE_Y, lz)] = bedrockIndex
         }
       }
     }
