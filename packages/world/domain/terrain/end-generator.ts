@@ -11,7 +11,7 @@ import { chunkBlockIndexUnchecked } from './math'
 // The island radius in world blocks. Chunks outside this radius are void.
 const END_ISLAND_RADIUS = 55
 // Height of the flat END_STONE surface
-const END_SURFACE_Y = 64
+export const END_SURFACE_Y = 64
 
 // Obsidian pillar positions relative to the island center (0, 0).
 // Pillars are spaced every 40 blocks on a circle of radius 43.

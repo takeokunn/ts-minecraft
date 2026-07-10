@@ -2,6 +2,9 @@ import { Effect, HashMap, MutableRef, Option } from 'effect'
 import type { Position } from '@ts-minecraft/core'
 import type { DragonDeathEvent } from '@ts-minecraft/entity/domain/mob/ender-dragon/dragon-death'
 import { worldToChunkCoord } from '@ts-minecraft/world/domain/chunk-coord-utils'
+import { PILLAR_POSITIONS, worldToBlockIndex } from '@ts-minecraft/world'
+import { decodeBlockType } from '@ts-minecraft/core'
+import { setLiveEndCrystalPositions } from '@ts-minecraft/entity'
 import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
 import type { FrameStageRefs } from '@ts-minecraft/app/application/frame/types/stage-refs'
 import { addExperienceWithMending } from '@ts-minecraft/app/application/frame/stages/xp-mending'
@@ -12,6 +15,35 @@ export type DragonDeathStageServices = Pick<
 >
 
 export type DragonDeathStageRefs = Pick<FrameStageRefs, 'dirtyChunksRef'>
+
+// Crystal-scan cadence (frames). Pillar tops are fixed world coordinates, so a
+// 1 Hz block probe is enough for dragon healing to track crystal destruction.
+const CRYSTAL_SCAN_INTERVAL_FRAMES = 60
+let crystalScanCountdown = 0
+
+const scanEndCrystals = (
+  services: DragonDeathStageServices,
+): Effect.Effect<void, never> =>
+  Effect.gen(function* () {
+    const positions: Array<{ x: number; y: number; z: number }> = []
+    for (const pillar of PILLAR_POSITIONS) {
+      const y = pillar.height + 1
+      const block = yield* readBlockType(services, pillar.x, y, pillar.z)
+      if (block === 'END_CRYSTAL') positions.push({ x: pillar.x, y, z: pillar.z })
+    }
+    yield* Effect.sync(() => setLiveEndCrystalPositions(positions))
+  })
+
+const readBlockType = (
+  services: DragonDeathStageServices,
+  x: number, y: number, z: number,
+): Effect.Effect<string | null, never> =>
+  Effect.gen(function* () {
+    const { chunkCoord, flatIdx } = worldToBlockIndex({ x, y, z })
+    const chunkOpt = yield* services.chunkManagerService.getChunk(chunkCoord).pipe(Effect.option)
+    if (chunkOpt._tag === 'None') return null
+    return Option.getOrNull(decodeBlockType(chunkOpt.value.blocks[flatIdx]))
+  })
 
 const markChunkDirty = (
   refs: DragonDeathStageRefs,
@@ -79,6 +111,14 @@ export const dragonDeathStage = (
   refs: DragonDeathStageRefs,
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
+    // Once-per-second crystal probe keeps dragon healing in sync with the world.
+    if (crystalScanCountdown <= 0) {
+      crystalScanCountdown = CRYSTAL_SCAN_INTERVAL_FRAMES
+      yield* scanEndCrystals(services)
+    } else {
+      crystalScanCountdown -= 1
+    }
+
     const events = yield* services.entityManager.drainDragonDeathEvents()
     for (const event of events) {
       yield* applyDragonDeathEvent(services, refs, event)
