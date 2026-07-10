@@ -35,6 +35,7 @@ import { syncRemotePlayersForFrame } from '@ts-minecraft/app/application/frame/f
 import { applyAudioSettings, resolveGraphicsForFrame } from '@ts-minecraft/app/application/frame/frame-settings-apply'
 import { type DayNightLights, type ResolvedGraphics } from '@ts-minecraft/game'
 import type { Settings } from '@ts-minecraft/game'
+import { setMultiplayerEditDimension } from '@ts-minecraft/app/application/multiplayer/multiplayer-service'
 
 export type FrameStageExecutorContext = {
   readonly resolved: ResolvedDeps
@@ -93,6 +94,9 @@ export const runActiveFrameStages = (
     const isNight = yield* services.timeService.isNight()
     const weather = yield* services.weatherService.getWeather()
     const dimension = yield* services.netherService.getDimension()
+    // Keep outbound multiplayer block edits stamped with the live dimension
+    // (and inbound edits filtered by it) — module scratch, refreshed per frame.
+    setMultiplayerEditDimension(dimension)
     // Co-op: feed peers' positions into mob AI so hostiles chase the nearest
     // player instead of only the entity host's.
     const multiplayerOrNull = Option.getOrNull(services.multiplayer)

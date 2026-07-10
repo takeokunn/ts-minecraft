@@ -4,6 +4,7 @@
 // refs — no closure over the service — split out of multiplayer-service.ts.
 import { Effect, Option, Ref } from 'effect'
 import { MessageType, type NetworkMessage, type PlayerName } from '@ts-minecraft/network/domain/schemas'
+import { getMultiplayerEditDimension } from './multiplayer-service'
 import type {
   ChatEntry,
   LocalPlayerIdentity,
@@ -69,6 +70,10 @@ export const processInbound = (
       return Effect.gen(function* () {
         const localPlayer = yield* Ref.get(localPlayerRef)
         if (Option.isSome(localPlayer) && localPlayer.value.playerId === msg.playerId) return
+        // Dimension guard: a nether edit must never touch this client's
+        // overworld. Same-dimension edits only (cross-dimension convergence is
+        // handled by the server edit-log replay when switching worlds).
+        if (String(msg.worldId) !== getMultiplayerEditDimension()) return
         const edits = yield* Ref.get(inboundBlockEditsRef)
         const next = [
           ...edits,
@@ -80,6 +85,10 @@ export const processInbound = (
       return Effect.gen(function* () {
         const localPlayer = yield* Ref.get(localPlayerRef)
         if (Option.isSome(localPlayer) && localPlayer.value.playerId === msg.playerId) return
+        // Dimension guard: a nether edit must never touch this client's
+        // overworld. Same-dimension edits only (cross-dimension convergence is
+        // handled by the server edit-log replay when switching worlds).
+        if (String(msg.worldId) !== getMultiplayerEditDimension()) return
         const edits = yield* Ref.get(inboundBlockEditsRef)
         const next = [
           ...edits,

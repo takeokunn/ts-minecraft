@@ -5,6 +5,7 @@ import type { ClientServiceShape } from '@ts-minecraft/network/application/clien
 import {
   MultiplayerServiceImpl,
   MultiplayerServiceDefault,
+  setMultiplayerEditDimension,
 } from '@ts-minecraft/app/application/multiplayer/multiplayer-service'
 
 const worldId = WorldId.make('overworld')
@@ -542,6 +543,70 @@ describe('MultiplayerService entity host authority', () => {
       { attackerId: 'other', entityId: 'entity-42', damage: 6, knockback: { x: 3, y: 4.2, z: 0 } },
     ])
     expect(second).toEqual([])
+  })
+})
+
+describe('MultiplayerService dimension-tagged block edits', () => {
+  const netherPlaceMessage = (): NetworkMessage => ({
+    type: MessageType.BlockPlace,
+    playerId: playerId('remote'),
+    worldId: WorldId.make('nether'),
+    position: { x: 4, y: 65, z: -3 },
+    blockType: 'NETHERRACK',
+    timestamp: 4,
+  })
+
+  it('stamps outbound edits with the active dimension', async () => {
+    const sent: NetworkMessage[] = []
+    try {
+      setMultiplayerEditDimension('nether')
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const svc = yield* MultiplayerServiceImpl(makeClient(sent, {
+            inbound: [joinMessage('self', 'alice', 0, 64, 0)],
+          }))
+          yield* svc.connect('ws://test', playerName('alice'))
+          yield* Effect.sleep(10)
+          yield* svc.sendBlockPlace({ x: 1, y: 64, z: 1 }, 'NETHERRACK')
+          yield* svc.sendBlockBreak({ x: 2, y: 64, z: 2 })
+        }),
+      )
+    } finally {
+      setMultiplayerEditDimension('overworld')
+    }
+    const placed = sent.find((m) => m.type === MessageType.BlockPlace)
+    const broken = sent.find((m) => m.type === MessageType.BlockBreak)
+    expect(placed).toMatchObject({ worldId: 'nether' })
+    expect(broken).toMatchObject({ worldId: 'nether' })
+  })
+
+  it('drops inbound edits from another dimension (nether edit never touches the overworld)', async () => {
+    const edits = await Effect.runPromise(
+      Effect.gen(function* () {
+        const svc = yield* MultiplayerServiceImpl(makeClient([], {
+          inbound: [netherPlaceMessage(), blockPlaceMessage('DIRT')],
+        }))
+        yield* svc.connect('ws://test', playerName('frank'))
+        yield* Effect.sleep(10)
+        return yield* svc.drainBlockEdits
+      }),
+    )
+    expect(edits).toEqual([{ kind: 'place', x: 4, y: 65, z: -3, blockType: 'DIRT' }])
+  })
+
+  it('applies inbound edits matching the local dimension', async () => {
+    const edits = await Effect.runPromise(
+      Effect.gen(function* () {
+        const svc = yield* MultiplayerServiceImpl(makeClient([], {
+          inbound: [netherPlaceMessage(), blockPlaceMessage('DIRT')],
+        }))
+        yield* svc.connect('ws://test', playerName('frank'))
+        setMultiplayerEditDimension('nether')
+        yield* Effect.sleep(10)
+        return yield* svc.drainBlockEdits
+      }).pipe(Effect.ensuring(Effect.sync(() => setMultiplayerEditDimension('overworld')))),
+    )
+    expect(edits).toEqual([{ kind: 'place', x: 4, y: 65, z: -3, blockType: 'NETHERRACK' }])
   })
 })
 

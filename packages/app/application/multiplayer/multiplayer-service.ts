@@ -29,6 +29,16 @@ export type {
 
 const OVERWORLD_ID = WorldId.make('overworld')
 
+// Dimension stamped onto outbound block edits and used to filter inbound ones.
+// Pushed each frame by the frame executor (module scratch — the established
+// cross-layer idiom). Nether edits used to be stamped 'overworld' and applied
+// to every peer's overworld: silent world corruption in co-op.
+let activeEditDimension: 'overworld' | 'nether' | 'end' = 'overworld'
+export const setMultiplayerEditDimension = (dim: 'overworld' | 'nether' | 'end'): void => {
+  activeEditDimension = dim
+}
+export const getMultiplayerEditDimension = (): 'overworld' | 'nether' | 'end' => activeEditDimension
+
 export type MultiplayerService = {
   readonly connect: (serverUrl: string, playerName: PlayerName, localTimeOfDay?: number, localDayLengthSeconds?: number) => Effect.Effect<void, never>
   // Terrain-seed handshake: the session records the local world's seed before
@@ -283,7 +293,7 @@ export const MultiplayerServiceImpl = (
         sendIfConnected((identity) => ({
           type: MessageType.BlockPlace,
           playerId: identity.playerId,
-          worldId: OVERWORLD_ID,
+          worldId: WorldId.make(activeEditDimension),
           position: floorPos(pos),
           blockType: blockType as BlockType,
           timestamp: Date.now(),
@@ -293,7 +303,7 @@ export const MultiplayerServiceImpl = (
         sendIfConnected((identity) => ({
           type: MessageType.BlockBreak,
           playerId: identity.playerId,
-          worldId: OVERWORLD_ID,
+          worldId: WorldId.make(activeEditDimension),
           position: floorPos(pos),
           timestamp: Date.now(),
         } as NetworkMessage)),
