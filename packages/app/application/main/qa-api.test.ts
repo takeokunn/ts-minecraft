@@ -701,7 +701,7 @@ describe('installQaApi', () => {
 
     await getQaApi().attackFirstZombie()
 
-    expect(spies.applyDamage).toHaveBeenLastCalledWith('zombie-1', 8)
+    expect(spies.applyDamage).toHaveBeenLastCalledWith('zombie-1', 4)
   })
 
   it('places the selected block in front of the player and can move/select hotbar items', async () => {

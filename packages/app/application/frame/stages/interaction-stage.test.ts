@@ -301,7 +301,7 @@ describe('step 7 — block interaction', () => {
 
     yield* runFrame(deps, services)
 
-    expect(applyDamageSpy).toHaveBeenCalledWith('entity-1', 4)
+    expect(applyDamageSpy).toHaveBeenCalledWith('entity-1', 1)
     expect(spawnDroppedItemSpy).toHaveBeenCalledWith(expect.objectContaining({
       itemType: 'DIRT',
       count: 2,
@@ -926,7 +926,7 @@ describe('step 7 — block interaction', () => {
     expect(breakSpy).not.toHaveBeenCalled()
   }))
 
-  it.effect('applies WOODEN_SWORD_ATTACK_DAMAGE (8) when selected item is WOODEN_SWORD', () => Effect.gen(function* () {
+  it.effect('applies WOODEN_SWORD_ATTACK_DAMAGE (4) when selected item is WOODEN_SWORD', () => Effect.gen(function* () {
     const deps = yield* makeDeps(false)
     deps.camera.position.set(0, 0, 0)
     deps.camera.getWorldDirection = vi.fn((target: THREE.Vector3) => target.set(0, 0, -1))
@@ -954,10 +954,10 @@ describe('step 7 — block interaction', () => {
 
     yield* runFrame(deps, services)
 
-    expect(applyDamageSpy).toHaveBeenCalledWith('entity-1', 8)
+    expect(applyDamageSpy).toHaveBeenCalledWith('entity-1', 4)
   }))
 
-  it.effect('applies STONE_SWORD_ATTACK_DAMAGE (9) when selected item is STONE_SWORD', () => Effect.gen(function* () {
+  it.effect('applies STONE_SWORD_ATTACK_DAMAGE (5) when selected item is STONE_SWORD', () => Effect.gen(function* () {
     const deps = yield* makeDeps(false)
     deps.camera.position.set(0, 0, 0)
     deps.camera.getWorldDirection = vi.fn((target: THREE.Vector3) => target.set(0, 0, -1))
@@ -985,10 +985,10 @@ describe('step 7 — block interaction', () => {
 
     yield* runFrame(deps, services)
 
-    expect(applyDamageSpy).toHaveBeenCalledWith('entity-1', 9)
+    expect(applyDamageSpy).toHaveBeenCalledWith('entity-1', 5)
   }))
 
-  it.effect('applies IRON_SWORD_ATTACK_DAMAGE (12) when selected item is IRON_SWORD', () => Effect.gen(function* () {
+  it.effect('applies IRON_SWORD_ATTACK_DAMAGE (6) when selected item is IRON_SWORD', () => Effect.gen(function* () {
     const deps = yield* makeDeps(false)
     deps.camera.position.set(0, 0, 0)
     deps.camera.getWorldDirection = vi.fn((target: THREE.Vector3) => target.set(0, 0, -1))
@@ -1016,10 +1016,10 @@ describe('step 7 — block interaction', () => {
 
     yield* runFrame(deps, services)
 
-    expect(applyDamageSpy).toHaveBeenCalledWith('entity-1', 12)
+    expect(applyDamageSpy).toHaveBeenCalledWith('entity-1', 6)
   }))
 
-  it.effect('applies DIAMOND_SWORD_ATTACK_DAMAGE (16) when selected item is DIAMOND_SWORD', () => Effect.gen(function* () {
+  it.effect('applies DIAMOND_SWORD_ATTACK_DAMAGE (7) when selected item is DIAMOND_SWORD', () => Effect.gen(function* () {
     const deps = yield* makeDeps(false)
     deps.camera.position.set(0, 0, 0)
     deps.camera.getWorldDirection = vi.fn((target: THREE.Vector3) => target.set(0, 0, -1))
@@ -1047,10 +1047,10 @@ describe('step 7 — block interaction', () => {
 
     yield* runFrame(deps, services)
 
-    expect(applyDamageSpy).toHaveBeenCalledWith('entity-1', 16)
+    expect(applyDamageSpy).toHaveBeenCalledWith('entity-1', 7)
   }))
 
-  it.effect('applies PLAYER_ATTACK_DAMAGE (4) when selected item is non-sword', () => Effect.gen(function* () {
+  it.effect('applies PLAYER_ATTACK_DAMAGE (1) when selected item is non-sword', () => Effect.gen(function* () {
     const deps = yield* makeDeps(false)
     deps.camera.position.set(0, 0, 0)
     deps.camera.getWorldDirection = vi.fn((target: THREE.Vector3) => target.set(0, 0, -1))
@@ -1078,10 +1078,10 @@ describe('step 7 — block interaction', () => {
 
     yield* runFrame(deps, services)
 
-    expect(applyDamageSpy).toHaveBeenCalledWith('entity-1', 4)
+    expect(applyDamageSpy).toHaveBeenCalledWith('entity-1', 1)
   }))
 
-  it.effect('applies a 1.5× critical hit (6) when attacking while airborne', () => Effect.gen(function* () {
+  it.effect('applies a 1.5× critical hit (1.5) when attacking while airborne', () => Effect.gen(function* () {
     const deps = yield* makeDeps(false)
     deps.camera.position.set(0, 0, 0)
     deps.camera.getWorldDirection = vi.fn((target: THREE.Vector3) => target.set(0, 0, -1))
@@ -1111,7 +1111,7 @@ describe('step 7 — block interaction', () => {
 
     yield* runFrame(deps, services)
 
-    expect(applyDamageSpy).toHaveBeenCalledWith('entity-1', 6) // 4 × 1.5
+    expect(applyDamageSpy).toHaveBeenCalledWith('entity-1', 1.5) // 1 × 1.5
   }))
 
   it.effect('knocks the attacked entity away from the player', () => Effect.gen(function* () {
@@ -1778,7 +1778,7 @@ describe('step 7 — block interaction', () => {
 
     // No particle burst, but the gameplay effects (damage + knockback) still ran.
     expect(spawnBurstSpy).not.toHaveBeenCalled()
-    expect(applyDamageSpy).toHaveBeenCalledWith('entity-1', 4)
+    expect(applyDamageSpy).toHaveBeenCalledWith('entity-1', 1)
     expect(knockbackSpy).toHaveBeenCalledWith('entity-1', { x: 0, y: 4.2, z: -5 })
   }))
 
@@ -1837,10 +1837,10 @@ describe('step 7 — block interaction', () => {
     const applyDamageSpy = vi.fn(() => Effect.succeed(Option.none()))
     ;(services.entityManager as { applyDamage: unknown }).applyDamage = applyDamageSpy
     yield* runFrame(deps, services)
-    // IRON_SWORD(12) + SMITE V(12.5) = 24.5, charge 1 → 24.5
+    // IRON_SWORD(6) + SMITE V(12.5) = 18.5, charge 1 → 18.5
     expect(applyDamageSpy).toHaveBeenCalledTimes(1)
     expect(applyDamageSpy.mock.calls[0]?.[0]).toBe('entity-1')
-    expect(applyDamageSpy.mock.calls[0]?.[1]).toBeCloseTo(24.5)
+    expect(applyDamageSpy.mock.calls[0]?.[1]).toBeCloseTo(18.5)
   }))
 
   it.effect('SMITE does NOT apply bonus when hitting Spider (non-undead)', () => Effect.gen(function* () {
@@ -1872,7 +1872,7 @@ describe('step 7 — block interaction', () => {
     ;(services.entityManager as { applyDamage: unknown }).applyDamage = applyDamageSpy
     yield* runFrame(deps, services)
     // Spider is not undead → SMITE ignored → IRON_SWORD base 12 only
-    expect(applyDamageSpy.mock.calls[0]?.[1]).toBeCloseTo(12)
+    expect(applyDamageSpy.mock.calls[0]?.[1]).toBeCloseTo(6)
   }))
 
   it.effect('BANE_OF_ARTHROPODS V applies bonus when hitting Spider', () => Effect.gen(function* () {
@@ -1903,8 +1903,8 @@ describe('step 7 — block interaction', () => {
     const applyDamageSpy = vi.fn(() => Effect.succeed(Option.none()))
     ;(services.entityManager as { applyDamage: unknown }).applyDamage = applyDamageSpy
     yield* runFrame(deps, services)
-    // IRON_SWORD(12) + BANE_OF_ARTHROPODS V(12.5) = 24.5
-    expect(applyDamageSpy.mock.calls[0]?.[1]).toBeCloseTo(24.5)
+    // IRON_SWORD(6) + BANE_OF_ARTHROPODS V(12.5) = 18.5
+    expect(applyDamageSpy.mock.calls[0]?.[1]).toBeCloseTo(18.5)
   }))
 
   it.effect('FIRE_ASPECT II on a sword ignites a surviving target for 8 seconds', () => Effect.gen(function* () {
