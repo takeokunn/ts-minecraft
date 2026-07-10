@@ -6,6 +6,8 @@ export type EntityDrop = {
   // Optional drop probability in (0,1]. Absent → always drops. The kill handler
   // rolls Math.random() per drop and skips it when the roll exceeds `chance`.
   readonly chance?: number
+  // Optional upper bound for a uniform count..maxCount roll at kill time.
+  readonly maxCount?: number
 }
 
 // Pure predicate: should this drop be included given a random roll in [0,1)?

@@ -10,7 +10,7 @@ export const CowDefinition: MobDefinition = {
   detectionRange: 12,
   attackRange: 0,
   fleeHealthThreshold: 0.6,
-  drops: [{ blockType: 'RAW_BEEF', count: 1 }, { blockType: 'LEATHER', count: 1 }],
+  drops: [{ blockType: 'RAW_BEEF', count: 1, maxCount: 3 }, { blockType: 'LEATHER', count: 1, maxCount: 2 }],
   xpReward: 2,
   breedingItem: 'WHEAT',
 }

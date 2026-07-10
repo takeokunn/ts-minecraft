@@ -12,7 +12,7 @@ export const SheepDefinition: MobDefinition = {
   fleeHealthThreshold: 0.7,
   drops: [
     { blockType: 'WOOL', count: 1 },
-    { blockType: 'RAW_MUTTON', count: 1 },
+    { blockType: 'RAW_MUTTON', count: 1, maxCount: 2 },
   ],
   xpReward: 2,
   breedingItem: 'WHEAT',

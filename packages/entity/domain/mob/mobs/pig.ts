@@ -10,7 +10,7 @@ export const PigDefinition: MobDefinition = {
   detectionRange: 10,
   attackRange: 0,
   fleeHealthThreshold: 0.65,
-  drops: [{ blockType: 'RAW_PORKCHOP', count: 1 }],
+  drops: [{ blockType: 'RAW_PORKCHOP', count: 1, maxCount: 3 }],
   xpReward: 2,
   breedingItem: 'CARROT',
 }

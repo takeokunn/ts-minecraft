@@ -9,6 +9,9 @@ const EntityDropSchema = Schema.Struct({
   // Optional drop probability in [0,1]. Absent → always drops (1.0). Used for
   // rare drops like a zombie's occasional carrot (vanilla ~2.5%).
   chance: Schema.optional(Schema.Number.pipe(Schema.greaterThan(0), Schema.lessThanOrEqualTo(1))),
+  // Optional upper bound for a uniform count..maxCount roll at kill time
+  // (vanilla loot ranges, e.g. beef 1-3). Absent → fixed count.
+  maxCount: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.positive())),
 })
 
 export const MobDefinitionSchema = Schema.Struct({

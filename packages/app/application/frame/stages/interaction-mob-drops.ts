@@ -12,11 +12,17 @@ type MobXpOrbServices = {
   readonly droppedXpOrbService: DroppedXpOrbService
 }
 
+// Uniform integer roll in [min, max] for vanilla-style loot ranges.
+const rollDropCount = (drop: EntityDrop): number =>
+  drop.maxCount !== undefined && drop.maxCount > drop.count
+    ? drop.count + Math.floor(Math.random() * (drop.maxCount - drop.count + 1))
+    : drop.count
+
 export const spawnMobDrop = (
   services: MobDropServices,
   entity: Pick<Entity, 'position'>,
   drop: EntityDrop,
-  count = drop.count,
+  count = rollDropCount(drop),
 ) =>
   count > 0
     ? services.droppedItemService.spawn({

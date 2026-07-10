@@ -11,7 +11,7 @@ export const ChickenDefinition: MobDefinition = {
   attackRange: 0,
   fleeHealthThreshold: 0.7,
   drops: [
-    { blockType: 'FEATHER', count: 1 },
+    { blockType: 'FEATHER', count: 1, maxCount: 2 },
     { blockType: 'RAW_CHICKEN', count: 1 },
   ],
   xpReward: 2,
