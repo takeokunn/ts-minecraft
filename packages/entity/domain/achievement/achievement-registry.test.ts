@@ -28,13 +28,17 @@ describe('ACHIEVEMENT_REGISTRY', () => {
     let stats = INITIAL_STATISTICS
     stats = recordBlockMined(stats, 'WOOD')
     stats = recordBlockMined(stats, 'DIAMOND_ORE')
+    stats = recordBlockMined(stats, 'OBSIDIAN')
+    stats = recordBlockMined(stats, 'DRAGON_EGG')
     stats = recordItemCrafted(stats, 'CRAFTING_TABLE')
     stats = recordItemCrafted(stats, 'WOODEN_PICKAXE')
+    stats = recordItemCrafted(stats, 'STONE_PICKAXE')
     stats = recordItemCrafted(stats, 'WOODEN_SWORD')
     stats = recordItemCrafted(stats, 'FURNACE')
     stats = recordItemCrafted(stats, 'IRON_PICKAXE')
     stats = recordMobKilled(stats, 'Cow')
     stats = recordMobKilled(stats, 'Zombie')
+    stats = recordMobKilled(stats, 'EnderDragon')
     stats = recordDimensionVisited(stats, 'nether')
     stats = recordDimensionVisited(stats, 'end')
 

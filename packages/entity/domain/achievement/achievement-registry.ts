@@ -79,6 +79,20 @@ export const ACHIEVEMENT_REGISTRY: ReadonlyArray<Achievement> = [
     prerequisite: AchievementId.make('acquire-hardware'),
   },
   {
+    id: AchievementId.make('getting-an-upgrade'),
+    name: 'Getting an Upgrade',
+    description: 'Craft a stone pickaxe.',
+    isUnlocked: craftedAtLeastOne('STONE_PICKAXE'),
+    prerequisite: AchievementId.make('time-to-mine'),
+  },
+  {
+    id: AchievementId.make('ice-bucket-challenge'),
+    name: 'Ice Bucket Challenge',
+    description: 'Mine a block of obsidian.',
+    isUnlocked: minedAtLeastOne('OBSIDIAN'),
+    prerequisite: AchievementId.make('diamonds'),
+  },
+  {
     id: AchievementId.make('cow-tipping'),
     name: 'Cow Tipping',
     description: 'Kill a cow.',
@@ -102,5 +116,19 @@ export const ACHIEVEMENT_REGISTRY: ReadonlyArray<Achievement> = [
     name: 'The End?',
     description: 'Enter the End.',
     isUnlocked: (stats) => stats.dimensionsVisited.includes('end'),
+  },
+  {
+    id: AchievementId.make('free-the-end'),
+    name: 'Free the End',
+    description: 'Defeat the Ender Dragon.',
+    isUnlocked: killedAtLeastOne('EnderDragon'),
+    prerequisite: AchievementId.make('the-end'),
+  },
+  {
+    id: AchievementId.make('the-next-generation'),
+    name: 'The Next Generation',
+    description: 'Collect the Dragon Egg.',
+    isUnlocked: minedAtLeastOne('DRAGON_EGG'),
+    prerequisite: AchievementId.make('free-the-end'),
   },
 ]
