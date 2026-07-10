@@ -23,9 +23,9 @@ const makeInitialJoin = (playerName: PlayerName, worldSeed?: number, timeOfDay?:
   worldId: WorldId.make('overworld'),
   position: { x: 0, y: 64, z: 0 },
   timestamp: Date.now(),
-  ...(worldSeed !== undefined ? { worldSeed } : {  ...(dayLengthSeconds !== undefined ? { dayLengthSeconds } : {}),
-}),
+  ...(worldSeed !== undefined ? { worldSeed } : {}),
   ...(timeOfDay !== undefined ? { timeOfDay } : {}),
+  ...(dayLengthSeconds !== undefined ? { dayLengthSeconds } : {}),
 })
 
 const sendRawMessage = (
