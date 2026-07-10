@@ -41,6 +41,7 @@ export const runInteractionStageActions = (
     | 'particleSystem'
     | 'droppedItemService'
     | 'droppedXpOrbService'
+    | 'statisticsService'
   >,
   refs: Pick<
     FrameStageRefs,

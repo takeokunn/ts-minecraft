@@ -29,6 +29,7 @@ export const runInteractionStageFrame = (
     | 'chestService'
     | 'equipmentService'
     | 'xpService'
+    | 'statisticsService'
     | 'fishingService'
     | 'redstoneService'
     | 'furnaceService'

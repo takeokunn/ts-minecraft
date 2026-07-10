@@ -9,8 +9,16 @@ import { InventoryServicePort } from '@ts-minecraft/entity/domain/inventory-serv
 import { TimeServicePort } from '@ts-minecraft/entity/domain/time-service-port'
 import { LoadingScreenService, MainMenuService, setGameplayHudHidden } from '@ts-minecraft/presentation'
 import { WorldId, parseWorldParam, clearWorldParam } from '@ts-minecraft/core'
+import { installGlobalDebugLogCapture } from '@ts-minecraft/app/main/debug-log-capture'
+import { installGlobalFrameSpikeMonitor } from '@ts-minecraft/app/main/debug-frame-spikes'
 import type { BootContext } from '@ts-minecraft/app'
 import type { GameMode } from '@ts-minecraft/game'
+
+// Installed before the Effect program starts so even boot-time failures land in
+// the capture buffers (read back through the QA API's getCapturedLogsForQA /
+// getFrameSpikesForQA).
+installGlobalDebugLogCapture()
+installGlobalFrameSpikeMonitor()
 
 const SESSION_FAILURE_MESSAGE = 'The game session stopped unexpectedly.'
 const SESSION_FAILURE_DETAIL = 'Returning to the title screen. Try loading the world again, or refresh the page if the problem continues.'

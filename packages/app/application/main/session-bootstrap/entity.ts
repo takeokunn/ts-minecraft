@@ -6,6 +6,8 @@ import { HealthService } from '@ts-minecraft/entity/application/health-service'
 import { HungerService } from '@ts-minecraft/entity/application/hunger-service'
 import { XPService } from '@ts-minecraft/entity/application/xp-service'
 import { FishingService } from '@ts-minecraft/entity/application/fishing-service'
+import { StatisticsService } from '@ts-minecraft/entity/application/statistics-service'
+import { AchievementService } from '@ts-minecraft/entity/application/achievement-service'
 import { DroppedItemService } from '@ts-minecraft/entity/application/dropped-item-service'
 import { DroppedXpOrbService } from '@ts-minecraft/entity/application/dropped-xp-orb-service'
 import { EntityManager } from '@ts-minecraft/entity/application/mob/entity-manager'
@@ -22,6 +24,8 @@ export const buildEntityBootstrapServices = Effect.gen(function* () {
     hungerService,
     xpService,
     fishingService,
+    statisticsService,
+    achievementService,
     droppedItemService,
     droppedXpOrbService,
     entityManager,
@@ -36,6 +40,8 @@ export const buildEntityBootstrapServices = Effect.gen(function* () {
     HungerService,
     XPService,
     FishingService,
+    StatisticsService,
+    AchievementService,
     DroppedItemService,
     DroppedXpOrbService,
     EntityManager,
@@ -52,6 +58,8 @@ export const buildEntityBootstrapServices = Effect.gen(function* () {
     hungerService,
     xpService,
     fishingService,
+    statisticsService,
+    achievementService,
     droppedItemService,
     droppedXpOrbService,
     entityManager,

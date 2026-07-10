@@ -5,6 +5,7 @@ import { DomOperationsService } from '@ts-minecraft/presentation/hud/crosshair'
 import { DEFAULT_PLAYER_ID, type Position, DeltaTimeSecs } from '@ts-minecraft/core'
 import { GameModeService, GameStateService } from '@ts-minecraft/game'
 import { HealthService } from '@ts-minecraft/entity/application/health-service'
+import { HungerService } from '@ts-minecraft/entity/application/hunger-service'
 import { DeathScreenService } from './death-screen'
 import type { SessionControl } from '@ts-minecraft/app/main/session-control'
 
@@ -230,6 +231,7 @@ const makeTestLayer = (documentRef: MockDocument, mode: 'survival' | 'creative')
       Layer.provide(gameState.layer),
       Layer.provide(makeGameModeLayer(mode)),
       Layer.provideMerge(HealthService.Default),
+      Layer.provideMerge(HungerService.Default),
       Layer.provide(Layer.succeed(DomOperationsService, dom.service)),
     ),
   }
@@ -252,9 +254,14 @@ describe('DeathScreenService', () => {
           const control = yield* makeSessionControl()
           const respawnPositionRef = MutableRef.make({ x: 20, y: 80, z: -3 } as Position)
           const health = yield* HealthService
+          const hunger = yield* HungerService
           const service = yield* DeathScreenService
 
           yield* service.attach(control, respawnPositionRef)
+          // Drain some food before dying so the respawn reset is observable.
+          yield* hunger.addExhaustion(100)
+          yield* hunger.tick(false)
+          expect((yield* hunger.getHunger()).foodLevel).toBeLessThan(20)
           yield* health.applyDamage(100, { kind: 'fall' })
           yield* Effect.sleep(Duration.millis(1))
 
@@ -274,6 +281,8 @@ describe('DeathScreenService', () => {
           expect(backdrop?.style.display).toBe('none')
           expect(gameState.respawn).toHaveBeenCalledWith({ x: 20, y: 80, z: -3 })
           expect(MutableRef.get(control.isPausedRef)).toBe(false)
+          // Vanilla: respawn restores food to full alongside health.
+          expect((yield* hunger.getHunger()).foodLevel).toBe(20)
         }).pipe(Effect.provide(layer)),
       ),
     )

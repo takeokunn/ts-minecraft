@@ -2,6 +2,10 @@ import { Cause, Duration, Effect, Fiber, MutableRef, Option, Schedule, Scope } f
 import { DomOperationsService } from '@ts-minecraft/presentation/hud/crosshair'
 import { SettingsOverlayService } from '@ts-minecraft/presentation/settings/settings-overlay'
 import { ConfirmDialogService } from '@ts-minecraft/presentation/menu/confirm-dialog'
+import { AchievementService } from '@ts-minecraft/entity/application/achievement-service'
+import { StatisticsService } from '@ts-minecraft/entity/application/statistics-service'
+import { ACHIEVEMENT_REGISTRY } from '@ts-minecraft/entity/domain/achievement/achievement-registry'
+import { renderAchievementsPanelHtml } from './pause-menu-achievements'
 import {
   type SessionControl,
   requestQuitToTitle,
@@ -24,6 +28,8 @@ export class PauseMenuService extends Effect.Service<PauseMenuService>()(
       const dom = yield* DomOperationsService
       const settingsOverlay = yield* SettingsOverlayService
       const confirmDialog = yield* ConfirmDialogService
+      const achievementService = yield* AchievementService
+      const statisticsService = yield* StatisticsService
       const {
         backdropEl,
         resumeBtn,
@@ -31,6 +37,10 @@ export class PauseMenuService extends Effect.Service<PauseMenuService>()(
         howToPlayBtn,
         howToPlayPanel,
         howToPlayCloseBtn,
+        achievementsBtn,
+        achievementsPanel,
+        achievementsContentEl,
+        achievementsCloseBtn,
         saveQuitBtn,
       } = yield* Effect.acquireRelease(
         Effect.sync((): PauseMenuDom => buildPauseMenuDOM(dom)),
@@ -92,6 +102,29 @@ export class PauseMenuService extends Effect.Service<PauseMenuService>()(
         Option.map(howToPlayPanel, (el) => { el.style.display = 'none' })
       }
 
+      const isAchievementsVisible = (): boolean => {
+        const panel = Option.getOrNull(achievementsPanel)
+        return panel !== null && panel.style.display !== 'none'
+      }
+
+      // Rebuilds the content from live unlock + statistics state on every open.
+      const showAchievements = (): Effect.Effect<void, never> =>
+        Effect.gen(function* () {
+          const unlocked = yield* achievementService.getUnlocked()
+          const stats = yield* statisticsService.getStatistics()
+          yield* Effect.sync(() => {
+            Option.map(achievementsContentEl, (el) => {
+              el.innerHTML = renderAchievementsPanelHtml(ACHIEVEMENT_REGISTRY, new Set(unlocked), stats)
+            })
+            Option.map(achievementsPanel, (el) => { el.style.display = 'block' })
+            Option.map(achievementsCloseBtn, (btn) => btn.focus())
+          })
+        })
+
+      const hideAchievements = (): void => {
+        Option.map(achievementsPanel, (el) => { el.style.display = 'none' })
+      }
+
       // The floating settings gear is hidden during pointer-lock gameplay (see
       // main-menu.ts) and only surfaced while an overlay context — the pause menu —
       // is open, giving a visible route to Options alongside the menu's own entry.
@@ -110,6 +143,7 @@ export class PauseMenuService extends Effect.Service<PauseMenuService>()(
 
       const hideMenu = (): void => {
         hideHowToPlay()
+        hideAchievements()
         setSettingsGearVisible(false)
         Option.map(backdropEl, (el) => { el.style.display = 'none' })
       }
@@ -212,6 +246,23 @@ export class PauseMenuService extends Effect.Service<PauseMenuService>()(
                   Option.map(howToPlayBtn, (btn) => btn.focus())
                 }
 
+                const handleAchievementsClick = (): void => {
+                  if (!MutableRef.get(isOpenRef)) return
+                  Effect.runFork(
+                    showAchievements().pipe(
+                      Effect.catchAllCause((cause) =>
+                        Effect.logError(`Achievements panel error: ${Cause.pretty(cause)}`),
+                      ),
+                    ),
+                  )
+                }
+
+                const handleAchievementsCloseClick = (): void => {
+                  if (!MutableRef.get(isOpenRef)) return
+                  hideAchievements()
+                  Option.map(achievementsBtn, (btn) => btn.focus())
+                }
+
                 const handleSaveQuitClick = (): void => {
                   if (!MutableRef.get(isOpenRef)) return
                   // Hide pause menu while dialog is open so the dialog
@@ -258,6 +309,10 @@ export class PauseMenuService extends Effect.Service<PauseMenuService>()(
                       handleHowToPlayCloseClick()
                       return
                     }
+                    if (isAchievementsVisible()) {
+                      handleAchievementsCloseClick()
+                      return
+                    }
                     handleResumeClick()
                   } else if (event.key === 'Enter') {
                     // Let the button's native Enter activation handle it
@@ -274,6 +329,8 @@ export class PauseMenuService extends Effect.Service<PauseMenuService>()(
                         settingsBtn,
                         howToPlayBtn,
                         ...(isHowToPlayVisible() ? [howToPlayCloseBtn] : []),
+                        achievementsBtn,
+                        ...(isAchievementsVisible() ? [achievementsCloseBtn] : []),
                         saveQuitBtn,
                       ]),
                       typeof document === 'undefined' ? null : document.activeElement,
@@ -287,6 +344,8 @@ export class PauseMenuService extends Effect.Service<PauseMenuService>()(
                 Option.map(howToPlayCloseBtn, (btn) =>
                   btn.addEventListener('click', handleHowToPlayCloseClick),
                 )
+                Option.map(achievementsBtn, (btn) => btn.addEventListener('click', handleAchievementsClick))
+                Option.map(achievementsCloseBtn, (btn) => btn.addEventListener('click', handleAchievementsCloseClick))
                 Option.map(saveQuitBtn, (btn) => btn.addEventListener('click', handleSaveQuitClick))
                 if (typeof document !== 'undefined') {
                   document.addEventListener('keydown', handleKeyDown, true)
@@ -297,6 +356,8 @@ export class PauseMenuService extends Effect.Service<PauseMenuService>()(
                   handleSettingsClick,
                   handleHowToPlayClick,
                   handleHowToPlayCloseClick,
+                  handleAchievementsClick,
+                  handleAchievementsCloseClick,
                   handleSaveQuitClick,
                   handleKeyDown,
                   watchdogFiberRef,
@@ -312,6 +373,8 @@ export class PauseMenuService extends Effect.Service<PauseMenuService>()(
                   Option.map(howToPlayCloseBtn, (btn) =>
                     btn.removeEventListener('click', handlers.handleHowToPlayCloseClick),
                   )
+                  Option.map(achievementsBtn, (btn) => btn.removeEventListener('click', handlers.handleAchievementsClick))
+                  Option.map(achievementsCloseBtn, (btn) => btn.removeEventListener('click', handlers.handleAchievementsCloseClick))
                   Option.map(saveQuitBtn, (btn) => btn.removeEventListener('click', handlers.handleSaveQuitClick))
                   if (typeof document !== 'undefined') {
                     document.removeEventListener('keydown', handlers.handleKeyDown, true)

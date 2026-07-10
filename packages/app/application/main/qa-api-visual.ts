@@ -14,9 +14,13 @@ const makeSetAimForQA = (
   blockHighlight: BlockHighlightService,
 ) => (target: Position): Effect.Effect<void, never> =>
   Effect.gen(function* () {
-    const dx = target.x - camera.position.x
-    const dy = target.y - camera.position.y
-    const dz = target.z - camera.position.z
+    // World position via matrixWorld — the frame composes the camera pose into
+    // matrixWorld directly, so `.position` can be stale (or the origin).
+    const origin = new THREE.Vector3()
+    camera.getWorldPosition(origin)
+    const dx = target.x - origin.x
+    const dy = target.y - origin.y
+    const dz = target.z - origin.z
     // three.js YXZ camera forward = (−cosP·sinYaw, sinP, −cosP·cosYaw), so the
     // yaw that faces (dx,dz) is atan2(−dx, −dz). The old atan2(dx, −dz) MIRRORED
     // every aim across the x-axis — unnoticed because the other aim helpers force

@@ -30,7 +30,7 @@ export const applySurvivalAirEffects = (
       accumulatorRef: refs.drownDamageSecsRef,
       deltaTime: inputs.deltaTime,
       intervalSecs: DROWN_DAMAGE_INTERVAL_SECS,
-      onTicks: (ticks) => applyDamageAndPlayHurt(services, refreshedPos, applyDamage, DROWN_DAMAGE * ticks),
+      onTicks: (ticks) => applyDamageAndPlayHurt(services, refreshedPos, applyDamage, DROWN_DAMAGE * ticks, { kind: 'drowning' }),
     })
     const screenTintEffect = syncUnderwaterScreenTintFeedback(headSubmerged)
 

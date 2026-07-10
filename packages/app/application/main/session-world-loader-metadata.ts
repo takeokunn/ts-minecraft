@@ -7,6 +7,9 @@ export type SavedChestStates = NonNullable<WorldMetadata['chestStates']>
 export type SavedFurnaceStates = NonNullable<WorldMetadata['furnaceStates']>
 export type SavedWeatherState = NonNullable<WorldMetadata['weatherState']>
 export type SavedEntityStates = NonNullable<WorldMetadata['entityStates']>
+export type SavedStatistics = NonNullable<WorldMetadata['statistics']>
+export type SavedUnlockedAchievements = NonNullable<WorldMetadata['unlockedAchievements']>
+export type SavedActiveDimension = NonNullable<WorldMetadata['activeDimension']>
 
 export type WorldBootstrap = {
   readonly seed: number
@@ -17,6 +20,9 @@ export type WorldBootstrap = {
   readonly savedFurnaceStates: Option.Option<SavedFurnaceStates>
   readonly savedWeatherState: Option.Option<SavedWeatherState>
   readonly savedEntityStates: Option.Option<SavedEntityStates>
+  readonly savedStatistics: Option.Option<SavedStatistics>
+  readonly savedUnlockedAchievements: Option.Option<SavedUnlockedAchievements>
+  readonly savedActiveDimension: Option.Option<SavedActiveDimension>
   readonly gameMode: GameMode
 }
 
@@ -41,6 +47,9 @@ const buildWorldBootstrap = (input: {
   readonly savedFurnaceStates: Option.Option<SavedFurnaceStates>
   readonly savedWeatherState: Option.Option<SavedWeatherState>
   readonly savedEntityStates: Option.Option<SavedEntityStates>
+  readonly savedStatistics: Option.Option<SavedStatistics>
+  readonly savedUnlockedAchievements: Option.Option<SavedUnlockedAchievements>
+  readonly savedActiveDimension: Option.Option<SavedActiveDimension>
   readonly gameMode: GameMode
 }): WorldBootstrap => ({
   seed: input.seed,
@@ -51,6 +60,9 @@ const buildWorldBootstrap = (input: {
   savedFurnaceStates: input.savedFurnaceStates,
   savedWeatherState: input.savedWeatherState,
   savedEntityStates: input.savedEntityStates,
+  savedStatistics: input.savedStatistics,
+  savedUnlockedAchievements: input.savedUnlockedAchievements,
+  savedActiveDimension: input.savedActiveDimension,
   gameMode: input.gameMode,
 })
 
@@ -64,6 +76,9 @@ export const buildLoadedWorldBootstrap = (metadata: WorldMetadata): WorldBootstr
     savedFurnaceStates: Option.fromNullable(metadata.furnaceStates),
     savedWeatherState: Option.fromNullable(metadata.weatherState),
     savedEntityStates: Option.fromNullable(metadata.entityStates),
+    savedStatistics: Option.fromNullable(metadata.statistics),
+    savedUnlockedAchievements: Option.fromNullable(metadata.unlockedAchievements),
+    savedActiveDimension: Option.fromNullable(metadata.activeDimension),
     gameMode: metadata.gameMode,
   })
 
@@ -77,6 +92,9 @@ export const buildFreshWorldState = (input: FreshWorldMetadataInput): FreshWorld
     savedFurnaceStates: Option.none<SavedFurnaceStates>(),
     savedWeatherState: Option.none<SavedWeatherState>(),
     savedEntityStates: Option.none<SavedEntityStates>(),
+    savedStatistics: Option.none<SavedStatistics>(),
+    savedUnlockedAchievements: Option.none<SavedUnlockedAchievements>(),
+    savedActiveDimension: Option.none<SavedActiveDimension>(),
     gameMode: input.gameMode,
   })
 

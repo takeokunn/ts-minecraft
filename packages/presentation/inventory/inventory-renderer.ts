@@ -9,6 +9,7 @@ import { FurnaceService } from '@ts-minecraft/inventory/application/furnace-serv
 import { GameStateService } from '@ts-minecraft/game'
 import { ChunkManagerService } from '@ts-minecraft/world'
 import { XPService } from '@ts-minecraft/entity/application/xp-service'
+import { StatisticsService } from '@ts-minecraft/entity/application/statistics-service'
 import { DEFAULT_PLAYER_ID } from '@ts-minecraft/core'
 import { RecipeId } from '@ts-minecraft/core'
 import { DomOperationsService } from '@ts-minecraft/presentation/hud/crosshair'
@@ -62,6 +63,7 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
       const gameState = yield* GameStateService
       const chunkManagerService = yield* ChunkManagerService
       const xpService = yield* XPService
+      const statisticsService = yield* StatisticsService
       const dom = yield* DomOperationsService
       const isVisibleRef = yield* Ref.make(false)
       const availableRecipesRef = yield* Ref.make<ReadonlyArray<Recipe>>([])
@@ -127,7 +129,13 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
         hasBrewingAccess = true,
       ): Effect.Effect<void, Error, never> => {
         const recipe = Option.getOrNull(recipeService.findById(recipeId))
-        if (recipe === null || recipe.station !== 'furnace') return recipeService.craft(recipeId, inventoryService, hasTableAccess, hasFurnaceAccess, hasBrewingAccess)
+        if (recipe === null || recipe.station !== 'furnace') {
+          // Craft statistics feed the achievement system; recorded only after
+          // the craft succeeds (recipeService.craft fails on missing ingredients).
+          return recipeService.craft(recipeId, inventoryService, hasTableAccess, hasFurnaceAccess, hasBrewingAccess).pipe(
+            Effect.tap(() => recipe === null ? Effect.void : statisticsService.recordItemCrafted(recipe.output.itemType)),
+          )
+        }
         return Effect.gen(function* () {
           const furnaceOpt = yield* furnaceService.getNearestFurnaceState()
           const furnace = Option.getOrNull(furnaceOpt)

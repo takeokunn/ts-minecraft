@@ -7,6 +7,7 @@ import type { PhysicsStageInputs } from './physics-stage-types/inputs'
 import type { PhysicsStageRefs } from './physics-stage-types/refs'
 import type { PhysicsStageServices } from './physics-stage-types/services'
 import { tryApplyPlayerDamage } from './physics-stage-damage-helpers'
+import type { ApplyPlayerDamage } from './physics-stage-survival/types'
 import { resolveFallDamage } from './physics-stage-health/fall-damage'
 import { applyHostileDamage } from './physics-stage-health/hostile-damage'
 import { handleDeathOrSurvival } from './physics-stage-health/death'
@@ -28,12 +29,15 @@ export const applyPhysicsHealthAndHud = (
       const armorPoints = yield* services.equipmentService.getTotalArmorPoints()
       const isSpectatorMode = yield* services.gameMode.isSpectator()
       const isCreativeMode = yield* services.gameMode.isCreative()
-      const applyDamage = (amount: number) => tryApplyPlayerDamage(amount, isSpectatorMode, services)
+      // Forward the cause: survival effects (lava/fire/drowning/…) pass one and
+      // the death screen renders it — a (amount)-only closure silently dropped
+      // every cause and made all deaths read as the generic "You died."
+      const applyDamage: ApplyPlayerDamage = (amount, cause) => tryApplyPlayerDamage(amount, isSpectatorMode, services, cause)
 
       const isGrounded = yield* services.gameState.isPlayerGrounded()
       const rawFallDamage = yield* services.healthService.processFallDamage(refreshedPos.y, isGrounded)
       const fallDamage = isCreativeMode ? 0 : resolveFallDamage(rawFallDamage, bootsOpt)
-      const tookFallDamage = yield* applyDamage(fallDamage)
+      const tookFallDamage = yield* applyDamage(fallDamage, { kind: 'fall' })
       if (tookFallDamage) {
         yield* services.soundManager.playEffect('playerHurt', { position: refreshedPos })
       }

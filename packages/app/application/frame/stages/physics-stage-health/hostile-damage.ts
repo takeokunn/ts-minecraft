@@ -10,6 +10,7 @@ import type { PhysicsStageRefs } from '../physics-stage-types/refs'
 import type { PhysicsStageServices } from '../physics-stage-types/services'
 import { applyExplosionBlockDamage } from '../physics-stage-damage-helpers'
 import { hostileDamageMultiplierForDifficulty } from '../physics-stage-damage-logic'
+import type { ApplyPlayerDamage } from '../physics-stage-survival/types'
 import { blockTypeToIndex } from '@ts-minecraft/core'
 import { getParticleUvOffset } from '@ts-minecraft/rendering'
 
@@ -185,7 +186,7 @@ export const applyHostileDamage = (
   inputs: PhysicsStageInputs,
   refreshedPos: Position,
   armorPoints: number,
-  applyDamage: (amount: number) => Effect.Effect<boolean, never>,
+  applyDamage: ApplyPlayerDamage,
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
     const rawHostileDamage = yield* getHostileDamage(services, refs, inputs, refreshedPos)
@@ -207,7 +208,10 @@ export const applyHostileDamage = (
       yield* damageShieldIfBlocking(services, refs, resolvedDamage.totalDamage)
     }
 
-    const tookHostileDamage = yield* applyDamage(resolvedDamage.hostileDamage)
+    const tookHostileDamage = yield* applyDamage(
+      resolvedDamage.hostileDamage,
+      { kind: resolveHostileDeathCause(scaledHostileDamage) },
+    )
     if (tookHostileDamage) {
       yield* services.soundManager.playEffect('playerHurt', { position: refreshedPos })
       if (resolvedDamage.totalDamage > 0) {

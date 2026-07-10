@@ -35,6 +35,7 @@ export type QaApiDeps = {
   readonly recipeService: RecipeService
   readonly furnaceService: FurnaceService
   readonly xpService: XPService
+  readonly statisticsService: import('@ts-minecraft/entity/application/statistics-service').StatisticsService
   readonly villageService: VillageService
   readonly redstoneService: RedstoneService
   readonly healthService: HealthService

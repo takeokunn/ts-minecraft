@@ -1,5 +1,5 @@
 import { Effect } from 'effect'
-import { CrosshairService, DamageOverlayService, SleepOverlayService, FPSCounterService } from '@ts-minecraft/presentation'
+import { CrosshairService, AchievementToastService, DamageOverlayService, DimensionFadeService, SleepOverlayService, FPSCounterService } from '@ts-minecraft/presentation'
 import { HotbarRendererService } from '@ts-minecraft/presentation/hud'
 
 /** Creates a hotbar renderer fake with no-op update and render methods. */
@@ -32,6 +32,22 @@ export const makeCrosshair = () =>
   })
 
 /** Creates a damage overlay fake with no-op flash behavior. */
+export const makeAchievementToast = () =>
+  AchievementToastService.of({
+    _tag: '@minecraft/presentation/AchievementToast' as const,
+    element: {} as HTMLElement,
+    show: (_title: string, _description: string) => Effect.void,
+    hide: () => Effect.void,
+  })
+
+export const makeDimensionFade = () =>
+  DimensionFadeService.of({
+    _tag: '@minecraft/presentation/DimensionFade' as const,
+    element: {} as HTMLElement,
+    flash: () => Effect.void,
+    hide: () => Effect.void,
+  })
+
 export const makeDamageOverlay = () =>
   DamageOverlayService.of({
     _tag: '@minecraft/presentation/DamageOverlay' as const,

@@ -128,4 +128,26 @@ describe('collectFallingBlockMoves', () => {
       expect(result[1]!.from.x).toBe(16) // chunk2 world x=16
     }),
   )
+
+  it.effect('SAND sinks through WATER (vanilla: falling blocks pass through liquids)', () =>
+    Effect.gen(function* () {
+      const chunk = makeChunk(0, 0)
+      chunk.blocks[blockIdx(2, 10, 2)] = SAND
+      chunk.blocks[blockIdx(2, 9, 2)] = blockTypeToIndex('WATER')
+      const result = yield* collectFallingBlockMoves([chunk])
+      expect(result).toHaveLength(1)
+      expect(result[0]).toMatchObject({ from: { y: 10 }, to: { y: 9 }, blockType: 'SAND' })
+    }),
+  )
+
+  it.effect('GRAVEL sinks through LAVA', () =>
+    Effect.gen(function* () {
+      const chunk = makeChunk(0, 0)
+      chunk.blocks[blockIdx(2, 10, 2)] = GRAVEL
+      chunk.blocks[blockIdx(2, 9, 2)] = blockTypeToIndex('LAVA')
+      const result = yield* collectFallingBlockMoves([chunk])
+      expect(result).toHaveLength(1)
+      expect(result[0]).toMatchObject({ from: { y: 10 }, to: { y: 9 }, blockType: 'GRAVEL' })
+    }),
+  )
 })

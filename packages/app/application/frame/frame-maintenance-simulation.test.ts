@@ -8,9 +8,10 @@ import {
 import {
   chunkBlockIndexUnchecked,
   FIRE_MAINTENANCE_INTERVAL_SECS,
+  makeFallingBlockMaintenanceState,
   type Chunk,
 } from "@ts-minecraft/world";
-import { Effect, MutableRef, Option } from "effect";
+import { Effect, HashMap, MutableRef, Option } from "effect";
 import { expect, vi } from "vitest";
 
 import { arrangeFrameHarness } from "../../test/frame-handler-test-kit/orchestration/harness";
@@ -53,6 +54,8 @@ describe("runMaintenanceSimulation fire lifecycle integration", () => {
         {
           cropTickAccumulatorRef: MutableRef.make(0),
           fireTickAccumulatorRef: MutableRef.make(0),
+          fallingBlockState: makeFallingBlockMaintenanceState(),
+          dirtyChunksRef: MutableRef.make(HashMap.empty()),
         },
         {
           furnaceEnabled: false,

@@ -138,6 +138,7 @@ describe('handleBlockBreakProgress', () => {
       },
       droppedItemService: { spawn: spawnDroppedItemSpy },
       droppedXpOrbService: { spawn: spawnXpOrbSpy },
+      statisticsService: { recordBlockMined: vi.fn(() => Effect.succeed({})) },
       hotbarService: { getSelectedSlot: vi.fn(() => Effect.succeed(SlotIndex.make(0))) },
       particleSystem: { spawnBurst: spawnBurstSpy },
       xpService: {

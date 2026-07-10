@@ -41,7 +41,7 @@ export const applyHungerTicks = (
         yield* services.healthService.heal(1)
       } else if (hungerEffect === 'starve') {
         const starvationDamage = starvationDamageForDifficulty(inputs.difficulty, health.current)
-        yield* applyDamageAndPlayHurt(services, refreshedPos, applyDamage, starvationDamage)
+        yield* applyDamageAndPlayHurt(services, refreshedPos, applyDamage, starvationDamage, { kind: 'starvation' })
       }
     }
   })

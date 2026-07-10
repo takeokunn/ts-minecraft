@@ -9,6 +9,14 @@ export const FALLING_BLOCK_MAX_PER_TICK = 32
 const AIR_BLOCK_IDX = blockTypeToIndex('AIR')
 const SAND_BLOCK_IDX = blockTypeToIndex('SAND')
 const GRAVEL_BLOCK_IDX = blockTypeToIndex('GRAVEL')
+// Vanilla: falling blocks sink through liquids, not just air. The move writes
+// the falling block INTO the liquid cell (displacing it); the fluid sim
+// re-flows around the vacated source cell.
+const FALLABLE_INTO_BLOCK_IDXS: ReadonlySet<number> = new Set([
+  AIR_BLOCK_IDX,
+  blockTypeToIndex('WATER'),
+  blockTypeToIndex('LAVA'),
+])
 const EXPECTED_CHUNK_BLOCK_COUNT = CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT
 
 type FallingBlockChunk = Pick<Chunk, 'coord' | 'blocks'>
@@ -66,7 +74,7 @@ export const collectFallingBlockMoves = (
           for (let localZ = 0; localZ < CHUNK_SIZE; localZ++) {
             const blockType = fallingBlockTypeForIndex(blockAt(chunk, localX, y, localZ))
             if (!blockType) continue
-            if (blockAt(chunk, localX, y - 1, localZ) !== AIR_BLOCK_IDX) continue
+            if (!FALLABLE_INTO_BLOCK_IDXS.has(blockAt(chunk, localX, y - 1, localZ))) continue
 
             const x = worldBaseX + localX
             const z = worldBaseZ + localZ

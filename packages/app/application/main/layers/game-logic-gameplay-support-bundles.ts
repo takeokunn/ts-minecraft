@@ -1,7 +1,9 @@
 import { Layer } from 'effect'
 
+import { AchievementService } from '@ts-minecraft/entity/application/achievement-service'
 import { DroppedXpOrbService } from '@ts-minecraft/entity/application/dropped-xp-orb-service'
 import { FishingService } from '@ts-minecraft/entity/application/fishing-service'
+import { StatisticsService } from '@ts-minecraft/entity/application/statistics-service'
 import { HealthService } from '@ts-minecraft/entity/application/health-service'
 import { XPService } from '@ts-minecraft/entity/application/xp-service'
 import { EquipmentService } from '@ts-minecraft/inventory/application/equipment-service'
@@ -24,5 +26,7 @@ export const GameplaySupportLayers = InventorySupportLayers.pipe(
   Layer.provideMerge(XPService.Default),
   Layer.provideMerge(DroppedXpOrbService.Default),
   Layer.provideMerge(FishingService.Default),
+  Layer.provideMerge(StatisticsService.Default),
+  Layer.provideMerge(AchievementService.Default),
   Layer.provideMerge(GameModeService.Default),
 )

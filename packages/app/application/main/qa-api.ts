@@ -31,6 +31,8 @@ import { getVillagesForQA } from '@ts-minecraft/app/main/qa-api-village'
 import { getRedstonePowerAtForQA, setRedstoneComponentForQA, tickRedstoneForQA, toggleLeverForQA } from '@ts-minecraft/app/main/qa-api-redstone'
 import { getMobAiForQA } from '@ts-minecraft/app/main/qa-api-mob-ai'
 import { killPlayerForQA } from '@ts-minecraft/app/main/qa-api-combat'
+import { getGlobalDebugLogCapture } from '@ts-minecraft/app/main/debug-log-capture'
+import { getGlobalFrameSpikeMonitor } from '@ts-minecraft/app/main/debug-frame-spikes'
 import type { QaApi } from '@ts-minecraft/app/main/qa-api-types/api'
 import type { QaApiDeps } from '@ts-minecraft/app/main/qa-api-types/deps'
 import type { StagedResourceBlock, StagedZombiePosition } from '@ts-minecraft/app/main/qa-api-types/staged'
@@ -84,6 +86,8 @@ const makeQaApi = (
     Effect.runPromise(Effect.gen(function* () {
       yield* deps.netherService.setDimension(dimension)
       yield* deps.chunkManagerService.setActiveDimension(dimension)
+      yield* deps.entityManager.setActiveDimension(dimension)
+      yield* deps.statisticsService.recordDimensionVisited(dimension)
       const spawnY = dimension === 'nether' ? 70 : 80
       yield* deps.gameState.respawn({ x: 8, y: spawnY, z: 8 })
     })),
@@ -145,6 +149,10 @@ const makeQaApi = (
   getRedstonePowerAtForQA: (x: number, y: number, z: number) => getRedstonePowerAtForQA(deps.redstoneService, x, y, z),
   getMobAiForQA: () => getMobAiForQA({ entityManager: deps.entityManager, gameState: deps.gameState }),
   killPlayerForQA: () => killPlayerForQA(deps.healthService),
+  getCapturedLogsForQA: () => getGlobalDebugLogCapture()?.getEntries() ?? [],
+  clearCapturedLogsForQA: () => getGlobalDebugLogCapture()?.clear(),
+  getFrameSpikesForQA: () => getGlobalFrameSpikeMonitor()?.getSpikes() ?? [],
+  clearFrameSpikesForQA: () => getGlobalFrameSpikeMonitor()?.clear(),
   getDebugFeatureSnapshot: () => Effect.runPromise(deps.debugFeatureFlags.getSnapshot()),
   setDebugFeatureEnabled: (id: DebugFeatureFlagId, enabled: boolean) =>
     Effect.runPromise(deps.debugFeatureFlags.setEnabled(id, enabled)),

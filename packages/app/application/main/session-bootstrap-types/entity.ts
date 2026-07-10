@@ -2,6 +2,8 @@ import type { HealthService } from '@ts-minecraft/entity/application/health-serv
 import type { HungerService } from '@ts-minecraft/entity/application/hunger-service'
 import type { XPService } from '@ts-minecraft/entity/application/xp-service'
 import type { FishingService } from '@ts-minecraft/entity/application/fishing-service'
+import type { StatisticsService } from '@ts-minecraft/entity/application/statistics-service'
+import type { AchievementService } from '@ts-minecraft/entity/application/achievement-service'
 import type { DroppedItemService } from '@ts-minecraft/entity/application/dropped-item-service'
 import type { DroppedXpOrbService } from '@ts-minecraft/entity/application/dropped-xp-orb-service'
 import type { EntityManager } from '@ts-minecraft/entity/application/mob/entity-manager'
@@ -20,6 +22,8 @@ export type SessionEntityBootstrapServices = {
   readonly hungerService: HungerService
   readonly xpService: XPService
   readonly fishingService: FishingService
+  readonly statisticsService: StatisticsService
+  readonly achievementService: AchievementService
   readonly droppedItemService: DroppedItemService
   readonly droppedXpOrbService: DroppedXpOrbService
   readonly entityManager: EntityManager

@@ -1,6 +1,7 @@
-import { Effect, MutableRef } from 'effect'
+import { Effect, MutableRef, Ref } from 'effect'
 import type { DebugFeatureFlags } from '@ts-minecraft/app/application/debug-feature-flags.config'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
+import { blockIdAt as blockIdAtCached } from '@ts-minecraft/game'
 import type { FrameHandlerDeps } from '@ts-minecraft/app/application/frame/types/deps'
 import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
 import type { FrameStageRefs } from '@ts-minecraft/app/application/frame/types/stage-refs'
@@ -25,7 +26,7 @@ export const interactionStage = (
     | 'inventoryRenderer' | 'sleepOverlay'
     | 'chestService'
     | 'equipmentService'
-    | 'xpService'
+    | 'xpService' | 'statisticsService'
     | 'fishingService'
     | 'redstoneService'
     | 'furnaceService'
@@ -40,7 +41,7 @@ export const interactionStage = (
     | 'droppedItemService'
     | 'droppedXpOrbService'
   >,
-  refs: Pick<FrameStageRefs, 'dirtyChunksRef' | 'totalTimeSecsRef' | 'lastPlayerAttackTimeRef' | 'attackSwingStateRef' | 'breakProgressRef' | 'bowChargeStartRef' | 'isShieldBlockingRef' | 'hitStopFramesRef'>,
+  refs: Pick<FrameStageRefs, 'dirtyChunksRef' | 'totalTimeSecsRef' | 'lastPlayerAttackTimeRef' | 'attackSwingStateRef' | 'breakProgressRef' | 'bowChargeStartRef' | 'isShieldBlockingRef' | 'hitStopFramesRef' | 'entityPhysicsChunkCacheRef' | 'lastEntityPhysicsChunkCoordRef'>,
   inputs: {
     readonly debugFlags: DebugFeatureFlags
   },
@@ -58,8 +59,16 @@ export const interactionStage = (
     }
 
     // Keep block targeting live for interactions while allowing the outline itself
-    // to be toggled independently.
-    yield* services.blockHighlight.update(deps.camera, deps.scene)
+    // to be toggled independently. The cached-chunk lookup routes targeting
+    // through the voxel-DDA fast path (entity-physics 7x7 cache, radius 3 —
+    // always covers the 5-block reach around the player).
+    const targetingChunkCache = yield* Ref.get(refs.entityPhysicsChunkCacheRef)
+    const targetingPlayerChunk = yield* Ref.get(refs.lastEntityPhysicsChunkCoordRef)
+    const targetingBlockIdAt = Number.isFinite(targetingPlayerChunk.cx)
+      ? (x: number, y: number, z: number) =>
+          blockIdAtCached(x, y, z, targetingChunkCache, targetingPlayerChunk.cx, targetingPlayerChunk.cz, 3)
+      : undefined
+    yield* services.blockHighlight.update(deps.camera, deps.scene, targetingBlockIdAt)
     yield* services.blockHighlight.setVisible(debugFlags['ui.blockHighlight'])
 
     yield* logErrors(

@@ -33,6 +33,7 @@ export type BreakExecutionServices = Pick<
   | 'redstoneService'
   | 'droppedItemService'
   | 'droppedXpOrbService'
+  | 'statisticsService'
 >
 
 export type BreakExecutionContext = {

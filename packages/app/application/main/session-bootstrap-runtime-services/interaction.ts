@@ -6,6 +6,8 @@ type SessionRuntimeInteractionServices = Pick<
   | 'blockHighlight'
   | 'crosshair'
   | 'damageOverlay'
+  | 'achievementToast'
+  | 'dimensionFade'
   | 'sleepOverlay'
   | 'inputService'
   | 'blockService'
@@ -24,6 +26,8 @@ export const buildSessionRuntimeInteractionServices = ({
   blockHighlight: services.blockHighlight,
   crosshair: services.crosshair,
   damageOverlay: services.damageOverlay,
+  achievementToast: services.achievementToast,
+  dimensionFade: services.dimensionFade,
   sleepOverlay: services.sleepOverlay,
   inputService: services.inputService,
   blockService: services.blockService,

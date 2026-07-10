@@ -17,6 +17,8 @@ import type { PlayerListPanelService } from '@ts-minecraft/presentation'
 export type SessionPresentationBootstrapServices = {
   readonly crosshair: CrosshairService
   readonly damageOverlay: DamageOverlayService
+  readonly achievementToast: import('@ts-minecraft/presentation').AchievementToastService
+  readonly dimensionFade: import('@ts-minecraft/presentation').DimensionFadeService
   readonly sleepOverlay: SleepOverlayService
   readonly controlsHint: ControlsHintService
   readonly blockHighlight: BlockHighlightService

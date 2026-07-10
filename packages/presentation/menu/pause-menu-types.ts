@@ -8,5 +8,9 @@ export type PauseMenuDom = {
   readonly howToPlayBtn: Option.Option<HTMLButtonElement>
   readonly howToPlayPanel: Option.Option<HTMLDivElement>
   readonly howToPlayCloseBtn: Option.Option<HTMLButtonElement>
+  readonly achievementsBtn: Option.Option<HTMLButtonElement>
+  readonly achievementsPanel: Option.Option<HTMLDivElement>
+  readonly achievementsContentEl: Option.Option<HTMLDivElement>
+  readonly achievementsCloseBtn: Option.Option<HTMLButtonElement>
   readonly saveQuitBtn: Option.Option<HTMLButtonElement>
 }

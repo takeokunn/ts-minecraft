@@ -29,10 +29,14 @@ export type SessionBootstrapWorldPresentationStateDeps = {
   readonly healthService: HealthService
   readonly hungerService: HungerService
   readonly xpService: XPService
+  readonly statisticsService: import('@ts-minecraft/entity/application/statistics-service').StatisticsService
+  readonly achievementService: import('@ts-minecraft/entity/application/achievement-service').AchievementService
   readonly chestService: ChestService
   readonly furnaceService: FurnaceService
   readonly weatherService: WeatherService
   readonly cropGrowthService: import('@ts-minecraft/world').CropGrowthService
+  readonly netherService: import('@ts-minecraft/world').NetherService
+  readonly chunkManagerService: import('@ts-minecraft/world').ChunkManagerService
   readonly entityManager: EntityManager
   readonly spawnPosition: { readonly x: number; readonly y: number; readonly z: number }
 }
@@ -49,10 +53,14 @@ export const initializeSessionBootstrapWorldPresentationState = ({
   healthService,
   hungerService,
   xpService,
+  statisticsService,
+  achievementService,
   chestService,
   furnaceService,
   weatherService,
   cropGrowthService,
+  netherService,
+  chunkManagerService,
   entityManager,
   spawnPosition,
 }: SessionBootstrapWorldPresentationStateDeps) =>
@@ -70,10 +78,14 @@ export const initializeSessionBootstrapWorldPresentationState = ({
       healthService,
       hungerService,
       xpService,
+      statisticsService,
+      achievementService,
       chestService,
       furnaceService,
       weatherService,
       cropGrowthService,
+      netherService,
+      chunkManagerService,
       entityManager,
       gameState,
     })

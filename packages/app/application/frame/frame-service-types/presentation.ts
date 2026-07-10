@@ -1,4 +1,6 @@
 import type {
+  AchievementToastService,
+  DimensionFadeService,
   BlockHighlightService,
   ChatPanelService,
   CrosshairService,
@@ -14,6 +16,8 @@ export type FramePresentationServices = {
   readonly blockHighlight: BlockHighlightService
   readonly crosshair: CrosshairService
   readonly damageOverlay: DamageOverlayService
+  readonly achievementToast: AchievementToastService
+  readonly dimensionFade: DimensionFadeService
   readonly sleepOverlay: SleepOverlayService
   readonly settingsOverlay: SettingsOverlayService
   readonly pauseMenu: PauseMenuService

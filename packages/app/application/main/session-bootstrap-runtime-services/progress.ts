@@ -3,7 +3,7 @@ import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/t
 
 type SessionRuntimeProgressServices = Pick<
   FrameHandlerServices,
-  'inventoryRenderer' | 'inventoryService' | 'equipmentService' | 'fpsCounter' | 'healthService' | 'hungerService' | 'xpService' | 'fishingService'
+  'inventoryRenderer' | 'inventoryService' | 'equipmentService' | 'fpsCounter' | 'healthService' | 'hungerService' | 'xpService' | 'fishingService' | 'statisticsService' | 'achievementService'
 >
 
 export const buildSessionRuntimeProgressServices = ({
@@ -19,4 +19,6 @@ export const buildSessionRuntimeProgressServices = ({
   hungerService: services.hungerService,
   xpService: services.xpService,
   fishingService: services.fishingService,
+  statisticsService: services.statisticsService,
+  achievementService: services.achievementService,
 })

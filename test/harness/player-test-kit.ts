@@ -78,3 +78,29 @@ export const makeFishingService = () => ({
   getProgress: () => Effect.succeed(0),
   reset: () => Effect.void,
 }) as unknown as InstanceType<typeof import('@ts-minecraft/entity').FishingService>
+
+const EMPTY_STATISTICS = {
+  blocksMinedTotal: 0, blocksMinedByType: {}, mobsKilledTotal: 0, mobsKilledByType: {},
+  itemsCraftedTotal: 0, itemsCraftedByType: {}, dimensionsVisited: [],
+}
+
+/** Creates an inert statistics service fake. */
+export const makeStatisticsService = () => ({
+  getStatistics: () => Effect.succeed(EMPTY_STATISTICS),
+  recordBlockMined: (_blockType: unknown) => Effect.succeed(EMPTY_STATISTICS),
+  recordMobKilled: (_mobType: unknown) => Effect.succeed(EMPTY_STATISTICS),
+  recordItemCrafted: (_itemType: unknown) => Effect.succeed(EMPTY_STATISTICS),
+  recordDimensionVisited: (_dimension: unknown) => Effect.succeed(EMPTY_STATISTICS),
+  reset: () => Effect.void,
+  serialize: () => Effect.succeed(EMPTY_STATISTICS),
+  deserialize: (_saved: unknown) => Effect.void,
+}) as unknown as InstanceType<typeof import('@ts-minecraft/entity').StatisticsService>
+
+/** Creates an inert achievement service fake. */
+export const makeAchievementService = () => ({
+  getUnlocked: () => Effect.succeed([]),
+  checkUnlocks: (_stats: unknown) => Effect.succeed([]),
+  reset: () => Effect.void,
+  serialize: () => Effect.succeed([]),
+  deserialize: (_ids: unknown) => Effect.void,
+}) as unknown as InstanceType<typeof import('@ts-minecraft/entity').AchievementService>

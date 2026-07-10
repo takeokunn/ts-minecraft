@@ -11,6 +11,7 @@ import { FurnaceService } from '@ts-minecraft/inventory/application/furnace-serv
 import { GameStateService } from '@ts-minecraft/game'
 import { ChunkManagerService } from '@ts-minecraft/world'
 import { XPService } from '@ts-minecraft/entity/application/xp-service'
+import { StatisticsService } from '@ts-minecraft/entity/application/statistics-service'
 import { DomOperationsService } from '@ts-minecraft/presentation/hud/crosshair'
 import { DeltaTimeSecs } from '@ts-minecraft/core'
 import { RecipeId, SlotIndex } from '@ts-minecraft/core'
@@ -269,6 +270,27 @@ export const createMockXPLayer = () => {
   return { MockXPLayer, addXP }
 }
 
+const EMPTY_STATISTICS = {
+  blocksMinedTotal: 0, blocksMinedByType: {}, mobsKilledTotal: 0, mobsKilledByType: {},
+  itemsCraftedTotal: 0, itemsCraftedByType: {}, dimensionsVisited: [],
+}
+
+export const createMockStatisticsLayer = () => {
+  const recordItemCrafted = vi.fn((_itemType: unknown) => Effect.succeed(EMPTY_STATISTICS))
+  const MockStatisticsLayer = Layer.succeed(StatisticsService, StatisticsService.of({
+    _tag: '@minecraft/application/StatisticsService' as const,
+    getStatistics: () => Effect.succeed(EMPTY_STATISTICS),
+    recordBlockMined: (_blockType) => Effect.succeed(EMPTY_STATISTICS),
+    recordMobKilled: (_mobType) => Effect.succeed(EMPTY_STATISTICS),
+    recordItemCrafted,
+    recordDimensionVisited: (_dimension) => Effect.succeed(EMPTY_STATISTICS),
+    reset: () => Effect.void,
+    serialize: () => Effect.succeed(EMPTY_STATISTICS),
+    deserialize: (_saved) => Effect.void,
+  }))
+  return { MockStatisticsLayer, recordItemCrafted }
+}
+
 export const createMockGameStateLayer = () => {
   const MockGameStateLayer = Layer.succeed(GameStateService, GameStateService.of({
     _tag: '@minecraft/application/GameStateService' as const,
@@ -333,6 +355,7 @@ export const buildTestLayer = (
     Layer.provide(mockGameState.MockGameStateLayer),
     Layer.provide(mockChunkManager.MockChunkManagerLayer),
     Layer.provide(mockXP.MockXPLayer),
+    Layer.provide(createMockStatisticsLayer().MockStatisticsLayer),
   )
 
 // ---------------------------------------------------------------------------

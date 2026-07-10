@@ -1,6 +1,6 @@
 import { Cause, Clock, Effect, HashMap, MutableRef, Option } from 'effect'
 import { DEFAULT_PLAYER_ID } from '@ts-minecraft/core'
-import type { Chunk } from '@ts-minecraft/world'
+import type { Chunk, FallingBlockMaintenanceState } from '@ts-minecraft/world'
 import { FALLBACK_PLAYER_POS } from '@ts-minecraft/app/frame-handler.config'
 import type { FrameHandlerDeps } from '@ts-minecraft/app/application/frame/types/deps'
 import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
@@ -16,6 +16,8 @@ type MaintenanceState = {
   readonly lastChunkStreamingRef: MutableRef.MutableRef<{ readonly cx: number; readonly cz: number; readonly renderDistance: number }>
   readonly chunkSyncPendingRef: MutableRef.MutableRef<boolean>
   readonly dirtyChunksRef: MutableRef.MutableRef<HashMap.HashMap<string, DirtyChunkEntry>>
+  // Event-driven falling-block scan bookkeeping (sweep cursor + cascade re-queue).
+  readonly fallingBlockState: FallingBlockMaintenanceState
   // Accumulated maintenance-tick time for crop growth; triggers tickAll() every CROP_GROWTH_INTERVAL_SECS.
   readonly cropTickAccumulatorRef: MutableRef.MutableRef<number>
   // Accumulated maintenance-tick time for fire spread and unsupported-fire extinguishing.

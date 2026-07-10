@@ -68,7 +68,7 @@ export const OFFSETS_3x3 = [
 
 // `radius` selects the square cache layout: 1 -> 3x3 (player physics),
 // 3 -> 7x7 (entity physics; must cover the 16-40 block mob spawn band).
-const blockIdAt = (
+export const blockIdAt = (
   wx: number, wy: number, wz: number,
   chunkCache: ReadonlyArray<{ blocks: Uint8Array } | null>,
   playerCx: number,

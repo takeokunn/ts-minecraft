@@ -93,6 +93,16 @@ const makeDeps = (overrides?: {
   }
   const entityManager = {
     getEntities: vi.fn(() => Effect.succeed([])),
+    getEntitiesAllDimensions: vi.fn(() => Effect.succeed([])),
+  }
+  const netherService = {
+    getDimension: vi.fn(() => Effect.succeed('overworld' as const)),
+  }
+  const statisticsService = {
+    serialize: vi.fn(() => Effect.succeed({ blocksMinedTotal: 0, blocksMinedByType: {}, mobsKilledTotal: 0, mobsKilledByType: {}, itemsCraftedTotal: 0, itemsCraftedByType: {}, dimensionsVisited: [] })),
+  }
+  const achievementService = {
+    serialize: vi.fn(() => Effect.succeed([])),
   }
   const worldBootstrap = makeWorldBootstrap()
   const worldId = WorldId.make('world-1')
@@ -106,6 +116,8 @@ const makeDeps = (overrides?: {
       healthService,
       hungerService,
       xpService,
+      statisticsService,
+      achievementService,
       timeService,
       chestService,
       furnaceService,
@@ -113,6 +125,7 @@ const makeDeps = (overrides?: {
       weatherService,
       storageService,
       cropGrowthService,
+      netherService,
       entityManager,
       worldBootstrap,
       worldId,
@@ -266,13 +279,17 @@ describe('buildPersistSessionState', () => {
         isBaby: true,
       },
     ]
-    spies.entityManager.getEntities.mockReturnValue(Effect.succeed(entityStates as never))
+    spies.entityManager.getEntitiesAllDimensions.mockReturnValue(
+      Effect.succeed(entityStates.map((entity) => ({ dimension: 'nether' as const, entity })) as never),
+    )
     const persistFn = buildPersistSessionState(deps)
 
     await Effect.runPromise(persistFn())
 
-    expect(spies.entityManager.getEntities).toHaveBeenCalledOnce()
-    const [, metadata] = spies.storageService.saveWorldMetadata.mock.calls[0] as [unknown, { entityStates: unknown }]
-    expect(metadata.entityStates).toEqual(entityStates)
+    expect(spies.entityManager.getEntitiesAllDimensions).toHaveBeenCalledOnce()
+    const [, metadata] = spies.storageService.saveWorldMetadata.mock.calls[0] as [unknown, { entityStates: unknown; activeDimension: unknown }]
+    // Each entity carries its home dimension so the load rebuilds the pools.
+    expect(metadata.entityStates).toEqual(entityStates.map((e) => ({ ...e, dimension: 'nether' })))
+    expect(metadata.activeDimension).toBe('overworld')
   })
 })

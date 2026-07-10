@@ -14,6 +14,7 @@ createMockGameStateLayer,
 createMockHotbarLayer,
 createMockInventoryLayer,
 createMockRecipeLayer,
+createMockStatisticsLayer,
 createMockXPLayer,
 makeFurnaceRecipe,
 makeRecipe,
@@ -81,6 +82,7 @@ describe('presentation/inventory/inventory-renderer (recipe)', () => {
         Layer.provide(createMockGameStateLayer().MockGameStateLayer),
         Layer.provide(createMockChunkManagerLayer().MockChunkManagerLayer),
         Layer.provide(createMockXPLayer().MockXPLayer),
+        Layer.provide(createMockStatisticsLayer().MockStatisticsLayer),
       )
 
       return Effect.gen(function* () {
@@ -125,6 +127,7 @@ describe('presentation/inventory/inventory-renderer (recipe)', () => {
         Layer.provide(createMockGameStateLayer().MockGameStateLayer),
         Layer.provide(createMockChunkManagerLayer().MockChunkManagerLayer),
         Layer.provide(createMockXPLayer().MockXPLayer),
+        Layer.provide(createMockStatisticsLayer().MockStatisticsLayer),
       )
 
       return Effect.gen(function* () {

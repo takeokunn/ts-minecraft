@@ -3,6 +3,7 @@ import { DomOperationsService } from '@ts-minecraft/presentation/hud/crosshair'
 import { GameStateService } from '@ts-minecraft/game'
 import { GameModeService } from '@ts-minecraft/game'
 import { HealthService } from '@ts-minecraft/entity/application/health-service'
+import { HungerService } from '@ts-minecraft/entity/application/hunger-service'
 import { DEFAULT_PLAYER_ID } from '@ts-minecraft/core'
 import {
   type SessionControl,
@@ -26,6 +27,7 @@ export class DeathScreenService extends Effect.Service<DeathScreenService>()(
       const gameState = yield* GameStateService
       const gameMode = yield* GameModeService
       const healthService = yield* HealthService
+      const hungerService = yield* HungerService
       const { backdropEl, messageEl, respawnBtn, quitBtn } = yield* Effect.acquireRelease(
         Effect.sync((): DeathScreenDom => buildDeathScreenDOM(dom)),
         ({ backdropEl }) =>
@@ -74,6 +76,8 @@ export class DeathScreenService extends Effect.Service<DeathScreenService>()(
                 const { deathPos } = yield* captureDeathContext()
                 yield* Effect.log(`Player died at (${deathPos.x}, ${deathPos.y}, ${deathPos.z}); respawning at (${spawnPosition.x}, ${spawnPosition.y}, ${spawnPosition.z})`)
                 yield* healthService.reset()
+                // Vanilla respawn restores food to full (20) alongside health.
+                yield* hungerService.reset()
                 // `gameState.respawn` is mode-aware: clears inventory in
                 // survival, preserves it in creative.
                 yield* gameState.respawn(spawnPosition).pipe(

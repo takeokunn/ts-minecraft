@@ -17,6 +17,7 @@ import type {
 import { chunkSyncStage } from '@ts-minecraft/app/frame/stages/chunk-sync-stage'
 import { cameraStage } from '@ts-minecraft/app/frame/stages/camera-stage'
 import { entityUpdateStage } from '@ts-minecraft/app/frame/stages/entity-update-stage'
+import { achievementStage } from '@ts-minecraft/app/frame/stages/achievement-stage'
 import { hudStage } from '@ts-minecraft/app/frame/stages/hud-stage'
 import { inputStage } from '@ts-minecraft/app/frame/stages/input-stage'
 import { interactionStage } from '@ts-minecraft/app/frame/stages/interaction-stage'
@@ -238,6 +239,7 @@ export const runPresentationFrameStages = (
       fpsElementOrNull: inputs.resolved.fpsElementOrNull,
       paused: inputs.sessionPaused,
     }))
+    yield* markEffect('frame:achievements', achievementStage(services, refs.achievementCheckAccumulatorRef, inputs.deltaTime))
   })
 
 export const primeFrameEnvironment = (

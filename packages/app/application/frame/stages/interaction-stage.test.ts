@@ -1,5 +1,5 @@
 import { describe, it } from '@effect/vitest'
-import { Effect, HashMap, MutableHashSet, MutableRef, Option } from 'effect'
+import { Effect, HashMap, MutableHashSet, MutableRef, Option, Ref } from 'effect'
 import { expect, vi } from 'vitest'
 import { makeDeps } from '../../../test/frame-handler-test-kit/orchestration/deps'
 import { runFrame } from '../../../test/frame-handler-test-kit/orchestration/harness'
@@ -54,6 +54,9 @@ describe('step 7 — block interaction', () => {
     breakProgressRef: MutableRef.make<{ blockKey: string; ticks: number; totalTicks: number } | null>(null),
     bowChargeStartRef: MutableRef.make<number | null>(null),
     isShieldBlockingRef: MutableRef.make(false),
+    hitStopFramesRef: MutableRef.make(0),
+    entityPhysicsChunkCacheRef: Ref.unsafeMake<Array<Chunk | null>>(Array.from({ length: 49 }, () => null)),
+    lastEntityPhysicsChunkCoordRef: Ref.unsafeMake({ cx: NaN, cz: NaN }),
   })
 
   it.effect('skips interaction input while the game is paused', () => Effect.gen(function* () {

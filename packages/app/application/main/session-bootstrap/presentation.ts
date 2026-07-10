@@ -6,6 +6,8 @@ import { DebugOverlayService } from '@ts-minecraft/presentation'
 import { LoadingScreenService } from '@ts-minecraft/presentation'
 import { BlockHighlightService } from '@ts-minecraft/presentation'
 import { DamageOverlayService } from '@ts-minecraft/presentation'
+import { AchievementToastService } from '@ts-minecraft/presentation'
+import { DimensionFadeService } from '@ts-minecraft/presentation'
 import { SleepOverlayService } from '@ts-minecraft/presentation'
 import { InputService } from '@ts-minecraft/presentation'
 import { HotbarRendererService } from '@ts-minecraft/presentation'
@@ -22,6 +24,8 @@ export const buildPresentationBootstrapServices = Effect.gen(function* () {
   const [
     crosshair,
     damageOverlay,
+    achievementToast,
+    dimensionFade,
     sleepOverlay,
     controlsHint,
     blockHighlight,
@@ -39,6 +43,8 @@ export const buildPresentationBootstrapServices = Effect.gen(function* () {
   ] = yield* Effect.all([
     CrosshairService,
     DamageOverlayService,
+    AchievementToastService,
+    DimensionFadeService,
     SleepOverlayService,
     ControlsHintService,
     BlockHighlightService,
@@ -58,6 +64,8 @@ export const buildPresentationBootstrapServices = Effect.gen(function* () {
   return {
     crosshair,
     damageOverlay,
+    achievementToast,
+    dimensionFade,
     sleepOverlay,
     controlsHint,
     blockHighlight,

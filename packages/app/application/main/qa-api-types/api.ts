@@ -6,6 +6,8 @@ import type { QaDebugState } from '@ts-minecraft/app/main/qa-api-debug-state'
 import type { QaFrameStats } from '@ts-minecraft/app/main/qa-api-perf'
 import type { QaVillageState } from '@ts-minecraft/app/main/qa-api-village'
 import type { QaMobAi } from '@ts-minecraft/app/main/qa-api-mob-ai'
+import type { CapturedLogEntry } from '@ts-minecraft/app/main/debug-log-capture'
+import type { FrameSpikeEntry } from '@ts-minecraft/app/main/debug-frame-spikes'
 
 export type QaApi = {
   readonly getInventorySnapshot: () => Promise<ReadonlyArray<null | {
@@ -72,6 +74,12 @@ export type QaApi = {
   readonly getRedstonePowerAtForQA: (x: number, y: number, z: number) => Promise<number>
   readonly getMobAiForQA: () => Promise<QaMobAi>
   readonly killPlayerForQA: () => Promise<void>
+  // Sync readers over boot-installed ring buffers (debug-log-capture /
+  // debug-frame-spikes) — empty arrays when the installer never ran (SSR/tests).
+  readonly getCapturedLogsForQA: () => ReadonlyArray<CapturedLogEntry>
+  readonly clearCapturedLogsForQA: () => void
+  readonly getFrameSpikesForQA: () => ReadonlyArray<FrameSpikeEntry>
+  readonly clearFrameSpikesForQA: () => void
   readonly getDebugFeatureSnapshot: () => Promise<DebugFeatureSnapshot>
   readonly setDebugFeatureEnabled: (id: DebugFeatureFlagId, enabled: boolean) => Promise<boolean>
   readonly resetDebugFeatures: (group?: DebugFeatureFlagGroup) => Promise<void>

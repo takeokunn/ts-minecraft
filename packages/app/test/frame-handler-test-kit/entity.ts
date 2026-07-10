@@ -109,6 +109,27 @@ export const makeFishingService = () => ({
   reset: () => Effect.void,
 }) as unknown as InstanceType<typeof import('@ts-minecraft/entity').FishingService>
 
+/** Creates an inert statistics service fake. */
+export const makeStatisticsService = () => ({
+  getStatistics: () => Effect.succeed({ blocksMinedTotal: 0, blocksMinedByType: {}, mobsKilledTotal: 0, mobsKilledByType: {}, itemsCraftedTotal: 0, itemsCraftedByType: {}, dimensionsVisited: [] }),
+  recordBlockMined: (_blockType: unknown) => Effect.succeed({ blocksMinedTotal: 1, blocksMinedByType: {}, mobsKilledTotal: 0, mobsKilledByType: {}, itemsCraftedTotal: 0, itemsCraftedByType: {}, dimensionsVisited: [] }),
+  recordMobKilled: (_mobType: unknown) => Effect.succeed({ blocksMinedTotal: 0, blocksMinedByType: {}, mobsKilledTotal: 1, mobsKilledByType: {}, itemsCraftedTotal: 0, itemsCraftedByType: {}, dimensionsVisited: [] }),
+  recordItemCrafted: (_itemType: unknown) => Effect.succeed({ blocksMinedTotal: 0, blocksMinedByType: {}, mobsKilledTotal: 0, mobsKilledByType: {}, itemsCraftedTotal: 1, itemsCraftedByType: {}, dimensionsVisited: [] }),
+  recordDimensionVisited: (_dimension: unknown) => Effect.succeed({ blocksMinedTotal: 0, blocksMinedByType: {}, mobsKilledTotal: 0, mobsKilledByType: {}, itemsCraftedTotal: 0, itemsCraftedByType: {}, dimensionsVisited: [] }),
+  reset: () => Effect.void,
+  serialize: () => Effect.succeed({ blocksMinedTotal: 0, blocksMinedByType: {}, mobsKilledTotal: 0, mobsKilledByType: {}, itemsCraftedTotal: 0, itemsCraftedByType: {}, dimensionsVisited: [] }),
+  deserialize: (_saved: unknown) => Effect.void,
+}) as unknown as InstanceType<typeof import('@ts-minecraft/entity').StatisticsService>
+
+/** Creates an inert achievement service fake. */
+export const makeAchievementService = () => ({
+  getUnlocked: () => Effect.succeed([]),
+  checkUnlocks: (_stats: unknown) => Effect.succeed([]),
+  reset: () => Effect.void,
+  serialize: () => Effect.succeed([]),
+  deserialize: (_ids: unknown) => Effect.void,
+}) as unknown as InstanceType<typeof import('@ts-minecraft/entity').AchievementService>
+
 /** Creates an empty dropped item service fake. */
 export const makeDroppedItemService = () => ({
   spawn: (_input: unknown) => Effect.succeed({
@@ -222,6 +243,7 @@ export const makeEntityManager = () => ({
   shearEntity: (_entityId: unknown) => Effect.succeed(Option.none()),
   despawnAllEntities: () => Effect.succeed(0),
   despawnFarEntities: (_playerPosition: unknown, _maxDistance: unknown) => Effect.succeed(0),
+  setActiveDimension: (_dimension: unknown) => Effect.void,
   // Stub that exercises the collision-resolver callback (so isBlockSolid in entity-update-stage runs).
   // The resolver is the output-parameter form: (outPos, outVel, pos, vel) => isGrounded.
   applyPhysics: (_dt: unknown, resolver: unknown) => {

@@ -20,6 +20,9 @@ const makeWorldBootstrap = (overrides?: Partial<{
   savedChestStates: Option.none(),
   savedWeatherState: Option.none(),
   savedEntityStates: Option.none(),
+  savedStatistics: Option.none(),
+  savedUnlockedAchievements: Option.none(),
+  savedActiveDimension: Option.none(),
   gameMode: 'survival' as const,
   ...overrides,
 })
@@ -52,11 +55,15 @@ const makeServices = () => ({
   },
   hungerService: { restore: vi.fn(() => Effect.void), reset: vi.fn(() => Effect.void) },
   xpService: { setTotalXP: vi.fn(() => Effect.void), reset: vi.fn(() => Effect.void) },
+  statisticsService: { reset: vi.fn(() => Effect.void), deserialize: vi.fn(() => Effect.void) },
+  achievementService: { reset: vi.fn(() => Effect.void), deserialize: vi.fn(() => Effect.void) },
   chestService: { deserialize: vi.fn(() => Effect.void) },
   furnaceService: { deserialize: vi.fn(() => Effect.void) },
   weatherService: { restore: vi.fn(() => Effect.void), setWeather: vi.fn(() => Effect.void) },
   cropGrowthService: { restore: vi.fn(() => Effect.void) },
-  entityManager: { applyEntitySnapshot: vi.fn(() => Effect.succeed('created' as const)), clear: vi.fn(() => Effect.void) },
+  entityManager: { applyEntitySnapshot: vi.fn(() => Effect.succeed('created' as const)), clear: vi.fn(() => Effect.void), setActiveDimension: vi.fn(() => Effect.void) },
+  netherService: { setDimension: vi.fn(() => Effect.void) },
+  chunkManagerService: { setActiveDimension: vi.fn(() => Effect.void) },
   gameState: { enterBoat: vi.fn(() => Effect.void), enterMinecart: vi.fn(() => Effect.void) },
 })
 
@@ -196,5 +203,47 @@ describe('restoreSavedState', () => {
       fuseSecs: 2.5,
       fireSecs: 4,
     })
+  })
+
+  it('rebuilds per-dimension entity pools and lands in the saved dimension', async () => {
+    const base = {
+      position: { x: 0, y: 64, z: 0 },
+      velocity: { x: 0, y: 0, z: 0 },
+      rotation: { x: 0, y: 0, z: 0, w: 1 },
+      health: 10,
+    }
+    const entityStates = [
+      { ...base, entityId: 'cow-1', type: 'Cow' as const, dimension: 'overworld' as const },
+      { ...base, entityId: 'blaze-1', type: 'Blaze' as const, dimension: 'nether' as const },
+    ]
+    const worldBootstrap = makeWorldBootstrap({
+      savedEntityStates: Option.some(entityStates) as never,
+      savedActiveDimension: Option.some('nether') as never,
+    })
+    const services = makeServices()
+
+    await Effect.runPromise(restoreSavedState(worldBootstrap as never, services as never))
+
+    // Each populated dimension is selected before its snapshots apply; the
+    // FINAL selection is the dimension the world was saved in.
+    const dimCalls = services.entityManager.setActiveDimension.mock.calls.map((c) => c[0])
+    expect(dimCalls).toEqual(['overworld', 'nether', 'nether'])
+    expect(services.entityManager.applyEntitySnapshot).toHaveBeenCalledTimes(2)
+    // World-level dimension services re-enter the saved dimension too.
+    expect(services.netherService.setDimension).toHaveBeenLastCalledWith('nether')
+    expect(services.chunkManagerService.setActiveDimension).toHaveBeenLastCalledWith('nether')
+  })
+
+  it('a world saved without dimension info lands in the overworld', async () => {
+    const worldBootstrap = makeWorldBootstrap()
+    const services = makeServices()
+
+    await Effect.runPromise(restoreSavedState(worldBootstrap as never, services as never))
+
+    // Reset puts every dimension-aware service back to overworld; with no
+    // saved dimension there must be no nether/end re-entry afterwards.
+    expect(services.netherService.setDimension).toHaveBeenCalledWith('overworld')
+    expect(services.netherService.setDimension).not.toHaveBeenCalledWith('nether')
+    expect(services.entityManager.setActiveDimension).toHaveBeenLastCalledWith('overworld')
   })
 })

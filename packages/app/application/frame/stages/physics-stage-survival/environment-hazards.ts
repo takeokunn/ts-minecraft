@@ -19,6 +19,7 @@ import type { BlockType, Position } from '@ts-minecraft/core'
 import { resolveTotalFireProtectionReduction } from './fire-protection-logic'
 import { applyCadencedHazard } from './hazard-logic'
 import { applyDamageAndPlayHurt } from './feedback'
+import type { PlayerDamageCause } from '@ts-minecraft/entity/domain/player-damage-cause'
 import type { ApplyPlayerDamage } from './types'
 import type { PhysicsStageInputs } from '../physics-stage-types/inputs'
 import type { PhysicsStageRefs } from '../physics-stage-types/refs'
@@ -29,11 +30,12 @@ const applyFireProtectedDamage = (
   refreshedPos: Position,
   applyDamage: ApplyPlayerDamage,
   baseDamage: number,
+  cause: PlayerDamageCause,
 ) =>
   services.equipmentService.getAll().pipe(
     Effect.flatMap((armorSlots) => {
       const fireProtTotal = resolveTotalFireProtectionReduction(armorSlots)
-      return applyDamageAndPlayHurt(services, refreshedPos, applyDamage, baseDamage * (1 - fireProtTotal))
+      return applyDamageAndPlayHurt(services, refreshedPos, applyDamage, baseDamage * (1 - fireProtTotal), cause)
     }),
   )
 
@@ -69,7 +71,7 @@ export const applySurvivalHazardEffects = (
     accumulatorRef: refs.lavaDamageSecsRef,
     deltaTime: inputs.deltaTime,
     intervalSecs: LAVA_DAMAGE_INTERVAL_SECS,
-    onTicks: (ticks) => applyFireProtectedDamage(services, refreshedPos, applyDamage, LAVA_DAMAGE * ticks),
+    onTicks: (ticks) => applyFireProtectedDamage(services, refreshedPos, applyDamage, LAVA_DAMAGE * ticks, { kind: 'lava' }),
   }).pipe(
     Effect.flatMap(() =>
       applyCadencedHazard({
@@ -77,12 +79,12 @@ export const applySurvivalHazardEffects = (
         accumulatorRef: refs.lavaBurnDamageSecsRef,
         deltaTime: inputs.deltaTime,
         intervalSecs: FIRE_DAMAGE_INTERVAL_SECS,
-        onTicks: (ticks) => applyFireProtectedDamage(services, refreshedPos, applyDamage, FIRE_DAMAGE * ticks),
+        onTicks: (ticks) => applyFireProtectedDamage(services, refreshedPos, applyDamage, FIRE_DAMAGE * ticks, { kind: 'fire' }),
       }),
     ),
     Effect.flatMap(() =>
       !movement.inCreative && touchingCactus
-        ? applyDamageAndPlayHurt(services, refreshedPos, applyDamage, CACTUS_DAMAGE).pipe(Effect.asVoid)
+        ? applyDamageAndPlayHurt(services, refreshedPos, applyDamage, CACTUS_DAMAGE, { kind: 'cactus' }).pipe(Effect.asVoid)
         : Effect.void,
     ),
     Effect.flatMap(() =>
@@ -91,7 +93,7 @@ export const applySurvivalHazardEffects = (
         accumulatorRef: refs.lightningDamageSecsRef,
         deltaTime: inputs.deltaTime,
         intervalSecs: LIGHTNING_DAMAGE_INTERVAL_SECS,
-        onTicks: (ticks) => applyDamageAndPlayHurt(services, refreshedPos, applyDamage, LIGHTNING_DAMAGE * ticks),
+        onTicks: (ticks) => applyDamageAndPlayHurt(services, refreshedPos, applyDamage, LIGHTNING_DAMAGE * ticks, { kind: 'lightning' }),
       }),
     ),
     Effect.flatMap(() =>
@@ -100,7 +102,7 @@ export const applySurvivalHazardEffects = (
         accumulatorRef: refs.suffocationDamageSecsRef,
         deltaTime: inputs.deltaTime,
         intervalSecs: SUFFOCATION_DAMAGE_INTERVAL_SECS,
-        onTicks: (ticks) => applyDamageAndPlayHurt(services, refreshedPos, applyDamage, SUFFOCATION_DAMAGE * ticks),
+        onTicks: (ticks) => applyDamageAndPlayHurt(services, refreshedPos, applyDamage, SUFFOCATION_DAMAGE * ticks, { kind: 'suffocation' }),
       }),
     ),
     Effect.flatMap(() =>
@@ -109,7 +111,7 @@ export const applySurvivalHazardEffects = (
         accumulatorRef: refs.voidDamageSecsRef,
         deltaTime: inputs.deltaTime,
         intervalSecs: VOID_DAMAGE_INTERVAL_SECS,
-        onTicks: (ticks) => applyDamageAndPlayHurt(services, refreshedPos, applyDamage, VOID_DAMAGE * ticks),
+        onTicks: (ticks) => applyDamageAndPlayHurt(services, refreshedPos, applyDamage, VOID_DAMAGE * ticks, { kind: 'void' }),
       }),
     ),
   )

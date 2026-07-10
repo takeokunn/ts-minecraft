@@ -11,6 +11,8 @@ import { toPublicEntity } from '../../domain/mob/entity-utils'
 import type { ExplosionEvent } from '../../domain/explosion'
 import type { DragonDeathEvent } from '../../domain/mob/ender-dragon/dragon-death'
 
+export type EntityDimension = 'overworld' | 'nether' | 'end'
+
 export class EntityManager extends Effect.Service<EntityManager>()(
   '@minecraft/entity/EntityManager',
   {
@@ -32,6 +34,12 @@ export class EntityManager extends Effect.Service<EntityManager>()(
       // Pending player burn seconds from Blaze fireball hits (drained by the frame).
       const playerIgniteSecsRef = yield* Ref.make(0)
       const playerShotOriginsRef = yield* Ref.make<ReadonlyArray<import('./entity-manager-combat').PlayerShotOrigin>>([])
+      // Entities belong to a dimension: travelling through a portal must not
+      // bring overworld mobs into the nether/end. The live map always holds the
+      // ACTIVE dimension's entities; the other dimensions' populations are
+      // parked here (full ManagedEntity state, so AI/fuse/age survive a round trip).
+      const activeDimensionRef = yield* Ref.make<EntityDimension>('overworld')
+      const dimensionPoolsRef = yield* Ref.make(HashMap.empty<EntityDimension, HashMap.HashMap<EntityIdType, ManagedEntity>>())
       const internal = makeEntityManagerInternal(entitiesRef, cachedEntitiesRef, structureVersionRef, explosionsRef, playerIgniteSecsRef, playerShotOriginsRef)
       const mutations = makeEntityManagerMutations(
         entitiesRef,
@@ -61,6 +69,30 @@ export class EntityManager extends Effect.Service<EntityManager>()(
             yield* Ref.set(birthsRef, 0)
             yield* Ref.set(playerIgniteSecsRef, 0)
             yield* Ref.set(burnAccumulatorRef, 0)
+            // Parked dimensions are part of the same world: a new world must not
+            // inherit the previous world's nether/end populations either.
+            yield* Ref.set(dimensionPoolsRef, HashMap.empty<EntityDimension, HashMap.HashMap<EntityIdType, ManagedEntity>>())
+            yield* Ref.set(activeDimensionRef, 'overworld')
+          }),
+
+        // Swap the live entity set for the target dimension's parked population
+        // (empty on first visit). Mirrors ChunkManagerService.setActiveDimension —
+        // call both together when the player changes dimension.
+        setActiveDimension: (dimension: EntityDimension): Effect.Effect<void, never> =>
+          Effect.gen(function* () {
+            const current = yield* Ref.get(activeDimensionRef)
+            if (current === dimension) return
+            const live = yield* Ref.get(entitiesRef)
+            yield* Ref.update(dimensionPoolsRef, (pools) => HashMap.set(pools, current, live))
+            const pools = yield* Ref.get(dimensionPoolsRef)
+            const restored = Option.getOrElse(
+              HashMap.get(pools, dimension),
+              () => HashMap.empty<EntityIdType, ManagedEntity>(),
+            )
+            yield* Ref.set(entitiesRef, restored)
+            yield* Ref.set(activeDimensionRef, dimension)
+            yield* Ref.set(cachedEntitiesRef, Option.none())
+            yield* Ref.update(structureVersionRef, (v) => v + 1)
           }),
 
         getEntity: (entityId: EntityIdType): Effect.Effect<Option.Option<Entity>, never> =>
@@ -81,6 +113,29 @@ export class EntityManager extends Effect.Service<EntityManager>()(
               result.push(toPublicEntity(entity))
             }
             yield* Ref.set(cachedEntitiesRef, Option.some(result))
+            return result
+          }),
+
+        // Save-oriented view over ALL dimensions (live + parked pools), each
+        // entity tagged with its home dimension so a load can rebuild the pools.
+        getEntitiesAllDimensions: (): Effect.Effect<
+          ReadonlyArray<{ readonly dimension: EntityDimension; readonly entity: Entity }>,
+          never
+        > =>
+          Effect.gen(function* () {
+            const active = yield* Ref.get(activeDimensionRef)
+            const live = yield* Ref.get(entitiesRef)
+            const pools = yield* Ref.get(dimensionPoolsRef)
+            const result: Array<{ readonly dimension: EntityDimension; readonly entity: Entity }> = []
+            for (const entity of HashMap.values(live)) {
+              result.push({ dimension: active, entity: toPublicEntity(entity) })
+            }
+            for (const [dimension, pool] of HashMap.entries(pools)) {
+              if (dimension === active) continue
+              for (const entity of HashMap.values(pool)) {
+                result.push({ dimension, entity: toPublicEntity(entity) })
+              }
+            }
             return result
           }),
 

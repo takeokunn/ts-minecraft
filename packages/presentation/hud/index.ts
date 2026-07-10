@@ -16,6 +16,21 @@ export {
   makeSleepOverlay,
   type SleepOverlay,
 } from './sleep-overlay'
+export {
+  ACHIEVEMENT_TOAST_FADE_MS,
+  ACHIEVEMENT_TOAST_VISIBLE_MS,
+  AchievementToastService,
+  makeAchievementToast,
+  type AchievementToast,
+} from './achievement-toast'
+export {
+  DIMENSION_FADE_HOLD_MS,
+  DIMENSION_FADE_IN_MS,
+  DIMENSION_FADE_OUT_MS,
+  DimensionFadeService,
+  makeDimensionFade,
+  type DimensionFade,
+} from './dimension-fade'
 export { ControlsHintService } from './controls-hint'
 export { HotbarRendererService } from './hotbar-three'
 export {

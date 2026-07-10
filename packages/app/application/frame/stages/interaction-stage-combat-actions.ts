@@ -31,6 +31,7 @@ export const runInteractionStageCombatActions = (
     | 'redstoneService'
     | 'droppedItemService'
     | 'droppedXpOrbService'
+    | 'statisticsService'
   >,
   refs: Pick<
     FrameStageRefs,

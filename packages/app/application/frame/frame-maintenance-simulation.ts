@@ -1,10 +1,11 @@
-import { Effect, MutableRef, Option } from 'effect'
+import { Effect, HashMap, MutableRef, Option } from 'effect'
 import { runMobMaintenance } from '@ts-minecraft/entity/application/mob/mob-maintenance'
 import { runVillageMaintenance } from '@ts-minecraft/entity/application/village/village-maintenance'
 import type { EntityId } from '@ts-minecraft/entity/domain/mob/entity'
 import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
 import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
-import { runCropGrowthMaintenance, runFallingBlockMaintenance, runFireMaintenance } from '@ts-minecraft/world'
+import { runCropGrowthMaintenance, runFallingBlockMaintenance, runFireMaintenance, type FallingBlockMaintenanceState } from '@ts-minecraft/world'
+import type { DirtyChunkEntry } from './frame-maintenance-dirty'
 import { runFurnaceMaintenance } from './frame-maintenance-furnace'
 import { resolveMaintenanceTimeOfDay } from './frame-maintenance-time-of-day'
 import {
@@ -15,6 +16,10 @@ import {
 type MaintenanceSimulationState = {
   readonly cropTickAccumulatorRef: MutableRef.MutableRef<number>
   readonly fireTickAccumulatorRef: MutableRef.MutableRef<number>
+  readonly fallingBlockState: FallingBlockMaintenanceState
+  // Read (not drained) to gate the falling-block scan to chunks whose blocks
+  // changed this cycle; runMaintenanceSync drains it AFTER simulation runs.
+  readonly dirtyChunksRef: MutableRef.MutableRef<HashMap.HashMap<string, DirtyChunkEntry>>
 }
 
 type MaintenanceSimulationServices = Pick<
@@ -75,7 +80,8 @@ export const runMaintenanceSimulation = (
       yield* runFurnaceMaintenance({ furnaceService }, maintenanceDeltaTime)
     }
 
-    yield* runFallingBlockMaintenance({ blockService, chunkManagerService })
+    const dirtyCoordKeys = new Set(HashMap.keys(MutableRef.get(state.dirtyChunksRef)))
+    yield* runFallingBlockMaintenance({ blockService, chunkManagerService }, state.fallingBlockState, dirtyCoordKeys)
     yield* runFireMaintenance({ blockService, chunkManagerService }, state, maintenanceDeltaTime)
 
     // Crop growth tick — advance all player-planted crops every CROP_GROWTH_INTERVAL_SECS.
@@ -93,8 +99,10 @@ export const runMaintenanceSimulation = (
     )
 
     // Village maintenance reuses the already-fetched timeOfDay so we do not
-    // call TimeService twice in the same maintenance pass.
-    if (plan.shouldRunVillage) {
+    // call TimeService twice in the same maintenance pass. Villages are an
+    // overworld feature: running this in the nether/end would spawn villagers
+    // next to the player in the wrong dimension.
+    if (plan.shouldRunVillage && dimension === 'overworld') {
       yield* runVillageMaintenance(
         { chunkManagerService, blockService, villageService, entityManager },
         playerPos,

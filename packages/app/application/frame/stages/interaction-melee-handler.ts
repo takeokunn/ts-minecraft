@@ -69,6 +69,7 @@ export const handleLeftClick = (
     | 'hungerService'
     | 'droppedItemService'
     | 'droppedXpOrbService'
+    | 'statisticsService'
   >,
   refs: Pick<FrameStageRefs, 'dirtyChunksRef' | 'totalTimeSecsRef' | 'lastPlayerAttackTimeRef' | 'attackSwingStateRef' | 'hitStopFramesRef'>,
   context: {
@@ -202,6 +203,10 @@ export const handleLeftClick = (
     // (babies grant none, matching vanilla).
     if (Option.isSome(drops) && entity !== null && !wasBaby) {
       yield* spawnMobXpOrb(services, entity, getMobDefinition(entity.type).xpReward)
+    }
+    // Kill statistics feed the achievement system (drops = Some means the hit was lethal).
+    if (Option.isSome(drops) && entity !== null) {
+      yield* services.statisticsService.recordMobKilled(entity.type)
     }
 
     // Vocalization runs after damage: kill → mobDeath, survive → mobHurt.

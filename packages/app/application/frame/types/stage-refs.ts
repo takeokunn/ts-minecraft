@@ -29,6 +29,8 @@ export type FrameStageRefs = {
   // totalTimeSecs of the player's last melee attack — drives attack-cooldown charge.
   readonly lastPlayerAttackTimeRef: MutableRef.MutableRef<number>
   readonly attackSwingStateRef: MutableRef.MutableRef<AttackSwingState>
+  // Accumulated seconds since the last achievement-unlock evaluation (1s cadence).
+  readonly achievementCheckAccumulatorRef: MutableRef.MutableRef<number>
   // Accumulated seconds the player has been standing inside a NETHER_PORTAL block.
   // Resets to 0 when the player leaves the portal. Dimension travel fires when this
   // reaches PORTAL_ACTIVATION_SECS (4 seconds — vanilla 80-tick equivalent).

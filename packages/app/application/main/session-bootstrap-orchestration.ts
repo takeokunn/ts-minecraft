@@ -24,7 +24,7 @@ export const buildSessionBootstrapOrchestration = (deps: SessionBootstrapDeps) =
 
     const { rendering, world, gameplay, presentation, inventory, entity, multiplayer } = services
     const { sceneService, cameraService, worldRendererService, particleSystem } = rendering
-    const { chunkManagerService, biomeService, cropGrowthService } = world
+    const { chunkManagerService, biomeService, cropGrowthService, netherService } = world
     const { gameState, timeService, weatherService, gameModeService } = gameplay
     const {
       debugOverlay,
@@ -42,6 +42,8 @@ export const buildSessionBootstrapOrchestration = (deps: SessionBootstrapDeps) =
       healthService,
       hungerService,
       xpService,
+      statisticsService,
+      achievementService,
       entityManager,
     } = entity
 
@@ -94,10 +96,14 @@ export const buildSessionBootstrapOrchestration = (deps: SessionBootstrapDeps) =
         healthService,
         hungerService,
         xpService,
+        statisticsService,
+        achievementService,
         chestService,
         furnaceService,
         weatherService,
         cropGrowthService,
+        netherService,
+        chunkManagerService,
         entityManager,
       },
     })

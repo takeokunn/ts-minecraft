@@ -65,6 +65,9 @@ export const executeBlockBreak = (
 
     if (creative) return
 
+    // Statistics feed the achievement system; creative breaks don't count (vanilla).
+    yield* services.statisticsService.recordBlockMined(blockType)
+
     const shouldSpawnBaseDrop =
       !isNeverDroppedBlock(blockType) &&
       cropDropRule === undefined &&

@@ -33,7 +33,7 @@ export type SessionRuntimeOverlayServices = Pick<
   | 'blockService'
   | 'hotbarService'
   | 'furnaceService'
-  | 'xpService'
+  | 'xpService' | 'statisticsService'
   | 'villageService'
   | 'redstoneService'
   | 'healthService'
@@ -256,6 +256,7 @@ export const installSessionRuntimeOverlays = (
       hotbarService,
       furnaceService,
       xpService,
+      statisticsService,
       villageService,
       redstoneService,
       healthService,
@@ -294,6 +295,7 @@ export const installSessionRuntimeOverlays = (
       recipeService,
       furnaceService,
       xpService,
+      statisticsService,
       villageService,
       redstoneService,
       healthService,

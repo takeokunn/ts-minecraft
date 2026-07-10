@@ -11,9 +11,11 @@ import { FurnaceService } from '@ts-minecraft/inventory/application/furnace-serv
 import { HealthService } from '@ts-minecraft/entity/application/health-service'
 import { HungerService } from '@ts-minecraft/entity/application/hunger-service'
 import { XPService } from '@ts-minecraft/entity/application/xp-service'
+import { StatisticsService } from '@ts-minecraft/entity/application/statistics-service'
+import { AchievementService } from '@ts-minecraft/entity/application/achievement-service'
 import type { EntityManager } from '@ts-minecraft/entity/application/mob/entity-manager'
 import { PlayerError } from '@ts-minecraft/entity/domain/errors'
-import { StorageService, CropGrowthService } from '@ts-minecraft/world'
+import { StorageService, CropGrowthService, NetherService } from '@ts-minecraft/world'
 import { StorageError } from '@ts-minecraft/world'
 import { DEFAULT_PLAYER_ID, WorldId, type Position } from '@ts-minecraft/core'
 
@@ -28,6 +30,8 @@ export type PersistSessionStateDeps = {
   readonly healthService: HealthService
   readonly hungerService: HungerService
   readonly xpService: XPService
+  readonly statisticsService: StatisticsService
+  readonly achievementService: AchievementService
   readonly timeService: TimeService
   readonly chestService: ChestService
   readonly furnaceService: FurnaceService
@@ -35,6 +39,7 @@ export type PersistSessionStateDeps = {
   readonly weatherService: WeatherService
   readonly storageService: StorageService
   readonly cropGrowthService: CropGrowthService
+  readonly netherService: NetherService
   readonly entityManager: EntityManager
   readonly worldBootstrap: WorldBootstrap
   readonly worldId: WorldId
@@ -42,7 +47,7 @@ export type PersistSessionStateDeps = {
 }
 
 export const buildPersistSessionState = (deps: PersistSessionStateDeps) => (): Effect.Effect<void, PlayerError | StorageError> => {
-  const { gameState, inventoryService, equipmentService, healthService, hungerService, xpService, timeService, chestService, furnaceService, gameModeService, weatherService, storageService, cropGrowthService, entityManager, worldBootstrap, worldId, respawnPositionRef } = deps
+  const { gameState, inventoryService, equipmentService, healthService, hungerService, xpService, statisticsService, achievementService, timeService, chestService, furnaceService, gameModeService, weatherService, storageService, cropGrowthService, netherService, entityManager, worldBootstrap, worldId, respawnPositionRef } = deps
   return Effect.gen(function* () {
     const nowMs = yield* Clock.currentTimeMillis
     const playerPosition = yield* gameState.getPlayerPosition(DEFAULT_PLAYER_ID)
@@ -60,7 +65,14 @@ export const buildPersistSessionState = (deps: PersistSessionStateDeps) => (): E
     const mountedVehicle = isBoating ? 'BOAT' : isMinecarting ? 'MINECART' : undefined
     const cropAges = yield* cropGrowthService.serialize()
     const weatherState = yield* weatherService.serialize()
-    const entityStates = yield* entityManager.getEntities()
+    // Entities from ALL dimensions, tagged so the load can rebuild the pools.
+    const entityStates = (yield* entityManager.getEntitiesAllDimensions()).map(({ dimension, entity }) => ({
+      ...entity,
+      dimension,
+    }))
+    const activeDimension = yield* netherService.getDimension()
+    const statistics = yield* statisticsService.serialize()
+    const unlockedAchievements = yield* achievementService.serialize()
     const metadata = buildSessionSaveMetadata({
       worldBootstrap,
       lastPlayed: new Date(nowMs),
@@ -80,6 +92,9 @@ export const buildPersistSessionState = (deps: PersistSessionStateDeps) => (): E
       furnaceStates,
       weatherState,
       entityStates,
+      statistics,
+      unlockedAchievements,
+      activeDimension,
       gameMode,
     })
     yield* storageService.saveWorldMetadata(worldId, metadata)

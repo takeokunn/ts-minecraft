@@ -5,6 +5,7 @@ import { resolveNetherTravel, type Dimension } from '@ts-minecraft/world'
 import type { DeltaTimeSecs, Position } from '@ts-minecraft/core'
 import { worldToChunkCoord } from '@ts-minecraft/world/domain/chunk-coord-utils'
 import { makeColumnReaderAt } from './physics-stage-utils'
+import { buildRespawnPosition } from '@ts-minecraft/app/main/session-world-loader'
 
 export const PORTAL_ACTIVATION_SECS = 4.0
 export const PORTAL_REENTRY_COOLDOWN_SECS = 4.0
@@ -25,7 +26,7 @@ export const collectAffectedChunkCoords = (
 }
 
 export const applyNetherPortalTravel = (
-  services: Pick<FrameHandlerServices, 'netherService' | 'chunkManagerService' | 'gameState' | 'blockService'>,
+  services: Pick<FrameHandlerServices, 'netherService' | 'chunkManagerService' | 'gameState' | 'blockService' | 'entityManager' | 'statisticsService' | 'dimensionFade'>,
   refs: Pick<FrameStageRefs, 'portalSecsRef' | 'portalCooldownSecsRef' | 'dirtyChunksRef' | 'finalPosRef'>,
   inputs: { readonly deltaTime: DeltaTimeSecs },
   playerPos: Position,
@@ -48,6 +49,8 @@ export const applyNetherPortalTravel = (
       yield* Ref.set(refs.portalSecsRef, newSecs)
       if (newSecs >= PORTAL_ACTIVATION_SECS) {
         yield* Ref.set(refs.portalSecsRef, 0)
+        // Mask the destination chunk-scene rebuild (a ~1s render stall) behind a fade.
+        yield* services.dimensionFade.flash()
         const currentDim = yield* services.netherService.getDimension()
         const destDimPortals = yield* services.netherService.getPortals(
           currentDim === 'overworld' ? 'nether' : 'overworld',
@@ -55,6 +58,8 @@ export const applyNetherPortalTravel = (
         const plan = resolveNetherTravel(currentDim, playerPos, destDimPortals)
         yield* services.netherService.setDimension(plan.toDimension)
         yield* services.chunkManagerService.setActiveDimension(plan.toDimension)
+        yield* services.entityManager.setActiveDimension(plan.toDimension)
+        yield* services.statisticsService.recordDimensionVisited(plan.toDimension)
         yield* services.gameState.respawn(plan.destination)
         yield* Ref.set(refs.finalPosRef, plan.destination)
         yield* Ref.set(refs.portalCooldownSecsRef, PORTAL_REENTRY_COOLDOWN_SECS)
@@ -96,7 +101,7 @@ export const applyNetherPortalTravel = (
   })
 
 export const applyEndPortalTravel = (
-  services: Pick<FrameHandlerServices, 'netherService' | 'chunkManagerService' | 'gameState' | 'entityManager'>,
+  services: Pick<FrameHandlerServices, 'netherService' | 'chunkManagerService' | 'gameState' | 'entityManager' | 'statisticsService' | 'dimensionFade'>,
   refs: Pick<FrameStageRefs, 'finalPosRef'>,
   playerPos: Position,
 ) =>
@@ -105,13 +110,20 @@ export const applyEndPortalTravel = (
     const columnBlockAt = yield* makeColumnReaderAt(services.chunkManagerService, playerPos)
     const onEndPortal = columnBlockAt(py) === 'END_PORTAL'
     if (!onEndPortal) return
+    yield* services.dimensionFade.flash()
     const currentDim = yield* services.netherService.getDimension()
     const destDim: Dimension = currentDim === 'end' ? 'overworld' : 'end'
-    const destPos = currentDim === 'end'
-      ? { x: 0, y: 68, z: 0 }
-      : { x: 0, y: 67, z: 0 }
     yield* services.netherService.setDimension(destDim)
     yield* services.chunkManagerService.setActiveDimension(destDim)
+    // Overworld return resolves the ACTUAL surface at world origin — a fixed
+    // y=68 could drop the player onto (or into) whatever terrain generates there.
+    const destPos = currentDim === 'end'
+      ? yield* buildRespawnPosition({ x: 0, y: 68, z: 0 }, services.chunkManagerService).pipe(
+          Effect.catchAllCause(() => Effect.succeed({ x: 0, y: 68, z: 0 })),
+        )
+      : { x: 0, y: 67, z: 0 }
+    yield* services.entityManager.setActiveDimension(destDim)
+    yield* services.statisticsService.recordDimensionVisited(destDim)
     yield* services.gameState.respawn(destPos)
     yield* Ref.set(refs.finalPosRef, destPos)
     if (destDim === 'end') {

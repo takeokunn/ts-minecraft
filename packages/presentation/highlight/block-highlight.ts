@@ -1,6 +1,7 @@
 import { Effect, MutableRef, Option, Schema } from 'effect'
 import * as THREE from 'three'
-import { RaycastHit, RaycastingService } from '@ts-minecraft/rendering'
+import { DEFAULT_RAY_DISTANCE, RaycastHit, RaycastingService } from '@ts-minecraft/rendering'
+import { voxelRaycast } from '@ts-minecraft/world'
 
 export const BlockTargetSchema = Schema.Struct({
   x: Schema.Int,
@@ -74,6 +75,9 @@ export class BlockHighlightService extends Effect.Service<BlockHighlightService>
   {
     effect: Effect.gen(function* () {
       const raycastingService = yield* RaycastingService
+      // Scratch vectors for the voxel-DDA path (avoids per-frame allocation).
+      const scratchDirection = new THREE.Vector3()
+      const scratchOrigin = new THREE.Vector3()
       // Wireframe cube mesh for highlighting
       const highlightMeshRef = MutableRef.make<Option.Option<THREE.LineSegments>>(Option.none())
       // target and hit always change together in one cached slot instead of two
@@ -106,14 +110,42 @@ export class BlockHighlightService extends Effect.Service<BlockHighlightService>
 
       // Handles the normal path: fires a raycast, positions the mesh at the hit
       // block (or hides it when no block is in range), and records the new state.
+      // Voxel-DDA targeting against raw chunk data — walks ≤~10 cells instead of
+      // brute-forcing every triangle of every chunk mesh along the ray (the
+      // three.js path cost ~16% of the main thread when facing terrain).
+      // Targetable = any non-AIR block, matching what the mesh raycast could hit
+      // (flora renders cross-planes; water renders a surface mesh — buckets rely
+      // on water being targetable).
+      const voxelHitFromCamera = (
+        camera: THREE.Camera,
+        blockIdAt: (x: number, y: number, z: number) => number | null,
+      ): RaycastHit | null => {
+        camera.getWorldDirection(scratchDirection)
+        // World position via matrixWorld — the frame composes the camera pose
+        // into matrixWorld directly, so `.position` can lag (or stay at origin).
+        camera.getWorldPosition(scratchOrigin)
+        return Option.getOrNull(voxelRaycast(
+          { x: scratchOrigin.x, y: scratchOrigin.y, z: scratchOrigin.z },
+          { x: scratchDirection.x, y: scratchDirection.y, z: scratchDirection.z },
+          DEFAULT_RAY_DISTANCE,
+          (x, y, z) => {
+            const blockId = blockIdAt(x, y, z)
+            return blockId !== null && blockId !== 0
+          },
+        ))
+      }
+
       const applyRaycastHighlight = (
         mesh: THREE.LineSegments,
         camera: THREE.Camera,
         scene: THREE.Scene,
         currentPose: CameraPose,
+        blockIdAt: ((x: number, y: number, z: number) => number | null) | undefined,
       ): Effect.Effect<void, never> =>
         Effect.gen(function* () {
-          const hit = Option.getOrNull(yield* raycastingService.raycastFromCamera(camera, scene))
+          const hit = blockIdAt !== undefined
+            ? voxelHitFromCamera(camera, blockIdAt)
+            : Option.getOrNull(yield* raycastingService.raycastFromCamera(camera, scene))
           if (hit !== null) {
             yield* Effect.sync(() => {
               // Position highlight at block coordinates (center of the block)
@@ -141,7 +173,14 @@ export class BlockHighlightService extends Effect.Service<BlockHighlightService>
             MutableRef.set(highlightMeshRef, Option.some(mesh))
           }),
 
-        update: (camera: THREE.Camera, scene: THREE.Scene): Effect.Effect<void, never> =>
+        // `blockIdAt` (world block-id lookup over the frame's cached chunks)
+        // selects the voxel-DDA fast path; without it (QA staged scenes) the
+        // legacy mesh raycast runs.
+        update: (
+          camera: THREE.Camera,
+          scene: THREE.Scene,
+          blockIdAt?: (x: number, y: number, z: number) => number | null,
+        ): Effect.Effect<void, never> =>
           Effect.gen(function* () {
             const currentPose = captureCameraPose(camera)
             const lastPose = MutableRef.get(lastCameraPoseRef)
@@ -154,7 +193,7 @@ export class BlockHighlightService extends Effect.Service<BlockHighlightService>
             if (overrideState !== null) {
               yield* applyForcedHighlight(mesh, overrideState, currentPose)
             } else {
-              yield* applyRaycastHighlight(mesh, camera, scene, currentPose)
+              yield* applyRaycastHighlight(mesh, camera, scene, currentPose, blockIdAt)
             }
           }),
 

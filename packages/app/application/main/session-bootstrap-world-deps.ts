@@ -56,6 +56,10 @@ export type SessionBootstrapWorldPresentationDeps = {
   readonly healthService: HealthService
   readonly hungerService: HungerService
   readonly xpService: XPService
+  readonly statisticsService: import('@ts-minecraft/entity/application/statistics-service').StatisticsService
+  readonly netherService: import('@ts-minecraft/world').NetherService
+  readonly chunkManagerService: import('@ts-minecraft/world').ChunkManagerService
+  readonly achievementService: import('@ts-minecraft/entity/application/achievement-service').AchievementService
   readonly chestService: ChestService
   readonly furnaceService: FurnaceService
   readonly weatherService: WeatherService

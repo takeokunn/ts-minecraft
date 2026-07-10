@@ -71,6 +71,8 @@ const EntityTypeSchema = Schema.Literal(
 
 const EntityStateSchema = Schema.Struct({
   entityId: Schema.String,
+  // Home dimension of the entity (absent in pre-dimension saves → overworld).
+  dimension: Schema.optional(Schema.Literal('overworld', 'nether', 'end')),
   position: PositionSchema,
   velocity: Vector3Schema,
   rotation: QuaternionSchema,
@@ -120,10 +122,24 @@ export const WorldMetadataSchema = Schema.Struct({
       cropAges: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Number.pipe(Schema.int(), Schema.between(0, 2)) })),
     }),
   ),
+  // Player statistics + unlocked achievement ids (achievement system). Optional:
+  // pre-feature saves decode without them and start from zero.
+  statistics: Schema.optional(Schema.Struct({
+    blocksMinedTotal: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+    blocksMinedByType: Schema.Record({ key: Schema.String, value: Schema.Number.pipe(Schema.int(), Schema.nonNegative()) }),
+    mobsKilledTotal: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+    mobsKilledByType: Schema.Record({ key: Schema.String, value: Schema.Number.pipe(Schema.int(), Schema.nonNegative()) }),
+    itemsCraftedTotal: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+    itemsCraftedByType: Schema.Record({ key: Schema.String, value: Schema.Number.pipe(Schema.int(), Schema.nonNegative()) }),
+    dimensionsVisited: Schema.Array(Schema.Literal('overworld', 'nether', 'end')),
+  })),
+  unlockedAchievements: Schema.optional(Schema.Array(Schema.String)),
   chestStates: Schema.optional(Schema.Array(ChestStateSchema)),
   furnaceStates: Schema.optional(Schema.Array(FurnaceStateSchema)),
   weatherState: Schema.optional(WeatherStateSchema),
   entityStates: Schema.optional(Schema.Array(EntityStateSchema)),
+  // Dimension the player was in when the world was saved (absent → overworld).
+  activeDimension: Schema.optional(Schema.Literal('overworld', 'nether', 'end')),
   gameMode: GameModeSchema,
   saveVersion: Schema.Number.pipe(Schema.int(), Schema.positive()),
 })

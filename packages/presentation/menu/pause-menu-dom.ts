@@ -13,6 +13,10 @@ export const buildPauseMenuDOM = (dom: DomOperationsService): PauseMenuDom => {
       howToPlayBtn: Option.none(),
       howToPlayPanel: Option.none(),
       howToPlayCloseBtn: Option.none(),
+      achievementsBtn: Option.none(),
+      achievementsPanel: Option.none(),
+      achievementsContentEl: Option.none(),
+      achievementsCloseBtn: Option.none(),
       saveQuitBtn: Option.none(),
     }
   }
@@ -80,6 +84,38 @@ export const buildPauseMenuDOM = (dom: DomOperationsService): PauseMenuDom => {
   dom.appendChildTo(howToPlayPanel, howToPlayCloseBtn)
   dom.appendChildTo(panel, howToPlayPanel)
 
+  const achievementsBtn = dom.createElement('button')
+  achievementsBtn.textContent = 'Achievements'
+  achievementsBtn.style.cssText = BUTTON_STYLE
+  achievementsBtn.dataset['role'] = 'achievements'
+  dom.appendChildTo(panel, achievementsBtn)
+
+  // Content is (re)built each time the panel opens so unlock/statistics state
+  // is always current — see PauseMenuService.handleAchievementsClick.
+  const achievementsPanel = dom.createElement('div')
+  achievementsPanel.style.cssText = [
+    'display:none',
+    'background:#9f9f9f',
+    'border:2px solid #111',
+    'box-shadow:inset 2px 2px #d8d8d8,inset -2px -2px #555',
+    'padding:12px',
+    'color:#202020',
+    'font-size:13px',
+    'line-height:1.45',
+    'max-width:360px',
+    'text-align:left',
+  ].join(';')
+  achievementsPanel.setAttribute('role', 'region')
+  achievementsPanel.setAttribute('aria-label', 'Achievements')
+  const achievementsContent = dom.createElement('div')
+  dom.appendChildTo(achievementsPanel, achievementsContent)
+  const achievementsCloseBtn = dom.createElement('button')
+  achievementsCloseBtn.textContent = 'Close'
+  achievementsCloseBtn.style.cssText = `${BUTTON_STYLE};min-width:0;width:100%;margin-top:8px`
+  achievementsCloseBtn.dataset['role'] = 'achievements-close'
+  dom.appendChildTo(achievementsPanel, achievementsCloseBtn)
+  dom.appendChildTo(panel, achievementsPanel)
+
   const saveQuitBtn = dom.createElement('button')
   saveQuitBtn.textContent = 'Save & Quit to Title'
   saveQuitBtn.style.cssText = BUTTON_STYLE
@@ -97,6 +133,10 @@ export const buildPauseMenuDOM = (dom: DomOperationsService): PauseMenuDom => {
     howToPlayBtn: Option.some(howToPlayBtn),
     howToPlayPanel: Option.some(howToPlayPanel),
     howToPlayCloseBtn: Option.some(howToPlayCloseBtn),
+    achievementsBtn: Option.some(achievementsBtn),
+    achievementsPanel: Option.some(achievementsPanel),
+    achievementsContentEl: Option.some(achievementsContent),
+    achievementsCloseBtn: Option.some(achievementsCloseBtn),
     saveQuitBtn: Option.some(saveQuitBtn),
   }
 }

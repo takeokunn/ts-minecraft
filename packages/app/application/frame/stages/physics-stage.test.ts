@@ -88,7 +88,7 @@ describe('step 3.5 — fall damage', () => {
     yield* runFrame(deps, services)
 
     expect(applyDamageSpy).toHaveBeenCalledOnce()
-    expect(applyDamageSpy).toHaveBeenCalledWith(5)
+    expect(applyDamageSpy).toHaveBeenCalledWith(5, { kind: 'fall' })
   }))
 
   it.effect('reduces fall damage with Feather Falling boots', () => Effect.gen(function* () {
@@ -115,7 +115,7 @@ describe('step 3.5 — fall damage', () => {
 
     yield* runFrame(deps, services)
 
-    expect(applyDamageSpy).toHaveBeenCalledWith(5.2)
+    expect(applyDamageSpy).toHaveBeenCalledWith(5.2, { kind: 'fall' })
   }))
 
   it.effect('does NOT call healthService.applyDamage when processFallDamage returns 0', () => Effect.gen(function* () {
@@ -247,7 +247,7 @@ describe('step 3.5 — fall damage', () => {
 
     // Fall damage + hostile damage both default to 0, so the only applyDamage
     // call comes from starvation.
-    expect(applyDamageSpy).toHaveBeenCalledWith(1)
+    expect(applyDamageSpy).toHaveBeenCalledWith(1, { kind: 'starvation' })
   }))
 
   it.effect('does not starve below half health on easy difficulty', () => Effect.gen(function* () {
@@ -295,7 +295,7 @@ describe('step 3.5 — fall damage', () => {
     yield* maintenanceHandler()
     yield* frameHandler(0.05 as DeltaTimeSecs)
 
-    expect(applyDamageSpy).toHaveBeenCalledWith(1)
+    expect(applyDamageSpy).toHaveBeenCalledWith(1, { kind: 'starvation' })
   }))
 
   it.effect('writes the current foodLevel to the hunger HUD element', () => Effect.gen(function* () {
@@ -503,7 +503,7 @@ describe('step 3.5 — fall damage', () => {
 
     yield* runFrame(deps, services)
 
-    expect(applyDamageSpy).toHaveBeenCalledWith(3)
+    expect(applyDamageSpy).toHaveBeenCalledWith(3, { kind: 'mob' })
   }))
 
   it.effect('applies hostile ranged damage when the entity manager reports a shot', () => Effect.gen(function* () {
@@ -521,7 +521,7 @@ describe('step 3.5 — fall damage', () => {
 
     yield* runFrame(deps, services)
 
-    expect(applyDamageSpy).toHaveBeenCalledWith(2)
+    expect(applyDamageSpy).toHaveBeenCalledWith(2, { kind: 'projectile' })
   }))
 
   it.effect('a blaze fireball hit feeds the player burn timer via the ignite drain', () => Effect.gen(function* () {
@@ -557,7 +557,7 @@ describe('step 3.5 — fall damage', () => {
       difficulty: DEFAULT_SETTINGS.difficulty,
     })
 
-    expect(applyDamageSpy).toHaveBeenCalledWith(3)
+    expect(applyDamageSpy).toHaveBeenCalledWith(3, { kind: 'projectile' })
     // Same-frame hazard ticking may already have decremented by one deltaTime.
     expect(MutableRef.get(refs.lavaBurnRemainingSecsRef)).toBeGreaterThan(4.9)
   }))
@@ -673,7 +673,7 @@ describe('step 3.5 — fall damage', () => {
     yield* runFrame(deps, services)
 
     expect(rangedDamageSpy.mock.calls[0]?.[1]).toEqual(expect.any(Function))
-    expect(applyDamageSpy).toHaveBeenCalledWith(2)
+    expect(applyDamageSpy).toHaveBeenCalledWith(2, { kind: 'projectile' })
   }))
 
   it.effect('uses player chunk coordinates for hostile projectile blocking before cache coordinates are finite', () => Effect.gen(function* () {
@@ -817,7 +817,7 @@ describe('step 3.5 — fall damage', () => {
 
     yield* runFrame(deps, services)
 
-    expect(applyDamageSpy).toHaveBeenCalledWith(10)
+    expect(applyDamageSpy).toHaveBeenCalledWith(10, { kind: 'mob' })
   }))
 
   it.effect('deposits a resolved fishing catch into the inventory and world XP orb lane', () => Effect.gen(function* () {
@@ -979,7 +979,7 @@ describe('step 3.5 — fall damage', () => {
 
     yield* runFrame(deps, services)
 
-    expect(applyDamageSpy).toHaveBeenCalledWith(6)
+    expect(applyDamageSpy).toHaveBeenCalledWith(6, { kind: 'mob' })
   }))
 
   it.effect('prevents hostile contact damage on peaceful difficulty', () => Effect.gen(function* () {
@@ -1307,7 +1307,7 @@ describe('physics-stage — environmental hazards', () => {
     yield* maintenanceHandler()
     yield* frameHandler(0.5 as DeltaTimeSecs)
 
-    expect(applyDamageSpy).toHaveBeenCalledWith(1)
+    expect(applyDamageSpy).toHaveBeenCalledWith(1, { kind: 'suffocation' })
   }))
 
   it.effect('applies void damage when the player is below y=-64', () => Effect.gen(function* () {
@@ -1327,7 +1327,7 @@ describe('physics-stage — environmental hazards', () => {
     yield* maintenanceHandler()
     yield* frameHandler(0.5 as DeltaTimeSecs)
 
-    expect(applyDamageSpy).toHaveBeenCalledWith(4)
+    expect(applyDamageSpy).toHaveBeenCalledWith(4, { kind: 'void' })
   }))
 
   it.effect('does not apply void damage at exactly y=-64', () => Effect.gen(function* () {
