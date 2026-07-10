@@ -44,6 +44,9 @@ export type ResolvedGraphics = Schema.Schema.Type<typeof ResolvedGraphicsSchema>
 export const SettingsSchema = Schema.Struct({
   renderDistance: Schema.Number.pipe(Schema.finite(), Schema.between(2, 16)),
   mouseSensitivity: Schema.Number.pipe(Schema.finite(), Schema.between(0.1, 3.0)),
+  // Camera field of view in degrees (vanilla: 30 'zoom' … 110 'Quake Pro'; 70 normal).
+  // optionalWith default keeps previously-saved settings decodable.
+  fov: Schema.optionalWith(Schema.Number.pipe(Schema.finite(), Schema.between(30, 110)), { default: () => 75 }),
   dayLengthSeconds: Schema.Number.pipe(Schema.finite(), Schema.between(120, 1200)),
   difficulty: GameDifficulty,
   // Accessibility: disables camera bob/roll and other non-essential motion.

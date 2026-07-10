@@ -18,6 +18,7 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
         renderDistanceInput,
         adaptivePerformanceInput,
         sensitivityInput,
+        fovInput,
         dayLengthInput,
         audioEnabledInput,
         masterVolumeInput,
@@ -81,6 +82,7 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
           adaptivePerformanceMode: Option.getOrNull(adaptivePerformanceInput)?.checked ?? false,
           renderDistance: parseInt(Option.getOrNull(renderDistanceInput)?.value ?? '4', 10),
           mouseSensitivity: parseFloat(Option.getOrNull(sensitivityInput)?.value ?? '0.5'),
+          fov: parseFloat(Option.getOrNull(fovInput)?.value ?? '75'),
           dayLengthSeconds: parseInt(Option.getOrNull(dayLengthInput)?.value ?? '400', 10),
           audioEnabled: Option.getOrNull(audioEnabledInput)?.checked ?? false,
           masterVolume: parseFloat(Option.getOrNull(masterVolumeInput)?.value ?? '0.8'),
@@ -182,6 +184,7 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
             if (apInput !== null) apInput.checked = settings.adaptivePerformanceMode
             syncInputAndLabel(renderDistanceInput, '#rd-val', String(settings.renderDistance))
             syncInputAndLabel(sensitivityInput, '#ms-val', String(settings.mouseSensitivity))
+            syncInputAndLabel(fovInput, '#fov-val', String(settings.fov))
             syncInputAndLabel(dayLengthInput, '#dl-val', String(settings.dayLengthSeconds))
             const aeInput = Option.getOrNull(audioEnabledInput)
             if (aeInput !== null) aeInput.checked = settings.audioEnabled
@@ -223,6 +226,7 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
           Option.getOrNull(adaptivePerformanceInput),
           Option.getOrNull(renderDistanceInput),
           Option.getOrNull(sensitivityInput),
+          Option.getOrNull(fovInput),
           Option.getOrNull(dayLengthInput),
           Option.getOrNull(audioEnabledInput),
           Option.getOrNull(masterVolumeInput),
@@ -326,6 +330,11 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
         runCommit()
       }
 
+      const handleFovInput = () => {
+        updateInputLabel(fovInput, '#fov-val')
+        runCommit()
+      }
+
       const handleUiScaleInput = () => {
         updateInputLabel(uiScaleInput, '#us-val', formatVolumePercent)
         runCommit()
@@ -381,6 +390,7 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
         Option.getOrNull(uiScaleInput)?.addEventListener('input', handleUiScaleInput)
         Option.getOrNull(renderDistanceInput)?.addEventListener('input', handleRdInput)
         Option.getOrNull(sensitivityInput)?.addEventListener('input', handleMsInput)
+        Option.getOrNull(fovInput)?.addEventListener('input', handleFovInput)
         Option.getOrNull(dayLengthInput)?.addEventListener('input', handleDlInput)
         Option.getOrNull(audioEnabledInput)?.addEventListener('change', handleAudioEnabledChange)
         Option.getOrNull(masterVolumeInput)?.addEventListener('input', handleMasterVolumeInput)
@@ -401,6 +411,7 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
         Option.getOrNull(uiScaleInput)?.removeEventListener('input', handleUiScaleInput)
         Option.getOrNull(renderDistanceInput)?.removeEventListener('input', handleRdInput)
         Option.getOrNull(sensitivityInput)?.removeEventListener('input', handleMsInput)
+        Option.getOrNull(fovInput)?.removeEventListener('input', handleFovInput)
         Option.getOrNull(dayLengthInput)?.removeEventListener('input', handleDlInput)
         Option.getOrNull(audioEnabledInput)?.removeEventListener('change', handleAudioEnabledChange)
         Option.getOrNull(masterVolumeInput)?.removeEventListener('input', handleMasterVolumeInput)

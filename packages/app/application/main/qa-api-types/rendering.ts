@@ -20,6 +20,7 @@ export type QaRenderingSnapshot = {
   readonly sceneChildren: number
   readonly chunkMeshCount: number
   readonly visibleChunkMeshCount: number
-  readonly camera: { readonly x: number; readonly y: number; readonly z: number; readonly near: number; readonly far: number }
+  readonly camera: { readonly x: number; readonly y: number; readonly z: number; readonly fov: number
+    readonly near: number; readonly far: number }
   readonly chunks: ReadonlyArray<QaChunkMeshSnapshot>
 }

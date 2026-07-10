@@ -31,6 +31,7 @@ export interface OverlayState {
 export const DEFAULT_SETTINGS = {
   renderDistance: 8,
   mouseSensitivity: 0.5,
+  fov: 75,
   dayLengthSeconds: 400,
   difficulty: 'normal' as const,
   reducedMotion: false,

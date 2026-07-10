@@ -10,6 +10,7 @@ export type SettingsOverlayDom = {
   readonly uiScaleInput: Option.Option<HTMLInputElement>
   readonly keyBindingsContainer: Option.Option<HTMLDivElement>
   readonly sensitivityInput: Option.Option<HTMLInputElement>
+  readonly fovInput: Option.Option<HTMLInputElement>
   readonly dayLengthInput: Option.Option<HTMLInputElement>
   readonly audioEnabledInput: Option.Option<HTMLInputElement>
   readonly masterVolumeInput: Option.Option<HTMLInputElement>
@@ -91,6 +92,7 @@ export const buildSettingsOverlayDom = (dom: DomOperationsService): SettingsOver
       uiScaleInput: Option.none<HTMLInputElement>(),
       keyBindingsContainer: Option.none<HTMLDivElement>(),
       sensitivityInput: Option.none<HTMLInputElement>(),
+      fovInput: Option.none<HTMLInputElement>(),
       dayLengthInput: Option.none<HTMLInputElement>(),
       audioEnabledInput: Option.none<HTMLInputElement>(),
       masterVolumeInput: Option.none<HTMLInputElement>(),
@@ -157,6 +159,11 @@ export const buildSettingsOverlayDom = (dom: DomOperationsService): SettingsOver
     <label style="${labelBlockCss}">
       Mouse Sensitivity: <span id="ms-val">0.5</span>
       <input id="ms-input" type="range" min="0.1" max="3.0" step="0.1" value="0.5"
+        style="${rangeCss}">
+    </label>
+    <label style="${labelBlockCss}">
+      Field of View: <span id="fov-val">75</span>
+      <input id="fov-input" type="range" min="30" max="110" step="1" value="75"
         style="${rangeCss}">
     </label>
     <label style="${labelBlockCss};margin-bottom:16px">
@@ -228,6 +235,7 @@ export const buildSettingsOverlayDom = (dom: DomOperationsService): SettingsOver
     adaptivePerformanceInput: dom.querySelector<HTMLInputElement>(el, '#adaptive-performance-input'),
     renderDistanceInput: dom.querySelector<HTMLInputElement>(el, '#rd-input'),
     sensitivityInput: dom.querySelector<HTMLInputElement>(el, '#ms-input'),
+    fovInput: dom.querySelector<HTMLInputElement>(el, '#fov-input'),
     dayLengthInput: dom.querySelector<HTMLInputElement>(el, '#dl-input'),
     audioEnabledInput: dom.querySelector<HTMLInputElement>(el, '#audio-enabled-input'),
     masterVolumeInput: dom.querySelector<HTMLInputElement>(el, '#mv-input'),

@@ -15,6 +15,7 @@ describe('application/settings/settings-service', () => {
     const validSettingsInput = {
       renderDistance: 4,
       mouseSensitivity: 0.5,
+      fov: 75,
       dayLengthSeconds: 400,
       difficulty: 'normal' as const,
   reducedMotion: false,
@@ -44,6 +45,7 @@ describe('application/settings/settings-service', () => {
         ...validSettingsInput,
         renderDistance: 4,
         mouseSensitivity: 0.1,
+        fov: 75,
         dayLengthSeconds: 120,
         adaptivePerformanceMode: false,
       })
@@ -51,6 +53,7 @@ describe('application/settings/settings-service', () => {
       expect(result).toEqual({
         renderDistance: 4,
         mouseSensitivity: 0.1,
+        fov: 75,
         dayLengthSeconds: 120,
         difficulty: 'normal',
   reducedMotion: false,
@@ -70,6 +73,7 @@ describe('application/settings/settings-service', () => {
         ...validSettingsInput,
         renderDistance: 16,
         mouseSensitivity: 3,
+        fov: 75,
         dayLengthSeconds: 1200,
         difficulty: 'hard',
         graphicsQuality: 'ultra',
@@ -79,6 +83,7 @@ describe('application/settings/settings-service', () => {
       expect(result).toEqual({
         renderDistance: 16,
         mouseSensitivity: 3,
+        fov: 75,
         dayLengthSeconds: 1200,
         difficulty: 'hard',
         graphicsQuality: 'ultra',
@@ -116,6 +121,7 @@ describe('application/settings/settings-service', () => {
         decode({
           ...validSettingsInput,
           mouseSensitivity: 0.09,
+          fov: 75,
         })
       ).toThrow()
     })
@@ -125,6 +131,7 @@ describe('application/settings/settings-service', () => {
         decode({
           ...validSettingsInput,
           mouseSensitivity: 3.01,
+          fov: 75,
         })
       ).toThrow()
     })
@@ -170,6 +177,7 @@ describe('application/settings/settings-service', () => {
         decode({
           ...validSettingsInput,
           mouseSensitivity: Number.POSITIVE_INFINITY,
+          fov: 75,
         })
       ).toThrow()
     })

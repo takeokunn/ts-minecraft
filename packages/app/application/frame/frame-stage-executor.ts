@@ -14,6 +14,7 @@ const HIT_STOP_TIME_SCALE = 0.1
 
 // Change-gate for key rebind application (module scratch).
 let lastAppliedKeyBindings: Readonly<Record<string, string>> | null = null
+let lastAppliedFov = Number.NaN
 
 export const runFrameStages = (
   deps: FrameHandlerDeps,
@@ -39,6 +40,12 @@ export const runFrameStages = (
     if (currentSettings.keyBindings !== lastAppliedKeyBindings) {
       lastAppliedKeyBindings = currentSettings.keyBindings
       applyKeyBindings(currentSettings.keyBindings)
+    }
+    // FOV: apply on change only; updateProjectionMatrix is not per-frame safe.
+    if (currentSettings.fov !== lastAppliedFov) {
+      lastAppliedFov = currentSettings.fov
+      deps.camera.fov = currentSettings.fov
+      deps.camera.updateProjectionMatrix()
     }
     const debugFlags = yield* services.debugFeatureFlags.getFlags()
     const environment = yield* primeFrameEnvironment(deps, services, refs, context, currentSettings, debugFlags)

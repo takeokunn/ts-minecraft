@@ -54,6 +54,7 @@ const createMockText = (textContent: string): MockTextElement => ({ textContent 
 export const defaultSettings = {
   renderDistance: 4,
   mouseSensitivity: 0.5,
+  fov: 75,
   dayLengthSeconds: 400,
   graphicsQuality: 'medium' as const,
   adaptivePerformanceMode: true,

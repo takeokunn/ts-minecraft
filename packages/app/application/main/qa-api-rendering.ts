@@ -62,6 +62,7 @@ export const getRenderingSnapshot = (camera: THREE.PerspectiveCamera, scene: THR
       x: camera.position.x,
       y: camera.position.y,
       z: camera.position.z,
+      fov: camera.fov,
       near: camera.near,
       far: camera.far,
     },

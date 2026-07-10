@@ -123,6 +123,7 @@ expect.fail('save failed')
         yield* service.updateSettings({
           renderDistance: 15,
           mouseSensitivity: 1.7,
+          fov: 75,
           dayLengthSeconds: 1000,
         })
         yield* service.resetToDefaults()

@@ -61,6 +61,7 @@ describe('application/settings/settings-service', () => {
         {
           renderDistance: 12,
           mouseSensitivity: 1.2,
+          fov: 75,
           dayLengthSeconds: 900,
           difficulty: 'normal',
   reducedMotion: false,
@@ -80,6 +81,7 @@ describe('application/settings/settings-service', () => {
         expect(settings).toEqual({
           renderDistance: 12,
           mouseSensitivity: 1.2,
+          fov: 75,
           dayLengthSeconds: 900,
           difficulty: 'normal',
   reducedMotion: false,
@@ -110,6 +112,7 @@ describe('application/settings/settings-service', () => {
         {
           renderDistance: 1,
           mouseSensitivity: 1.25,
+          fov: 75,
           dayLengthSeconds: 600,
           graphicsQuality: 'ultra',
   adaptivePerformanceMode: false,

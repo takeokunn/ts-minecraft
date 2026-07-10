@@ -7,6 +7,7 @@ describe('SettingsSchema encode round-trip', () => {
   const validSettings: Settings = {
     renderDistance: 8,
     mouseSensitivity: 0.5,
+    fov: 75,
     dayLengthSeconds: 400,
     difficulty: 'normal',
   reducedMotion: false,

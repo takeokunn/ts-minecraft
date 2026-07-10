@@ -6,6 +6,7 @@ import { SettingsSchema } from '@ts-minecraft/game'
 const BASE = {
   renderDistance: 8,
   mouseSensitivity: 0.5,
+  fov: 75,
   dayLengthSeconds: 400,
   graphicsQuality: 'high' as const,
   adaptivePerformanceMode: false,
