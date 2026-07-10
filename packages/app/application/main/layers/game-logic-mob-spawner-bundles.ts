@@ -12,6 +12,7 @@ export const TimeServicePortLayer = Layer.effect(
     TimeServicePort.of({
       _tag: '@minecraft/entity/domain/TimeServicePort' as const,
       isNight: () => timeService.isNight(),
+      getMoonPhase: () => timeService.getMoonPhase(),
     }),
   ),
 ).pipe(Layer.provide(TimeService.Default))

@@ -12,6 +12,7 @@ const makeTimeLayer = (night: boolean) =>
   Layer.succeed(TimeServicePort, TimeServicePort.of({
     _tag: '@minecraft/entity/domain/TimeServicePort' as const,
     isNight: () => Effect.succeed(night),
+    getMoonPhase: () => Effect.succeed(0), // full moon → full spawn rate in tests
   }))
 
 const makeSpawnerLayer = (night: boolean) =>

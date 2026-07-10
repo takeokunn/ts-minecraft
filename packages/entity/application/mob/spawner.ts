@@ -55,6 +55,7 @@ export class MobSpawner extends Effect.Service<MobSpawner>()(
             // The nether and end have no day/night cycle and only spawn hostiles.
             const spawnsHostile = isNight || dimension !== 'overworld'
 
+
             // Category cap: hostile spawns count hostiles, passive spawns count
             // passives. Count only the matching category so a world full of
             // daytime passives can't starve the hostile spawns (and vice versa).
@@ -67,6 +68,16 @@ export class MobSpawner extends Effect.Service<MobSpawner>()(
               return Option.none<EntityId>()
             }
             const cursor = yield* Ref.updateAndGet(spawnCursorRef, (value) => value + 1)
+            // Vanilla: overworld hostile pressure scales with moon brightness —
+            // full moon (phase 0) spawns at full rate, new moon roughly halves it.
+            if (spawnsHostile && dimension === 'overworld') {
+              const moonPhase = yield* timeService.getMoonPhase()
+              const brightness = 1 - (Math.min(Math.abs(moonPhase), 4) / 4) * 0.5
+              const roll = ((cursor * 2654435761) >>> 16) % 1000 / 1000
+              if (roll > brightness) {
+                return Option.none<EntityId>()
+              }
+            }
 
             const candidateSpawnPosition = getSpawnPosition(playerPosition, cursor)
             const spawnPositionOption = yield* (

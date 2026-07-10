@@ -9,6 +9,8 @@ export class TimeServicePort extends Effect.Service<TimeServicePort>()(
     succeed: {
       /* c8 ignore next */
       isNight: (): Effect.Effect<boolean, never> => Effect.succeed(false),
+      /* c8 ignore next */
+      getMoonPhase: (): Effect.Effect<number, never> => Effect.succeed(0),
     },
   },
 ) {}
