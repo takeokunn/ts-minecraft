@@ -66,16 +66,25 @@ From the 2026-07-10 in-browser profiling campaign (CDP profiler, QA APIs):
 - All newer save fields (portals, parked vehicles, dimension tags,
   absorption) are optional-schema: old saves load unchanged.
 
-## Known limitations / watch items
+## Known limitations / watch items (updated 2026-07-11)
 
-- E2E `new-world-regression` is occasionally flaky under SwiftShader's
-  software renderer (passes on retry; never observed on real GPUs).
-- Multiplayer pickup/boarding races within one network round trip can
-  duplicate an item/vehicle (no server-side arbitration yet).
-- Torn-down maintenance fibers can be slow to acknowledge interruption;
-  teardown never blocks on them, root cause still open.
-- Visual polish backlog: curved/sloped rail meshes, guardian beam charge-up
-  animation.
+All previously listed watch items are now closed:
+
+- ~~E2E new-world-regression SwiftShader flake~~ — root-caused: the spec
+  embedded a startup-FPS floor of 20, stricter than the platform's own
+  calibrated SwiftShader floors (CI 10 / local 12) owned by
+  fps-threshold.e2e.ts. FPS floors now live only in the dedicated spec;
+  wall-clock-sensitive samplings converted to condition polling with
+  unchanged thresholds. Verified: 9 consecutive passes under parallel
+  SwiftShader contention.
+- ~~Multiplayer sub-RTT pickup/boarding dupes~~ — server-authoritative
+  first-claim-wins arbitration (ClaimDenied protocol); losers undo their
+  local prediction. Residual: an item consumed within one round trip of a
+  lost claim is best-effort.
+- ~~Maintenance fiber interruption latency~~ — root-caused (interruption
+  pending on a heavy iteration's suspensions, not a stuck fiber); stale
+  loops now exit at the next iteration boundary via a generation gate.
+- ~~Curved/sloped rail meshes~~ and ~~guardian beam charge-up~~ — shipped.
 
 ## Verification methodology
 
