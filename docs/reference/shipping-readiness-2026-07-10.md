@@ -10,7 +10,7 @@ gate or an in-browser verification.
 | --- | --- |
 | Type check (`pnpm typecheck`, build + test configs) | 0 errors |
 | Lint (`pnpm lint`, oxlint, ~1,900 files) | 0 warnings / 0 errors |
-| Unit + integration tests (`pnpm vitest run`) | 9,366 passed / 0 failed (814 files) |
+| Unit + integration tests (`pnpm vitest run`) | 9,377 passed / 0 failed (816 files) |
 | End-to-end suite (`pnpm test:e2e`, Playwright + SwiftShader) | 64 passed / 0 failed / 2 skipped (2026-07-10 baseline) |
 | Production build (`pnpm build`) | success |
 
@@ -28,13 +28,14 @@ gate or an in-browser verification.
   shipwrecks, strongholds, villages, kelp/seagrass ocean flora.
 - **Vehicles**: parked boats/minecarts persist in the world and in saves;
   rail-following minecart physics (straights lock to the axis, curves turn,
-  ascending rails climb). Curved/sloped rail *meshes* still render the flat
-  tile — visual polish item.
+  ascending rails climb) with matching oriented rail meshes (flat plates,
+  L-curves, slanted climbing plates).
 - **Multiplayer sync roster complete**: dimension-tagged block edits, chest
   contents (close-broadcast + late-joiner replay), dropped items
   (owner-diff; item trading works), parked vehicles (owner-diff + live
   replay log), entity-host authority, session clock extrapolation, seed
-  handshake. Documented races: simultaneous pickup/boarding within one RTT.
+  handshake, and server-authoritative claim arbitration (first claim wins;
+  losing claimers auto-correct).
 - **Modding API v1**: `window.__TS_MINECRAFT_MODS__` registration; onInit /
   onBlockBreak / onBlockPlace / onTick hooks with a capability-scoped
   context (see `docs/reference/modding-api.md`).
