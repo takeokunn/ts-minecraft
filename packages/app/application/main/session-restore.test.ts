@@ -23,6 +23,7 @@ const makeWorldBootstrap = (overrides?: Partial<{
   savedStatistics: Option.none(),
   savedUnlockedAchievements: Option.none(),
   savedActiveDimension: Option.none(),
+  savedPortals: Option.none(),
   gameMode: 'survival' as const,
   ...overrides,
 })
@@ -62,7 +63,7 @@ const makeServices = () => ({
   weatherService: { restore: vi.fn(() => Effect.void), setWeather: vi.fn(() => Effect.void) },
   cropGrowthService: { restore: vi.fn(() => Effect.void) },
   entityManager: { applyEntitySnapshot: vi.fn(() => Effect.succeed('created' as const)), clear: vi.fn(() => Effect.void), setActiveDimension: vi.fn(() => Effect.void) },
-  netherService: { setDimension: vi.fn(() => Effect.void) },
+  netherService: { setDimension: vi.fn(() => Effect.void), deserializePortals: vi.fn(() => Effect.void) },
   chunkManagerService: { setActiveDimension: vi.fn(() => Effect.void) },
   gameState: { enterBoat: vi.fn(() => Effect.void), enterMinecart: vi.fn(() => Effect.void) },
 })
