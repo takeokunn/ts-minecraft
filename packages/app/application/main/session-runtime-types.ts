@@ -76,6 +76,7 @@ export type SessionRuntimeState = {
 export type SessionRuntimeOverlays = {
   readonly deathScreen: DeathScreenService
   readonly debugOverlay: DebugOverlayService
+  readonly screenshotKey: import('@ts-minecraft/presentation').ScreenshotKeyService
   readonly chatPanel: ChatPanelService
   readonly connectionPanel: ConnectionPanelService
   readonly playerListPanel: PlayerListPanelService

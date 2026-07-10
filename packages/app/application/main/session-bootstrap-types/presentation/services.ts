@@ -29,6 +29,7 @@ export type SessionPresentationBootstrapServices = {
   readonly pauseMenu: PauseMenuService
   readonly debugFeatureFlags: DebugFeatureFlagsService
   readonly debugOverlay: DebugOverlayService
+  readonly screenshotKey: import('@ts-minecraft/presentation').ScreenshotKeyService
   readonly tradingPresentation: TradingPresentationService
   readonly chatPanel: ChatPanelService
   readonly connectionPanel: ConnectionPanelService

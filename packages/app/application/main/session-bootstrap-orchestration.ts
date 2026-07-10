@@ -28,6 +28,7 @@ export const buildSessionBootstrapOrchestration = (deps: SessionBootstrapDeps) =
     const { gameState, timeService, weatherService, gameModeService } = gameplay
     const {
       debugOverlay,
+      screenshotKey,
       blockHighlight,
       crosshair,
       controlsHint,
@@ -161,6 +162,7 @@ export const buildSessionBootstrapOrchestration = (deps: SessionBootstrapDeps) =
       overlays: {
         deathScreen,
         debugOverlay,
+        screenshotKey,
         chatPanel,
         connectionPanel,
         playerListPanel,

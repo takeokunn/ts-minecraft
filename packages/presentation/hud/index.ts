@@ -31,6 +31,7 @@ export {
   makeDimensionFade,
   type DimensionFade,
 } from './dimension-fade'
+export { ScreenshotKeyService, screenshotFileName, triggerDownload } from './screenshot-key'
 export { ControlsHintService } from './controls-hint'
 export { HotbarRendererService } from './hotbar-three'
 export {

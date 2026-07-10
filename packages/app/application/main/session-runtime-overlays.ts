@@ -238,6 +238,7 @@ export const installSessionRuntimeOverlays = (
       overlays: {
         deathScreen,
         debugOverlay,
+        screenshotKey,
         chatPanel,
         connectionPanel,
         playerListPanel,
@@ -317,6 +318,9 @@ export const installSessionRuntimeOverlays = (
     // FR-1.5: mount the F3 debug overlay. Hidden by default; F3 toggles it.
     // The 4 Hz refresh daemon is forked into the session scope so it tears
     // down with quit-to-title.
+    // F2 screenshot (vanilla parity): captures the game canvas as a PNG download.
+    yield* screenshotKey.attach()
+
     yield* debugOverlay.attach({
       biomeService,
       chunkManager: chunkManagerService,

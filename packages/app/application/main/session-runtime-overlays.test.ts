@@ -192,6 +192,7 @@ describe('installSessionRuntimeOverlays', () => {
       overlays: {
         deathScreen,
         debugOverlay,
+        screenshotKey: { attach: () => Effect.void } as never,
         connectionPanel: connectionPanelFixture.panel,
         chatPanel: chatPanelFixture.panel,
         playerListPanel: playerListPanelFixture.panel,
@@ -315,6 +316,7 @@ describe('installSessionRuntimeOverlays', () => {
       overlays: {
         deathScreen,
         debugOverlay,
+        screenshotKey: { attach: () => Effect.void } as never,
         connectionPanel: connectionPanelFixture.panel,
         chatPanel: chatPanelFixture.panel,
         playerListPanel: playerListPanelFixture.panel,

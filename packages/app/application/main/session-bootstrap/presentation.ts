@@ -8,6 +8,7 @@ import { BlockHighlightService } from '@ts-minecraft/presentation'
 import { DamageOverlayService } from '@ts-minecraft/presentation'
 import { AchievementToastService } from '@ts-minecraft/presentation'
 import { DimensionFadeService } from '@ts-minecraft/presentation'
+import { ScreenshotKeyService } from '@ts-minecraft/presentation'
 import { SleepOverlayService } from '@ts-minecraft/presentation'
 import { InputService } from '@ts-minecraft/presentation'
 import { HotbarRendererService } from '@ts-minecraft/presentation'
@@ -36,6 +37,7 @@ export const buildPresentationBootstrapServices = Effect.gen(function* () {
     pauseMenu,
     debugFeatureFlags,
     debugOverlay,
+    screenshotKey,
     tradingPresentation,
     chatPanel,
     connectionPanel,
@@ -55,6 +57,7 @@ export const buildPresentationBootstrapServices = Effect.gen(function* () {
     PauseMenuService,
     DebugFeatureFlagsService,
     DebugOverlayService,
+    ScreenshotKeyService,
     TradingPresentationService,
     ChatPanelService,
     ConnectionPanelService,
@@ -76,6 +79,7 @@ export const buildPresentationBootstrapServices = Effect.gen(function* () {
     pauseMenu,
     debugFeatureFlags,
     debugOverlay,
+    screenshotKey,
     tradingPresentation,
     chatPanel,
     connectionPanel,
