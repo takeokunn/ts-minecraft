@@ -11,7 +11,7 @@ export const makeEntityManager = () => ({
   getStructureVersion: () => Effect.succeed(0),
   drainBirths: () => Effect.succeed(0),
   drainExplosions: () => Effect.succeed([]),
-  drainPlayerIgniteSecs: () => Effect.succeed(0),  drainPlayerShotOrigins: () => Effect.succeed([]),
+  drainPlayerIgniteSecs: () => Effect.succeed(0),  drainPlayerShotOrigins: () => Effect.succeed([]),  drainGuardianChargeOrigins: () => Effect.succeed([]),
   getPlayerContactDamageResolution: (_playerPosition: unknown) => Effect.succeed({ damage: 0, removed: false, explosions: [] }),
   getPlayerRangedDamage: (_playerPosition: unknown, _isProjectileBlocked?: unknown) => Effect.succeed(0),
   update: (_deltaTime: unknown, _playerPosition: unknown) => Effect.void,

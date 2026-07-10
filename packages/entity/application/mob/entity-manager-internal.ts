@@ -21,6 +21,7 @@ export const makeEntityManagerInternal = (
   explosionsRef: Ref.Ref<ReadonlyArray<ExplosionEvent>>,
   playerIgniteSecsRef: Ref.Ref<number>,
   playerShotOriginsRef: Ref.Ref<ReadonlyArray<PlayerShotOrigin>>,
+  guardianChargeOriginsRef: Ref.Ref<ReadonlyArray<{ readonly x: number; readonly y: number; readonly z: number }>>,
 ) => ({
   ...makeEntityManagerLifecycle(entitiesRef, cachedEntitiesRef, structureVersionRef),
   ...makeEntityManagerActions(entitiesRef, cachedEntitiesRef, structureVersionRef),
@@ -45,17 +46,21 @@ export const makeEntityManagerInternal = (
   getPlayerRangedDamage: (
     playerPosition: Position,
     isProjectileBlocked?: ProjectileBlocker,
+    chargeDeltaSecs: number = 0,
   ): Effect.Effect<number, never> =>
     Effect.gen(function* () {
-      const resolved = yield* Ref.modify(entitiesRef, (entities): [{ damage: number; igniteSecs: number; shotOrigins: ReadonlyArray<PlayerShotOrigin> }, HashMap.HashMap<EntityId, ManagedEntity>] => {
-        const [resolution, updatedEntities] = resolvePlayerRangedDamage(entities, playerPosition, isProjectileBlocked)
-        return [{ damage: resolution.damage, igniteSecs: resolution.igniteSecs, shotOrigins: resolution.shotOrigins }, updatedEntities]
+      const resolved = yield* Ref.modify(entitiesRef, (entities): [{ damage: number; igniteSecs: number; shotOrigins: ReadonlyArray<PlayerShotOrigin>; chargingOrigins: ReadonlyArray<{ x: number; y: number; z: number }> }, HashMap.HashMap<EntityId, ManagedEntity>] => {
+        const [resolution, updatedEntities] = resolvePlayerRangedDamage(entities, playerPosition, isProjectileBlocked, chargeDeltaSecs)
+        return [{ damage: resolution.damage, igniteSecs: resolution.igniteSecs, shotOrigins: resolution.shotOrigins, chargingOrigins: resolution.chargingOrigins }, updatedEntities]
       })
       if (resolved.igniteSecs > 0) {
         yield* Ref.update(playerIgniteSecsRef, (pending) => Math.max(pending, resolved.igniteSecs))
       }
       if (resolved.shotOrigins.length > 0) {
         yield* Ref.update(playerShotOriginsRef, (pending) => [...pending, ...resolved.shotOrigins])
+      }
+      if (resolved.chargingOrigins.length > 0) {
+        yield* Ref.update(guardianChargeOriginsRef, (pending) => [...pending, ...resolved.chargingOrigins])
       }
       if (resolved.damage > 0) {
         yield* invalidateEntityCache(cachedEntitiesRef)
@@ -72,4 +77,9 @@ export const makeEntityManagerInternal = (
   // draws tracer streaks from these to the player (shots are instant-hit).
   drainPlayerShotOrigins: (): Effect.Effect<ReadonlyArray<PlayerShotOrigin>, never> =>
     Ref.getAndSet(playerShotOriginsRef, [] as ReadonlyArray<PlayerShotOrigin>),
+
+  // Guardians currently telegraphing their laser — the frame layer draws a
+  // building shimmer at each until the beam fires.
+  drainGuardianChargeOrigins: (): Effect.Effect<ReadonlyArray<{ readonly x: number; readonly y: number; readonly z: number }>, never> =>
+    Ref.getAndSet(guardianChargeOriginsRef, [] as ReadonlyArray<{ readonly x: number; readonly y: number; readonly z: number }>),
 })

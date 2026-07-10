@@ -34,13 +34,14 @@ export class EntityManager extends Effect.Service<EntityManager>()(
       // Pending player burn seconds from Blaze fireball hits (drained by the frame).
       const playerIgniteSecsRef = yield* Ref.make(0)
       const playerShotOriginsRef = yield* Ref.make<ReadonlyArray<import('./entity-manager-combat').PlayerShotOrigin>>([])
+      const guardianChargeOriginsRef = yield* Ref.make<ReadonlyArray<{ readonly x: number; readonly y: number; readonly z: number }>>([])
       // Entities belong to a dimension: travelling through a portal must not
       // bring overworld mobs into the nether/end. The live map always holds the
       // ACTIVE dimension's entities; the other dimensions' populations are
       // parked here (full ManagedEntity state, so AI/fuse/age survive a round trip).
       const activeDimensionRef = yield* Ref.make<EntityDimension>('overworld')
       const dimensionPoolsRef = yield* Ref.make(HashMap.empty<EntityDimension, HashMap.HashMap<EntityIdType, ManagedEntity>>())
-      const internal = makeEntityManagerInternal(entitiesRef, cachedEntitiesRef, structureVersionRef, explosionsRef, playerIgniteSecsRef, playerShotOriginsRef)
+      const internal = makeEntityManagerInternal(entitiesRef, cachedEntitiesRef, structureVersionRef, explosionsRef, playerIgniteSecsRef, playerShotOriginsRef, guardianChargeOriginsRef)
       const mutations = makeEntityManagerMutations(
         entitiesRef,
         nextEntityNumberRef,

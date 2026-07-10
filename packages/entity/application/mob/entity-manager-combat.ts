@@ -17,6 +17,10 @@ export type PlayerContactDamageResolution = Readonly<{
 // Seconds of burning a landed Blaze fireball inflicts on the player (vanilla: 5s).
 export const BLAZE_IGNITE_SECS = 5
 
+// Guardian laser telegraph: the beam charges visibly for this long before it
+// fires; breaking range/line-of-sight during the charge cancels it (vanilla).
+export const GUARDIAN_LASER_CHARGE_SECS = 1.5
+
 export type PlayerShotOrigin = Readonly<{
   readonly x: number
   readonly y: number
@@ -33,6 +37,9 @@ type PlayerRangedDamageResolution = Readonly<{
   // igniting shot landed this resolution.
   igniteSecs: number
   readonly shotOrigins: ReadonlyArray<PlayerShotOrigin>
+  // Positions of guardians currently charging their laser — the frame layer
+  // draws a building shimmer there each frame until the beam fires.
+  readonly chargingOrigins: ReadonlyArray<{ readonly x: number; readonly y: number; readonly z: number }>
 }>
 
 export const resolvePlayerContactDamage = (
@@ -80,10 +87,12 @@ export const resolvePlayerRangedDamage = (
   entities: HashMap.HashMap<EntityId, ManagedEntity>,
   playerPosition: Position,
   isProjectileBlocked?: ProjectileBlocker,
+  chargeDeltaSecs: number = 0,
 ): readonly [PlayerRangedDamageResolution, HashMap.HashMap<EntityId, ManagedEntity>] => {
   let totalDamage = 0
   let igniteSecs = 0
   const shotOrigins: Array<PlayerShotOrigin> = []
+  const chargingOrigins: Array<{ x: number; y: number; z: number }> = []
   let updatedEntities = entities
   let anyEntityModified = false
 
@@ -91,7 +100,32 @@ export const resolvePlayerRangedDamage = (
     if (entity.type !== EntityType.Skeleton && entity.type !== EntityType.Blaze && entity.type !== EntityType.Ghast && entity.type !== EntityType.Guardian) return
     if (entity.behavior !== 'hostile' || entity.attackDamage <= 0) return
     if (entity.attackCooldownRemaining > 0) return
-    if (!canSkeletonShootPlayer(entity, playerPosition, isProjectileBlocked)) return
+    if (!canSkeletonShootPlayer(entity, playerPosition, isProjectileBlocked)) {
+      // Breaking range/LOS cancels a guardian mid-charge (vanilla).
+      if (entity.laserChargeSecsRemaining !== undefined) {
+        updatedEntities = HashMap.set(updatedEntities, entity.entityId, { ...entity, laserChargeSecsRemaining: undefined })
+        anyEntityModified = true
+      }
+      return
+    }
+
+    // Guardian laser telegraph: charge visibly before firing.
+    if (entity.type === EntityType.Guardian) {
+      const charge = entity.laserChargeSecsRemaining
+      if (charge === undefined) {
+        chargingOrigins.push({ x: entity.position.x, y: entity.position.y + 0.5, z: entity.position.z })
+        updatedEntities = HashMap.set(updatedEntities, entity.entityId, { ...entity, laserChargeSecsRemaining: GUARDIAN_LASER_CHARGE_SECS })
+        anyEntityModified = true
+        return
+      }
+      if (charge > 0) {
+        chargingOrigins.push({ x: entity.position.x, y: entity.position.y + 0.5, z: entity.position.z })
+        updatedEntities = HashMap.set(updatedEntities, entity.entityId, { ...entity, laserChargeSecsRemaining: Math.max(0, charge - chargeDeltaSecs) })
+        anyEntityModified = true
+        return
+      }
+      // charge complete: fall through to fire, clearing the telegraph.
+    }
 
     totalDamage += entity.attackDamage
     const isFireShot = entity.type === EntityType.Blaze || entity.type === EntityType.Ghast
@@ -106,6 +140,7 @@ export const resolvePlayerRangedDamage = (
     updatedEntities = HashMap.set(updatedEntities, entity.entityId, {
       ...entity,
       attackCooldownRemaining: HOSTILE_ATTACK_COOLDOWN_SECS,
+      laserChargeSecsRemaining: undefined,
     })
     anyEntityModified = true
   })
@@ -115,6 +150,7 @@ export const resolvePlayerRangedDamage = (
       damage: totalDamage,
       igniteSecs,
       shotOrigins,
+      chargingOrigins,
     },
     anyEntityModified ? updatedEntities : entities,
   ]

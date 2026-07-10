@@ -18,6 +18,9 @@ export type ManagedEntity = Entity & {
   readonly aiState: AIState
   readonly wanderDirection: Vector3
   readonly attackCooldownRemaining: number
+  // Guardian laser telegraph: seconds left in the visible charge-up before the
+  // beam fires. undefined = not charging (optional so no construction ripple).
+  readonly laserChargeSecsRemaining?: number | undefined
   readonly isProvoked: boolean
   readonly isGrounded: boolean
   // Seconds remaining while a combat knockback impulse is active; AI yields horizontal

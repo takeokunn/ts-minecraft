@@ -125,7 +125,19 @@ const getHostileDamage = (
       rawHostileDamage.rangedDamage = yield* services.entityManager.getPlayerRangedDamage(
         refreshedPos,
         isProjectileBlocked,
+        inputs.deltaTime,
       )
+
+      // Guardian laser telegraph: a building prismarine shimmer at each
+      // charging guardian — the player sees the beam coming and can break
+      // line of sight to cancel it.
+      const chargeOrigins = yield* services.entityManager.drainGuardianChargeOrigins()
+      if (chargeOrigins.length > 0) {
+        const chargeUv = getParticleUvOffset(blockTypeToIndex('PRISMARINE'))
+        for (const origin of chargeOrigins) {
+          yield* services.particleSystem.spawnBurst(origin.x, origin.y, origin.z, chargeUv.u, chargeUv.v, 2)
+        }
+      }
 
       // Tracer streaks: every landed ranged shot draws a particle line from
       // the shooter to the player — instant-hit shots are otherwise invisible.

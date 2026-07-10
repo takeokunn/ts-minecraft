@@ -172,23 +172,58 @@ describe('entity/entityManagerCombat integration', () => {
 })
 
 describe('guardian laser', () => {
-  plainIt('a guardian in range fires an instant-hit laser shot with the laser tracer flag', () => {
+  plainIt('a guardian telegraphs a charge, then fires the laser once the charge elapses', () => {
     const guardian = makeTestManagedEntity({
       entityId: EntityId.make('entity-guardian-laser'),
       type: EntityType.Guardian,
       position: { x: 0, y: 60, z: 0 },
     })
-    const entities = HashMap.set(HashMap.empty(), guardian.entityId, guardian)
+    const player = { x: 8, y: 60, z: 0 }
+    let entities = HashMap.set(HashMap.empty(), guardian.entityId, guardian)
 
-    const [resolution, updatedEntities] = resolvePlayerRangedDamage(entities, { x: 8, y: 60, z: 0 })
+    // Frame 1: charge starts — shimmer, no damage, no beam.
+    const [first, afterFirst] = resolvePlayerRangedDamage(entities, player, undefined, 0.1)
+    expect(first.damage).toBe(0)
+    expect(first.shotOrigins).toEqual([])
+    expect(first.chargingOrigins).toEqual([{ x: 0, y: 60.5, z: 0 }])
+    entities = afterFirst
 
-    expect(resolution.damage).toBe(guardian.attackDamage)
-    expect(resolution.igniteSecs).toBe(0) // lasers never set the player on fire
-    expect(resolution.shotOrigins).toEqual([
+    // Drive the charge down to zero (1.5s at 0.5s per resolution).
+    for (let i = 0; i < 3; i++) {
+      const [mid, next] = resolvePlayerRangedDamage(entities, player, undefined, 0.5)
+      expect(mid.damage).toBe(0)
+      entities = next
+    }
+
+    // Charge complete: the beam fires with the laser tracer flag.
+    const [fired, afterFire] = resolvePlayerRangedDamage(entities, player, undefined, 0.1)
+    expect(fired.damage).toBe(guardian.attackDamage)
+    expect(fired.igniteSecs).toBe(0) // lasers never set the player on fire
+    expect(fired.shotOrigins).toEqual([
       { x: 0, y: 60.5, z: 0, fire: false, laser: true },
     ])
-    const updated = Option.getOrThrow(HashMap.get(updatedEntities, guardian.entityId))
+    const updated = Option.getOrThrow(HashMap.get(afterFire, guardian.entityId))
     expect(updated.attackCooldownRemaining).toBeGreaterThan(0)
+    expect(updated.laserChargeSecsRemaining).toBeUndefined()
+  })
+
+  plainIt('breaking range mid-charge cancels the telegraph (no delayed beam)', () => {
+    const guardian = makeTestManagedEntity({
+      entityId: EntityId.make('entity-guardian-cancel'),
+      type: EntityType.Guardian,
+      position: { x: 0, y: 60, z: 0 },
+    })
+    let entities = HashMap.set(HashMap.empty(), guardian.entityId, guardian)
+    const [, charging] = resolvePlayerRangedDamage(entities, { x: 8, y: 60, z: 0 }, undefined, 0.1)
+    entities = charging
+    // Player retreats out of laser range: the charge clears.
+    const [away, cleared] = resolvePlayerRangedDamage(entities, { x: 40, y: 60, z: 0 }, undefined, 0.1)
+    expect(away.damage).toBe(0)
+    expect(Option.getOrThrow(HashMap.get(cleared, guardian.entityId)).laserChargeSecsRemaining).toBeUndefined()
+    // Re-entering range restarts the telegraph from scratch — never an instant beam.
+    const [reentry] = resolvePlayerRangedDamage(cleared, { x: 8, y: 60, z: 0 }, undefined, 0.1)
+    expect(reentry.damage).toBe(0)
+    expect(reentry.chargingOrigins).toHaveLength(1)
   })
 
   plainIt('skeleton arrows and blaze fireballs keep their non-laser tracer flags', () => {
