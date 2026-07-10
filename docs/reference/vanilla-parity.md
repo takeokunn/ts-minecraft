@@ -1,7 +1,7 @@
 ---
 title: Vanilla Minecraft Feature Parity Matrix
 category: reference
-last_verified: 2026-07-03
+last_verified: 2026-07-10
 ---
 
 # Vanilla Minecraft Feature Parity Matrix
@@ -18,7 +18,7 @@ schemas, not from documentation. Statuses: ✅ implemented & verified,
 |---|---|---|
 | Block types | 108 | `packages/core/domain/block-type.ts` |
 | Item types | 122 | `packages/core/domain/item-type.ts` |
-| Crafting/smelting/brewing recipes | 111 | `packages/inventory/application/recipes/` |
+| Crafting/smelting/brewing recipes | 112 | `packages/inventory/application/recipes/` |
 | Enchantments | 24 | with applied gameplay effects |
 | Mob types | 20 | see roster below |
 | Biomes | 12 | BEACH DESERT FOREST JUNGLE MOUNTAINS OCEAN PLAINS RIVER SAVANNA SNOW SWAMP TAIGA |
@@ -70,7 +70,7 @@ Chicken, Bat, Squid, Bee.
 
 | Feature | Status | Notes |
 |---|---|---|
-| fBm terrain, 12 biomes, rivers/lakes with graded shores | ✅ | |
+| fBm terrain, 13 biomes (incl. Flower Forest), rivers/lakes with graded shores | ✅ | carvers keep a solid shell under water beds (2026-07-10) |
 | Caves, ravines, ores (fortune/silk-touch aware), gravel/flint | ✅ | |
 | Trees (biome variants), crops + farming (hoe/till/bonemeal), animals | ✅ | |
 | Villages (seed-deterministic sparse sites, grounded houses, farms, villagers, trading) | ✅ | screenshot-verified this audit |
@@ -112,7 +112,10 @@ Chicken, Bat, Squid, Bee.
 | Gamepad: sticks, face buttons, triggers→mouse, bumpers→hotbar | ✅ | code-verified mapping |
 | Onboarding hints ("Quick Controls", dismissible), How to Play | ✅ | |
 | Graphics presets (low→ultra) + per-pass toggles + adaptive quality | ✅ | |
-| F3 debug overlay, screenshot key, pause/settings/save-quit flow | ✅ | |
+| F3 debug overlay, screenshot key, pause/settings/save-quit flow | ✅ | second-load deadlock fixed 2026-07-10 |
+| Colorblind correction (protanopia/deuteranopia/tritanopia) | ✅ | feColorMatrix daltonization, persisted setting (2026-07-10) |
+| Sound-cue captions (work with audio muted, aria-live) | ✅ | every gameplay sound has a text twin (2026-07-10) |
+| FOV slider 30–110°, level-up/achievement celebration cues | ✅ | 2026-07-10 |
 
 ## Performance (measured floor — headless SwiftShader software GL)
 
@@ -122,7 +125,7 @@ Chicken, Bat, Squid, Bee.
 | FPS @ render distance 8 (289 meshes) | 41.7 |
 | Frustum cull ratio | ~55–60 % of loaded meshes |
 | 200-block teleport → full visible ring | seconds (worker-pool terrain gen) |
-| Test suite | 9120 passing / 788 files |
+| Test suite | 9,287 unit passing / 808 files + 64 e2e passing |
 
 ## Known gaps (honest ❌ list)
 

@@ -1,7 +1,7 @@
 ---
 title: Competitive Landscape — Open-Source Minecraft Clones
 category: reference
-last_verified: 2026-07-03
+last_verified: 2026-07-10
 ---
 
 # Competitive Landscape: Open-Source Minecraft Clones
@@ -19,7 +19,7 @@ install, TypeScript, three.js rendering.
 
 | Project | Survival loop | Crafting | Mobs & combat | Redstone | Dimensions | Multiplayer | Tests | Notes |
 |---|---|---|---|---|---|---|---|---|
-| **this project** | ✅ full (hunger/health/XP/sleep/death) | ✅ 111 recipes, 5 stations, brewing, enchanting (24) | ✅ 20 mobs, melee+bow, armor, status effects | ✅ 12 components incl. pistons w/ trains+arm, observer, hopper, comparator (both modes), dispenser | ✅ Nether + End w/ progression | ✅ co-op (seed sync, edit-log replay, entity host authority) | 9108 unit + 55 e2e | this document's host |
+| **this project** | ✅ full (hunger/health/XP/sleep/death) | ✅ 112 recipes, 5 stations, brewing, enchanting (24) | ✅ 20 mobs, melee+bow, armor, status effects | ✅ 12 components incl. pistons w/ trains+arm, observer, hopper, comparator (both modes), dispenser | ✅ Nether + End w/ progression | ✅ co-op (seed sync, edit-log replay, entity host authority) | 9,287 unit + 64 e2e | this document's host |
 | [vyse12138/minecraft-threejs](https://github.com/vyse12138/minecraft-threejs) | 🟡 build/break, collision, save/load | ❌ | ❌ | ❌ | ❌ | ❌ (listed as "working on") | none found | functional prototype; explicitly WIP on water/perf |
 | [mc.js](https://github.com/ian13456/mc.js-1) (DMCA'd → mine.js) | 🟡 build/break, world saving | ❌ documented | ❌ documented | ❌ | ❌ | ✅ (accounts, GraphQL backend) | n/a | archived after DMCA; self-described WIP |
 | [Voxelize](https://github.com/voxelize/voxelize) | engine, not a game | ❌ (bring your own) | ❌ (bring your own) | ❌ | ❌ | ✅ engine-level (Rust server) | n/a | successor to mc.js; full-stack voxel ENGINE — survival systems are the integrator's job |
@@ -30,7 +30,7 @@ hunger/health/XP, any crafting system, any mob/combat system, any redstone,
 or any additional dimension. This project's verified surface (see the parity
 matrix — every ✅ grep-counted or live-tested) exceeds each surveyed
 browser-native clone on every gameplay axis, and is the only one with a
-substantial automated test suite (9108 unit tests + 55 e2e).
+substantial automated test suite (9,287 unit tests + 64 e2e).
 
 ## Adjacent categories (different trade-offs — not claimed as beaten)
 
