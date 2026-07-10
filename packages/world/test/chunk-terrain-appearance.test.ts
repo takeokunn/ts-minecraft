@@ -195,10 +195,13 @@ describe('terrain/chunk-terrain-appearance', () => {
       )
 
     it('uses biome-driven tree archetypes deterministically', () => {
+      // Jittered-grid placement: only each 4×4 cell's hash-chosen candidate column can
+      // sprout, so the probe columns must BE candidates — (4,7), (9,12) and (13,7) are
+      // the candidates of cells (1,1), (2,3) and (3,1) under the tree RNG constants.
       const biomeColumns = makeBiomeColumns('PLAINS', 0)
-      biomeColumns[columnIndex(3, 3)] = makeBiomeColumn('PLAINS', 1)
-      biomeColumns[columnIndex(8, 8)] = makeBiomeColumn('SNOW', 1)
-      biomeColumns[columnIndex(12, 12)] = makeBiomeColumn('JUNGLE', 1)
+      biomeColumns[columnIndex(4, 7)] = makeBiomeColumn('PLAINS', 1)
+      biomeColumns[columnIndex(9, 12)] = makeBiomeColumn('SNOW', 1)
+      biomeColumns[columnIndex(13, 7)] = makeBiomeColumn('JUNGLE', 1)
       const terrainChannels = makeTerrainChannels()
 
       const { TestLayer: layerA } = buildCustomTerrainLayer(biomeColumns, terrainChannels)
@@ -210,9 +213,9 @@ describe('terrain/chunk-terrain-appearance', () => {
 
         expect(chunkA.blocks).toEqual(chunkB.blocks)
 
-        const oak = analyzeTree(chunkA.blocks, 3, 3)
-        const spruce = analyzeTree(chunkA.blocks, 8, 8)
-        const jungle = analyzeTree(chunkA.blocks, 12, 12)
+        const oak = analyzeTree(chunkA.blocks, 4, 7)
+        const spruce = analyzeTree(chunkA.blocks, 9, 12)
+        const jungle = analyzeTree(chunkA.blocks, 13, 7)
 
         expect(oak.trunkHeight).toBeGreaterThanOrEqual(4)
         expect(oak.trunkHeight).toBeLessThanOrEqual(6)
@@ -224,8 +227,10 @@ describe('terrain/chunk-terrain-appearance', () => {
     })
 
     it('generates seamless tree canopies across chunk borders instead of suppressing edge trees', () => {
+      // (14,11) is cell (3,2)'s jittered-grid candidate — the closest candidate to the
+      // right border; its radius-2 canopy reaches x=16, i.e. column 0 of chunk (1,0).
       const biomeColumns = makeBiomeColumns('DESERT', 0)
-      biomeColumns[columnIndex(15, 8)] = makeBiomeColumn('FOREST', 1)
+      biomeColumns[columnIndex(14, 11)] = makeBiomeColumn('FOREST', 1)
       const terrainChannels = makeTerrainChannels()
       const storage = makeInMemoryStorage()
       const StorageTestLayer = Layer.succeed(StorageServicePort, storage)
@@ -233,7 +238,7 @@ describe('terrain/chunk-terrain-appearance', () => {
         BiomeService,
         BiomeService.of({
           _tag: '@minecraft/application/BiomeService' as const,
-          getBiome: (x: number, z: number) => Effect.succeed(x === 15 && z === 8 ? 'FOREST' as const : 'DESERT' as const),
+          getBiome: (x: number, z: number) => Effect.succeed(x === 14 && z === 11 ? 'FOREST' as const : 'DESERT' as const),
           getBiomeProperties: (biome: BiomeType) => Effect.succeed(makeBiomeColumn(biome, biome === 'FOREST' ? 1 : 0).props),
           getTemperature: (_x: number, _z: number) => Effect.succeed(0.5),
           getHumidity: (_x: number, _z: number) => Effect.succeed(0.5),
@@ -279,8 +284,8 @@ describe('terrain/chunk-terrain-appearance', () => {
         const leftChunk = yield* service.getChunk({ x: 0, z: 0 })
         const rightChunk = yield* service.getChunk({ x: 1, z: 0 })
 
-        const rightBorderTreeBlocks = Arr.filter(Arr.makeBy(CHUNK_HEIGHT, (y) => rightChunk.blocks[idx(0, y, 8)]!), (block) => block === WOOD || block === LEAVES)
-        const leftOriginTree = analyzeTree(leftChunk.blocks, 15, 8)
+        const rightBorderTreeBlocks = Arr.filter(Arr.makeBy(CHUNK_HEIGHT, (y) => rightChunk.blocks[idx(0, y, 11)]!), (block) => block === WOOD || block === LEAVES)
+        const leftOriginTree = analyzeTree(leftChunk.blocks, 14, 11)
 
         expect(leftOriginTree.woodCount).toBeGreaterThan(0)
         expect(rightBorderTreeBlocks.length).toBeGreaterThan(0)
