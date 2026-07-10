@@ -23,17 +23,17 @@ export const DEFAULT_ATTACK_COOLDOWN_SECS = 0.625 // ~1.6 attacks/sec (vanilla s
 
 // ─── Weapon base damage (vanilla Java Edition 1.9+) ──────────────────────────
 
-export const PLAYER_ATTACK_DAMAGE = 4
-export const WOODEN_SWORD_ATTACK_DAMAGE = 8
-export const GOLD_SWORD_ATTACK_DAMAGE = 8 // gold = wooden tier (R99)
-export const STONE_SWORD_ATTACK_DAMAGE = 9
-export const IRON_SWORD_ATTACK_DAMAGE = 12
-export const DIAMOND_SWORD_ATTACK_DAMAGE = 16
-export const WOODEN_AXE_ATTACK_DAMAGE = 9
-export const GOLD_AXE_ATTACK_DAMAGE = 9 // gold = wooden tier (R99)
-export const STONE_AXE_ATTACK_DAMAGE = 10
-export const IRON_AXE_ATTACK_DAMAGE = 11
-export const DIAMOND_AXE_ATTACK_DAMAGE = 13
+export const PLAYER_ATTACK_DAMAGE = 1
+export const WOODEN_SWORD_ATTACK_DAMAGE = 4
+export const GOLD_SWORD_ATTACK_DAMAGE = 4 // gold = wooden tier (R99)
+export const STONE_SWORD_ATTACK_DAMAGE = 5
+export const IRON_SWORD_ATTACK_DAMAGE = 6
+export const DIAMOND_SWORD_ATTACK_DAMAGE = 7
+export const WOODEN_AXE_ATTACK_DAMAGE = 7
+export const GOLD_AXE_ATTACK_DAMAGE = 7 // gold = wooden tier (R99)
+export const STONE_AXE_ATTACK_DAMAGE = 9
+export const IRON_AXE_ATTACK_DAMAGE = 9
+export const DIAMOND_AXE_ATTACK_DAMAGE = 9
 
 export const WEAPON_BASE_DAMAGE: Readonly<Record<string, number>> = {
   WOODEN_SWORD: WOODEN_SWORD_ATTACK_DAMAGE,

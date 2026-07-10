@@ -11,9 +11,9 @@ export const getBlockHardness = (blockType: BlockType): number => HARDNESS_BY_TY
 
 // Speed multipliers by tool type. Non-listed tools use 1× (no bonus).
 const TOOL_SPEED: Readonly<Partial<Record<InventoryItem, number>>> = {
-  WOODEN_PICKAXE: 2, STONE_PICKAXE: 4, IRON_PICKAXE: 6, DIAMOND_PICKAXE: 8, GOLD_PICKAXE: 2,
-  WOODEN_SHOVEL: 2, STONE_SHOVEL: 4, IRON_SHOVEL: 6, DIAMOND_SHOVEL: 8, GOLD_SHOVEL: 2,
-  WOODEN_AXE: 2, STONE_AXE: 4, IRON_AXE: 6, DIAMOND_AXE: 8, GOLD_AXE: 2,
+  WOODEN_PICKAXE: 2, STONE_PICKAXE: 4, IRON_PICKAXE: 6, DIAMOND_PICKAXE: 8, GOLD_PICKAXE: 12,
+  WOODEN_SHOVEL: 2, STONE_SHOVEL: 4, IRON_SHOVEL: 6, DIAMOND_SHOVEL: 8, GOLD_SHOVEL: 12,
+  WOODEN_AXE: 2, STONE_AXE: 4, IRON_AXE: 6, DIAMOND_AXE: 8, GOLD_AXE: 12,
 }
 
 export interface BreakTicksInput {

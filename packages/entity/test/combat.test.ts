@@ -168,17 +168,17 @@ describe('getWeaponBaseDamage', () => {
   })
 
   it('returns the correct damage for each sword tier', () => {
-    expect(getWeaponBaseDamage('WOODEN_SWORD')).toBe(8)
-    expect(getWeaponBaseDamage('STONE_SWORD')).toBe(9)
-    expect(getWeaponBaseDamage('IRON_SWORD')).toBe(12)
-    expect(getWeaponBaseDamage('DIAMOND_SWORD')).toBe(16)
+    expect(getWeaponBaseDamage('WOODEN_SWORD')).toBe(4)
+    expect(getWeaponBaseDamage('STONE_SWORD')).toBe(5)
+    expect(getWeaponBaseDamage('IRON_SWORD')).toBe(6)
+    expect(getWeaponBaseDamage('DIAMOND_SWORD')).toBe(7)
   })
 
   it('returns the correct damage for each axe tier', () => {
-    expect(getWeaponBaseDamage('WOODEN_AXE')).toBe(9)
-    expect(getWeaponBaseDamage('STONE_AXE')).toBe(10)
-    expect(getWeaponBaseDamage('IRON_AXE')).toBe(11)
-    expect(getWeaponBaseDamage('DIAMOND_AXE')).toBe(13)
+    expect(getWeaponBaseDamage('WOODEN_AXE')).toBe(7)
+    expect(getWeaponBaseDamage('STONE_AXE')).toBe(9)
+    expect(getWeaponBaseDamage('IRON_AXE')).toBe(9)
+    expect(getWeaponBaseDamage('DIAMOND_AXE')).toBe(9)
   })
 })
 
