@@ -38,8 +38,23 @@ const getChunkMeshSnapshots = (scene: THREE.Scene): ReadonlyArray<QaChunkMeshSna
       const position = mesh.geometry.getAttribute('position')
       const uv = mesh.geometry.getAttribute('uv')
       const tileIndex = mesh.geometry.getAttribute('tileIndex')
+      // Vertex-baked light stats (color G channel = sky-light factor). avg≈0 while the
+      // authoritative chunk cache says sky=15 ⇒ the mesh was baked with stale light.
+      const color = mesh.geometry.getAttribute('color')
+      let skySum = 0
+      let skyMax = 0
+      if (color !== undefined) {
+        for (let i = 0; i < color.count; i++) {
+          const g = color.getY(i)
+          skySum += g
+          if (g > skyMax) skyMax = g
+        }
+      }
       return {
         chunkCoord: mesh.userData.chunkCoord,
+        chunkMaxY: (mesh.userData as { chunkMaxY?: number }).chunkMaxY,
+        avgSkyFactor: color !== undefined && color.count > 0 ? skySum / color.count : -1,
+        maxSkyFactor: color !== undefined ? skyMax : -1,
         type: mesh.type,
         visible: mesh.visible,
         vertexCount: position?.count ?? 0,
@@ -54,6 +69,8 @@ const getChunkMeshSnapshots = (scene: THREE.Scene): ReadonlyArray<QaChunkMeshSna
 
 export const getRenderingSnapshot = (camera: THREE.PerspectiveCamera, scene: THREE.Scene): QaRenderingSnapshot => {
   const chunkMeshes = getChunkMeshSnapshots(scene)
+  const forward = new THREE.Vector3()
+  camera.getWorldDirection(forward)
   return {
     sceneChildren: scene.children.length,
     chunkMeshCount: chunkMeshes.length,
@@ -65,6 +82,13 @@ export const getRenderingSnapshot = (camera: THREE.PerspectiveCamera, scene: THR
       fov: camera.fov,
       near: camera.near,
       far: camera.far,
+      forwardX: forward.x,
+      forwardY: forward.y,
+      forwardZ: forward.z,
+      qx: camera.quaternion.x,
+      qy: camera.quaternion.y,
+      qz: camera.quaternion.z,
+      qw: camera.quaternion.w,
     },
     chunks: chunkMeshes,
   }
@@ -92,6 +116,28 @@ export const getBlockTypeAtForQA = (chunkManagerService: ChunkManagerService, x:
     return chunkOpt._tag === 'Some'
       ? Option.getOrNull(decodeBlockType(chunkOpt.value.blocks[flatIdx]))
       : null
+  }))
+
+// Reads the authoritative chunk-cache light levels at a world position.
+// Diagnostic surface for QA (black-terrain triage: sky=0 at noon renders black).
+// Light grids are 4-bit packed (2 voxels/byte): even voxel index = low nibble.
+export const getLightAtForQA = (chunkManagerService: ChunkManagerService, x: number, y: number, z: number) =>
+  Effect.runPromise(Effect.gen(function* () {
+    const { chunkCoord, flatIdx } = worldToBlockIndex({ x, y, z })
+    const chunkOpt = yield* chunkManagerService.getChunk(chunkCoord).pipe(Effect.option)
+    if (chunkOpt._tag === 'None') return null
+    const chunk = chunkOpt.value
+    const unpack = (grid: Uint8Array | undefined): number => {
+      if (grid === undefined) return -1
+      const byte = grid[flatIdx >> 1] ?? 0
+      return (flatIdx & 1) === 0 ? byte & 0x0f : (byte >> 4) & 0x0f
+    }
+    return {
+      block: Option.getOrNull(decodeBlockType(chunk.blocks[flatIdx])),
+      sky: unpack(chunk.skyLight),
+      blockLight: unpack(chunk.blockLight),
+      hasSkyGrid: chunk.skyLight !== undefined,
+    }
   }))
 
 export const setTimeOfDayForQA = (timeService: TimeService, timeOfDay: number) =>

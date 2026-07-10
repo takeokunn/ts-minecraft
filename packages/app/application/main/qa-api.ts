@@ -24,7 +24,7 @@ import {
 } from '@ts-minecraft/app/main/qa-api-world'
 import { attackFirstZombie, getMobMovementSnapshot, spawnLowHealthZombieInFront } from '@ts-minecraft/app/main/qa-api-combat'
 import { aimAtBlockForQA, aimAtBuildSpot, aimAtStagedResource, aimAtStagedZombie, aimNaturalForQA, dispatchMouseClick, setMouseHeldForQA } from '@ts-minecraft/app/main/qa-api-visual'
-import { getBlockTypeAtForQA, getLoadedWaterBlockCount, getRenderingSnapshot, setTimeOfDayForQA } from '@ts-minecraft/app/main/qa-api-rendering'
+import { getBlockTypeAtForQA, getLightAtForQA, getLoadedWaterBlockCount, getRenderingSnapshot, setTimeOfDayForQA } from '@ts-minecraft/app/main/qa-api-rendering'
 import { getDebugStateForQA } from '@ts-minecraft/app/main/qa-api-debug-state'
 import { getFrameStatsForQA } from '@ts-minecraft/app/main/qa-api-perf'
 import { getVillagesForQA } from '@ts-minecraft/app/main/qa-api-village'
@@ -115,6 +115,7 @@ const makeQaApi = (
     ),
   getLoadedWaterBlockCount: () => getLoadedWaterBlockCount(deps.chunkManagerService),
   getBlockTypeAtForQA: (x: number, y: number, z: number) => getBlockTypeAtForQA(deps.chunkManagerService, x, y, z),
+  getLightAtForQA: (x: number, y: number, z: number) => getLightAtForQA(deps.chunkManagerService, x, y, z),
   getMobMovementSnapshot: (durationMs: number) => getMobMovementSnapshot(deps.entityManager, durationMs),
   setTimeOfDayForQA: (timeOfDay: number) => setTimeOfDayForQA(deps.timeService, timeOfDay),
   movePlayerForQA: (offset) =>
