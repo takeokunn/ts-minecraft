@@ -101,6 +101,7 @@ export const NON_PLACEABLE_ITEM_TYPES: HashSet.HashSet<InventoryItem> = HashSet.
   'FEATHER',
   'INK_SAC',
   'PRISMARINE_SHARD',
+  'AMETHYST_SHARD',
   // Armor — worn, not placed
   'LEATHER_HELMET',
   'LEATHER_CHESTPLATE',
@@ -164,6 +165,7 @@ export const INVENTORY_DROP_OVERRIDES: HashMap.HashMap<BlockType, InventoryItem>
   ['EMERALD_ORE', 'EMERALD'],
   ['DEEPSLATE_EMERALD_ORE', 'EMERALD'],
   ['GLOWSTONE', 'GLOWSTONE_DUST'],
+  ['AMETHYST_CLUSTER', 'AMETHYST_SHARD'],
   // Lit is a transient powered state; both states drop the placeable lamp item.
   ['REDSTONE_LAMP_LIT', 'REDSTONE_LAMP'],
   ['COBWEB', 'STRING'],
@@ -205,6 +207,7 @@ const BLOCK_BASE_DROP_COUNT: HashMap.HashMap<BlockType, number> = HashMap.fromIt
   ['LAPIS_ORE', 4],
   ['DEEPSLATE_LAPIS_ORE', 4],
   ['GLOWSTONE', 4],
+  ['AMETHYST_CLUSTER', 4],
   ['SNOW', 4],
 ])
 

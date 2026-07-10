@@ -132,4 +132,8 @@ export const TILE_MAP: ReadonlyArray<Readonly<Record<TextureFaceDir, number>>> =
   { top: 144, bottom: 144, side: 144 }, // 113: POWERED_RAIL
   { top: 109, bottom: 109, side: 109 }, // 114: KELP (green stalk tile shared with sugar cane)
   { top: 107, bottom: 107, side: 107 }, // 115: SEAGRASS (grass-tuft tile shared with tall grass)
+  { top: 146, bottom: 146, side: 146 }, // 116: SMOOTH_BASALT
+  { top: 147, bottom: 147, side: 147 }, // 117: CALCITE
+  { top: 148, bottom: 148, side: 148 }, // 118: AMETHYST_BLOCK
+  { top: 149, bottom: 149, side: 149 }, // 119: AMETHYST_CLUSTER
 ]

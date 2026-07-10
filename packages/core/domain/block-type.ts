@@ -124,6 +124,10 @@ export const BlockTypeSchema = Schema.Literal(
   'POWERED_RAIL',
   // Append-only: block ids are positional — new types go at the END (save compat).
   'KELP',
-  'SEAGRASS'
+  'SEAGRASS',
+  'SMOOTH_BASALT',
+  'CALCITE',
+  'AMETHYST_BLOCK',
+  'AMETHYST_CLUSTER'
 )
 export type BlockType = Schema.Schema.Type<typeof BlockTypeSchema>

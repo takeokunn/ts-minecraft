@@ -20,6 +20,10 @@ export const WOODEN_PICKAXE_HARVESTABLE_BLOCKS: HashSet.HashSet<BlockType> = Has
   'WATER_CAULDRON',
   'COAL_ORE',
   'DEEPSLATE_COAL_ORE',
+  'SMOOTH_BASALT',
+  'CALCITE',
+  'AMETHYST_BLOCK',
+  'AMETHYST_CLUSTER',
 ])
 
 export const STONE_PICKAXE_HARVESTABLE_BLOCKS: HashSet.HashSet<BlockType> = HashSet.union(

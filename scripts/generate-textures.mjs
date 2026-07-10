@@ -2065,6 +2065,86 @@ saveTile(145, 'item-prismarine-shard', (ctx) => {
   ctx.stroke()
 })
 
+// 146: smooth basalt — dark charcoal stone, faint vertical grain.
+saveTile(146, 'smooth-basalt', (ctx) => {
+  ctx.fillStyle = '#4a4a50'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  drawNoise(ctx, ['#3f3f45', '#55555c', '#46464c'], 0.35)
+  ctx.fillStyle = 'rgba(30,30,34,0.5)'
+  for (let x = 3; x < TILE_PX; x += 7) ctx.fillRect(x, 0, 2, TILE_PX)
+})
+
+// 147: calcite — chalky off-white with soft gray flecks.
+saveTile(147, 'calcite', (ctx) => {
+  ctx.fillStyle = '#dcd9d4'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  drawNoise(ctx, ['#e8e5e0', '#cfccc6', '#d5d2cc'], 0.4)
+})
+
+// 148: amethyst block — deep purple crystal mass with lighter facets.
+saveTile(148, 'amethyst-block', (ctx) => {
+  ctx.fillStyle = '#7a5cc4'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  drawNoise(ctx, ['#8a6cd4', '#6a4cb4', '#9578dd'], 0.45)
+  // facet glints
+  ctx.fillStyle = '#c3aef0'
+  ctx.fillRect(5, 6, 4, 2)
+  ctx.fillRect(20, 14, 3, 2)
+  ctx.fillRect(11, 24, 4, 2)
+})
+
+// 149: amethyst cluster — dark base bristling with lavender crystal spikes.
+saveTile(149, 'amethyst-cluster', (ctx) => {
+  ctx.fillStyle = '#4e3a80'
+  ctx.fillRect(0, 0, TILE_PX, TILE_PX)
+  drawNoise(ctx, ['#5a4690', '#443370', '#524080'], 0.3)
+  const spikes = [
+    [6, 26, 10, 8], [14, 28, 18, 6], [22, 27, 26, 10],
+    [4, 12, 8, 4], [26, 16, 29, 8],
+  ]
+  ctx.fillStyle = '#b79af0'
+  for (const [x1, y1, x2, y2] of spikes) {
+    ctx.beginPath()
+    ctx.moveTo(x1, y1)
+    ctx.lineTo(x2, y2)
+    ctx.lineTo(x1 + 4, y1)
+    ctx.closePath()
+    ctx.fill()
+  }
+  ctx.fillStyle = '#e0d2fa'
+  ctx.fillRect(9, 10, 2, 2)
+  ctx.fillRect(27, 9, 2, 2)
+})
+
+// 150: amethyst shard — item sprite, single lavender crystal sliver.
+saveTile(150, 'item-amethyst-shard', (ctx) => {
+  ctx.clearRect(0, 0, TILE_PX, TILE_PX)
+  ctx.fillStyle = '#9d7ae0'
+  ctx.beginPath()
+  ctx.moveTo(16, 3)
+  ctx.lineTo(23, 13)
+  ctx.lineTo(18, 28)
+  ctx.lineTo(12, 27)
+  ctx.lineTo(10, 13)
+  ctx.closePath()
+  ctx.fill()
+  ctx.fillStyle = '#7a54c4'
+  ctx.beginPath()
+  ctx.moveTo(16, 3)
+  ctx.lineTo(23, 13)
+  ctx.lineTo(18, 28)
+  ctx.lineTo(16, 15)
+  ctx.closePath()
+  ctx.fill()
+  ctx.strokeStyle = '#d2c0f5'
+  ctx.lineWidth = 2
+  ctx.beginPath()
+  ctx.moveTo(15, 4)
+  ctx.lineTo(11, 13)
+  ctx.lineTo(13, 26)
+  ctx.stroke()
+})
+
 // Save combined atlas (single file loaded by chunk-mesh.ts at runtime).
 writeFileSync(join(OUTPUT_DIR, 'atlas.png'), atlasCanvas.toBuffer('image/png'))
 console.log(`  ✓ atlas.png (512×512, all 140 tiles combined)`)

@@ -62,6 +62,7 @@ export const ItemTypeSchema = Schema.Literal(
   'FEATHER',
   'INK_SAC',
   'PRISMARINE_SHARD',
+  'AMETHYST_SHARD',
   'STRING',
   'SPIDER_EYE',
   'ENDER_PEARL',

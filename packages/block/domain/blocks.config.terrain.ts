@@ -173,6 +173,32 @@ export const terrainBlocks: ReadonlyArray<Block> = [
     properties: { hardness: 50, transparency: false, solid: true, emissive: false, friction: 0.8 },
     faces: defaultBlockFaces,
   }),
+  // Amethyst geode shells (outer -> inner: smooth basalt, calcite, amethyst).
+  new Block({
+    id: makeBlockId('block:smooth_basalt'),
+    type: 'SMOOTH_BASALT',
+    properties: { hardness: 30, transparency: false, solid: true, emissive: false, friction: 0.8 },
+    faces: defaultBlockFaces,
+  }),
+  new Block({
+    id: makeBlockId('block:calcite'),
+    type: 'CALCITE',
+    properties: { hardness: 20, transparency: false, solid: true, emissive: false, friction: 0.8 },
+    faces: defaultBlockFaces,
+  }),
+  new Block({
+    id: makeBlockId('block:amethyst_block'),
+    type: 'AMETHYST_BLOCK',
+    properties: { hardness: 30, transparency: false, solid: true, emissive: false, friction: 0.8 },
+    faces: defaultBlockFaces,
+  }),
+  // Crystal cluster: gently emissive so geode interiors glow in the dark.
+  new Block({
+    id: makeBlockId('block:amethyst_cluster'),
+    type: 'AMETHYST_CLUSTER',
+    properties: { hardness: 15, transparency: false, solid: true, emissive: true, friction: 0.8 },
+    faces: defaultBlockFaces,
+  }),
   new Block({
     id: makeBlockId('block:bedrock'),
     type: 'BEDROCK',

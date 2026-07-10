@@ -23,6 +23,7 @@ import { writeDesertTempleForChunk } from './desert-temple'
 import { writeOceanMonumentForChunk } from './ocean-monument'
 import { writeWoodlandMansionForChunk } from './woodland-mansion'
 import { writeShipwreckForChunk } from './shipwreck'
+import { writeAmethystGeodeForChunk } from './amethyst-geode'
 import { RAVINE_NOISE_SCALE, RAVINE_WORLD_OFFSET, carveRavines } from './ravine-carver'
 
 export const generateTerrain = (
@@ -172,6 +173,9 @@ export const generateTerrain = (
     writeOceanMonumentForChunk(blocks, coord.x, coord.z, initialSurfaceYs, biomeColumns)
     writeWoodlandMansionForChunk(blocks, coord.x, coord.z, initialSurfaceYs, biomeColumns)
     writeShipwreckForChunk(blocks, coord.x, coord.z, initialSurfaceYs, biomeColumns)
+    // Amethyst geodes: underground, so they neither read surface heights nor
+    // care about biome — written last so shells cut through caves and ores.
+    writeAmethystGeodeForChunk(blocks, coord.x, coord.z)
 
     return { ...chunk, blocks }
   })

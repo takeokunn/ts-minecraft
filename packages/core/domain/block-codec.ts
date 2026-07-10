@@ -71,6 +71,10 @@ export const INDEX_TO_BLOCK_TYPE: ReadonlyArray<BlockType> = [
   // Underwater flora - index 114
   'KELP',
   'SEAGRASS',
+  'SMOOTH_BASALT',
+  'CALCITE',
+  'AMETHYST_BLOCK',
+  'AMETHYST_CLUSTER',
 ]
 
 export const BLOCK_COUNT = INDEX_TO_BLOCK_TYPE.length
