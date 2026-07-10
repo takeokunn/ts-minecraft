@@ -26,6 +26,14 @@ import {
 import { isGrassSeedDropBlock as isGrassSeedDropBlockWorld } from '@ts-minecraft/world'
 import { CROP_DROP_RULES } from './interaction-break-handler.crop-drops.config'
 
+// Bed-respawn invalidation hook, installed by interaction-stage (which owns
+// deps.respawnPositionRef). Breaking a BED whose head/foot cell backs the
+// current respawn point falls back to the world spawn (vanilla "bed missing").
+let bedRespawnInvalidator: ((pos: { x: number; y: number; z: number }) => void) | null = null
+export const setBedRespawnInvalidator = (cb: ((pos: { x: number; y: number; z: number }) => void) | null): void => {
+  bedRespawnInvalidator = cb
+}
+
 export const executeBlockBreak = (
   services: BreakExecutionServices,
   refs: Pick<FrameStageRefs, 'dirtyChunksRef'>,
@@ -38,6 +46,10 @@ export const executeBlockBreak = (
     const heldItem = Option.getOrNull(toolStack)
     const shearsHarvestsGrass = isGrassSeedDropBlockWorld(blockType) && heldItem?.itemType === 'SHEARS'
     const cropDropRule = CROP_DROP_RULES.get(blockType)
+
+    if (blockType === 'BED' && bedRespawnInvalidator !== null) {
+      yield* Effect.sync(() => bedRespawnInvalidator?.(pos))
+    }
 
     if (creative) {
       yield* services.blockService.breakBlock(pos, false, { requireHarvest: false, dropItems: false })

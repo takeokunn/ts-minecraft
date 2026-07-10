@@ -8,6 +8,7 @@ import { buildSessionBootstrapScene } from '@ts-minecraft/app/main/session-boots
 import { buildSpawnSelection } from '@ts-minecraft/app/main/session-world-loader'
 import { WorldId } from '@ts-minecraft/core'
 import { buildSessionBootstrapStartupState } from '@ts-minecraft/app/main/session-bootstrap/startup'
+import { setBedRespawnInvalidator } from '@ts-minecraft/app/application/frame/stages/interaction-break-handler.execute'
 
 export const buildSessionBootstrapOrchestration = (deps: SessionBootstrapDeps) =>
   Effect.gen(function* () {
@@ -131,6 +132,17 @@ export const buildSessionBootstrapOrchestration = (deps: SessionBootstrapDeps) =
         yield* entity.villageService.resetVillages()
         const spawnSelection = yield* buildSpawnSelection({ x: 0, y: 80, z: 0 }, chunkManagerService)
         MutableRef.set(respawnPositionRef, spawnSelection.position)
+        // Bed-respawn invalidation: breaking the bed backing the respawn point
+        // reverts respawn to this session's world spawn (vanilla "bed missing").
+        setBedRespawnInvalidator((pos) => {
+          const respawn = MutableRef.get(respawnPositionRef)
+          const dx = Math.abs(respawn.x - pos.x)
+          const dz = Math.abs(respawn.z - pos.z)
+          const dy = respawn.y - pos.y
+          if (dx <= 1 && dz <= 1 && dy >= 0 && dy <= 1.5) {
+            MutableRef.set(respawnPositionRef, spawnSelection.position)
+          }
+        })
         yield* gameState.respawn(spawnSelection.position)
       }).pipe(
         Effect.catchAllCause((cause) =>
