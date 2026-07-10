@@ -14,6 +14,7 @@ const AIR = 0
 const STONE = 2
 const LAVA = 9
 const BEDROCK = 8
+const WATER = 7
 
 const makeColumnStates = (biome: ColumnState['biome'], surfaceY: number): ColumnState[] =>
   Array.from({ length: CHUNK_SIZE * CHUNK_SIZE }, () => ({
@@ -44,7 +45,7 @@ describe('ravine carver', () => {
   it('carves a full-depth shaft at the band center', () => {
     const surfaceY = 70
     const blocks = makeStoneChunk(surfaceY)
-    const carved = carveRavines(blocks, noiseWithBandColumn(4, 7), makeColumnStates('PLAINS', surfaceY), AIR, LAVA, BEDROCK)
+    const carved = carveRavines(blocks, noiseWithBandColumn(4, 7), makeColumnStates('PLAINS', surfaceY), AIR, LAVA, BEDROCK, WATER)
     expect(carved).toBe(1)
     expect(blocks[chunkBlockIndexUnchecked(4, surfaceY, 7)]).toBe(AIR)
     expect(blocks[chunkBlockIndexUnchecked(4, surfaceY - RAVINE_MAX_DEPTH + 1, 7)]).toBe(AIR)
@@ -57,18 +58,30 @@ describe('ravine carver', () => {
   it('exposes a lava bed when the cut reaches the lava table', () => {
     const surfaceY = 40 // floor = 40 - 28 = 12 ≤ 16 → lava
     const blocks = makeStoneChunk(surfaceY)
-    carveRavines(blocks, noiseWithBandColumn(2, 2), makeColumnStates('PLAINS', surfaceY), AIR, LAVA, BEDROCK)
+    carveRavines(blocks, noiseWithBandColumn(2, 2), makeColumnStates('PLAINS', surfaceY), AIR, LAVA, BEDROCK, WATER)
     expect(blocks[chunkBlockIndexUnchecked(2, surfaceY - RAVINE_MAX_DEPTH, 2)]).toBe(LAVA)
   })
 
   it('never slices water-body beds and never breaks bedrock', () => {
     const surfaceY = 70
     const oceanBlocks = makeStoneChunk(surfaceY)
-    expect(carveRavines(oceanBlocks, noiseWithBandColumn(4, 7), makeColumnStates('OCEAN', surfaceY), AIR, LAVA, BEDROCK)).toBe(0)
+    expect(carveRavines(oceanBlocks, noiseWithBandColumn(4, 7), makeColumnStates('OCEAN', surfaceY), AIR, LAVA, BEDROCK, WATER)).toBe(0)
 
     const lowBlocks = makeStoneChunk(20)
-    carveRavines(lowBlocks, noiseWithBandColumn(3, 3), makeColumnStates('PLAINS', 20), AIR, LAVA, BEDROCK)
+    carveRavines(lowBlocks, noiseWithBandColumn(3, 3), makeColumnStates('PLAINS', 20), AIR, LAVA, BEDROCK, WATER)
     expect(lowBlocks[chunkBlockIndexUnchecked(3, 0, 3)]).toBe(BEDROCK)
+  })
+
+  it('keeps lake beds intact: a submerged column on the band is never carved', () => {
+    // Regression (hollow-lake black void): ravines skipped only OCEAN/RIVER biomes,
+    // so a PLAINS lake column got its bed carved from under its water.
+    const bedY = 60
+    const blocks = makeStoneChunk(bedY)
+    // Lake water sits directly above the column's surface.
+    for (let y = bedY + 1; y <= 63; y++) blocks[chunkBlockIndexUnchecked(4, y, 7)] = WATER
+    const carved = carveRavines(blocks, noiseWithBandColumn(4, 7), makeColumnStates('PLAINS', bedY), AIR, LAVA, BEDROCK, WATER)
+    expect(carved).toBe(0)
+    expect(blocks[chunkBlockIndexUnchecked(4, bedY, 7)]).toBe(STONE)
   })
 
   it('band edges taper to no carve', () => {
@@ -77,6 +90,6 @@ describe('ravine carver', () => {
     const edgeNoise = Array.from({ length: CHUNK_SIZE * CHUNK_SIZE }, (_, i) =>
       i === 0 ? RAVINE_CENTER + RAVINE_HALF_WIDTH * 0.99 : RAVINE_CENTER + 0.4,
     )
-    expect(carveRavines(blocks, edgeNoise, makeColumnStates('PLAINS', surfaceY), AIR, LAVA, BEDROCK)).toBe(0)
+    expect(carveRavines(blocks, edgeNoise, makeColumnStates('PLAINS', surfaceY), AIR, LAVA, BEDROCK, WATER)).toBe(0)
   })
 })

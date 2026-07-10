@@ -8,8 +8,28 @@ import {
   CAVE_DEPTH_MIN,
   CAVE_DEPTH_MAX,
   CAVE_LAVA_MAX_Y,
+  CAVE_WATER_FLOOR_MARGIN,
 } from './constants'
 import { smoothstep, chunkBlockIndexUnchecked } from './math'
+
+// Lowest water Y per column within carving reach (-1 = no water). Scans a few
+// blocks past CAVE_CEILING so a bed sitting just above the ceiling still gets
+// its floor margin protected.
+const computeWaterFloorYs = (blocks: Readonly<Uint8Array>, waterBlockIndex: number): Int16Array => {
+  const floors = new Int16Array(CHUNK_SIZE * CHUNK_SIZE).fill(-1)
+  const scanTop = CAVE_CEILING + CAVE_WATER_FLOOR_MARGIN
+  for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+    for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+      for (let y = CAVE_FLOOR; y <= scanTop; y++) {
+        if (blocks[chunkBlockIndexUnchecked(lx, y, lz)] === waterBlockIndex) {
+          floors[lx * CHUNK_SIZE + lz] = y
+          break
+        }
+      }
+    }
+  }
+  return floors
+}
 
 // Trilinearly interpolates coarse 3D noise samples; voxels where |noise| < threshold(y) become AIR.
 // Sample grid index: sx + sz*SX + sy*SX*SZ, SX=SZ=floor(CHUNK_SIZE/STRIDE)+1.
@@ -27,6 +47,8 @@ export const carveCaves = (
   const sample = (sx: number, sy: number, sz: number): number =>
     caveSamples[sx + sz * sxCount + sy * sxCount * szCount]!
 
+  const waterFloorYs = computeWaterFloorYs(blocks, waterBlockIndex)
+
   for (let lx = 0; lx < CHUNK_SIZE; lx++) {
     const sx0 = Math.floor(lx / stride)
     const sx1 = sx0 + 1
@@ -35,6 +57,7 @@ export const carveCaves = (
       const sz0 = Math.floor(lz / stride)
       const sz1 = sz0 + 1
       const fz = (lz - sz0 * stride) / stride
+      const waterFloorY = waterFloorYs[lx * CHUNK_SIZE + lz]!
 
       // Traverse the vertical cave region only — saves work outside [FLOOR, CEILING]
       for (let y = CAVE_FLOOR; y <= CAVE_CEILING; y++) {
@@ -42,6 +65,11 @@ export const carveCaves = (
         const current = blocks[idx]!
         // Protect bedrock, AIR (already), and WATER (fluid bodies)
         if (current === bedrockBlockIndex || current === airBlockIndex || current === waterBlockIndex) {
+          continue
+        }
+        // Keep a solid shell under water bodies: carving the bed away leaves a
+        // floating water sheet over an unlit cavity (the black-void bug).
+        if (waterFloorY >= 0 && y >= waterFloorY - CAVE_WATER_FLOOR_MARGIN && y < waterFloorY) {
           continue
         }
 

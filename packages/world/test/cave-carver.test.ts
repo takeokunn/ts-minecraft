@@ -6,6 +6,7 @@ import {
   CAVE_SAMPLE_STRIDE,
   CAVE_FLOOR,
   CAVE_CEILING,
+  CAVE_WATER_FLOOR_MARGIN,
   BEDROCK_LAYER_TOP,
   carveCaves,
 } from '@ts-minecraft/world'
@@ -195,5 +196,29 @@ describe('carveCaves', () => {
     const samples = makeSamples(0)
     carveCaves(blocks, samples, AIR, WATER, BEDROCK, LAVA)
     expect(getBlock(blocks, 8, 8, 8)).toBe(LAVA)
+  })
+
+  it('keeps a solid floor shell under water bodies (hollow-lake regression)', () => {
+    // Regression (black-void bug): carving protected water blocks but ate the
+    // river/lake BED from below, leaving a floating water sheet over an unlit
+    // cavity. The carve must now stop CAVE_WATER_FLOOR_MARGIN blocks short.
+    const blocks = makeBlocks()
+    const bedTopY = 61
+    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+      for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+        for (let y = CAVE_FLOOR; y <= bedTopY; y++) setBlock(blocks, lx, y, lz, STONE)
+        setBlock(blocks, lx, 62, lz, WATER)
+        setBlock(blocks, lx, 63, lz, WATER)
+      }
+    }
+    carveCaves(blocks, makeSamples(0), AIR, WATER, BEDROCK, LAVA) // all-carve noise
+
+    // Water untouched, shell [62 - margin, 61] stays STONE, below the shell carved.
+    expect(getBlock(blocks, 8, 63, 8)).toBe(WATER)
+    expect(getBlock(blocks, 8, 62, 8)).toBe(WATER)
+    for (let y = 62 - CAVE_WATER_FLOOR_MARGIN; y <= bedTopY; y++) {
+      expect(getBlock(blocks, 8, y, 8), `shell y=${y}`).toBe(STONE)
+    }
+    expect(getBlock(blocks, 8, 62 - CAVE_WATER_FLOOR_MARGIN - 1, 8)).toBe(AIR)
   })
 })

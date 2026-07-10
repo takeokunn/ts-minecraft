@@ -26,6 +26,7 @@ export const carveRavines = (
   airBlockIndex: number,
   lavaBlockIndex: number,
   bedrockBlockIndex: number,
+  waterBlockIndex: number,
 ): number => {
   let carvedColumns = 0
   for (let lx = 0; lx < CHUNK_SIZE; lx++) {
@@ -39,6 +40,10 @@ export const carveRavines = (
       if (state === undefined) continue
       // Water bodies keep their beds — vanilla surface ravines don't slice rivers open.
       if (state.biome === 'OCEAN' || state.biome === 'RIVER') continue
+      // Same rule for ANY submerged column (lakes, flooded basins): the biome check
+      // alone let ravines carve lake beds from under their water, leaving a floating
+      // water sheet over a dark shaft ("hollow lake" black-void bug).
+      if (blocks[chunkBlockIndexUnchecked(lx, state.surfaceY + 1, lz)] === waterBlockIndex) continue
 
       // Walls taper: full depth at the band center, shallow at the edges.
       const taper = 1 - (distance / RAVINE_HALF_WIDTH) ** 2

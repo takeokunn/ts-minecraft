@@ -158,6 +158,7 @@ export const generateTerrain = (
       blockIndices.airBlockIndex,
       blockIndices.lavaBlockIndex,
       blockIndices.bedrockBlockIndex,
+      blockIndices.waterBlockIndex,
     )
 
     // Stronghold end-portal rooms: final pass so the room shell carves

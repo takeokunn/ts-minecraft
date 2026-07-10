@@ -43,6 +43,11 @@ export const CAVE_DEPTH_MAX = 40
 // Avoids surface holes (MC 1.18-aligned)
 export const CAVE_CEILING = 80
 export const CAVE_FLOOR = BEDROCK_LAYER_TOP + 1 // y=5 (y<=4 is bedrock)
+// Solid-floor shell kept beneath water bodies. Carving protects water blocks
+// themselves but used to eat the river/lake BED from below (CAVE_CEILING=80 is
+// above the y=62-63 water lines), leaving a floating 2-block water sheet over a
+// giant unlit cavity — seen in-game as a pitch-black "missing ground" void.
+export const CAVE_WATER_FLOOR_MARGIN = 3
 // Number of Y sample levels in the cave noise grid. carveCaves only carves
 // [CAVE_FLOOR, CAVE_CEILING], reading grid rows up to sy=floor(CAVE_CEILING/STRIDE)+1,
 // so generating samples for the full 256-tall column wasted ~68% of the (expensive)
