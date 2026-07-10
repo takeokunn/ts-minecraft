@@ -1843,3 +1843,33 @@ describe('XP level-up celebration', () => {
     expect(playEffectSpy).not.toHaveBeenCalledWith('levelUp')
   }))
 })
+
+describe('death inventory drops (vanilla, no keepInventory)', () => {
+  it.effect('spawns every occupied slot as a dropped item and clears the inventory', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    ;(services.healthService as { isDead: unknown }).isDead = vi.fn(() => Effect.succeed(true))
+    ;(services.inventoryService as { getAllSlots: unknown }).getAllSlots = vi.fn(() =>
+      Effect.succeed([
+        Option.some({ itemType: 'STONE', count: 32 }),
+        Option.none(),
+        Option.some({ itemType: 'IRON_SWORD', count: 1 }),
+      ])
+    )
+    const clearSpy = vi.fn(() => Effect.void)
+    ;(services.inventoryService as { clear: unknown }).clear = clearSpy
+    const spawnSpy = vi.fn(() => Effect.succeed({ id: 'drop' }))
+    ;(services.droppedItemService as { spawn: unknown }).spawn = spawnSpy
+
+    yield* runFrame(deps, services)
+
+    expect(spawnSpy).toHaveBeenCalledTimes(2)
+    expect(spawnSpy.mock.calls[0]?.[0]).toMatchObject({ itemType: 'STONE', count: 32 })
+    expect(spawnSpy.mock.calls[1]?.[0]).toMatchObject({ itemType: 'IRON_SWORD', count: 1 })
+    expect(clearSpy).toHaveBeenCalledOnce()
+  }))
+})

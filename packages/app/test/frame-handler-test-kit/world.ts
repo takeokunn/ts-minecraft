@@ -4,6 +4,7 @@ import * as THREE from 'three'
 /** Creates an empty inventory service fake. */
 export const makeInventoryService = () => ({
   getAllSlots: () => Effect.succeed([]),
+  clear: () => Effect.void,
   getSlot: (_index: unknown) => Effect.succeed(Option.none()),
   setSlot: (_index: unknown, _stack: unknown) => Effect.void,
   damageSlot: (_index: unknown, _amount?: unknown) => Effect.void,

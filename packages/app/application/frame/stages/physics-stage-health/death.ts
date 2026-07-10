@@ -1,4 +1,4 @@
-import { Effect, MutableRef, Ref } from 'effect'
+import { Effect, MutableRef, Option, Ref } from 'effect'
 import type { Position } from '@ts-minecraft/core'
 import type { PhysicsStageDeps } from '../physics-stage-types/deps'
 import type { PhysicsStageInputs } from '../physics-stage-types/inputs'
@@ -20,6 +20,21 @@ export const handleDeathOrSurvival = (
   Effect.gen(function* () {
     const isDead = yield* services.healthService.isDead()
     if (isDead) {
+      // Vanilla death drops: scatter the whole inventory at the death position,
+      // then clear. Runs once in practice — this handler repeats while dead,
+      // but after clear() every slot is None so re-entry is a no-op.
+      const slots = yield* services.inventoryService.getAllSlots()
+      yield* Effect.forEach(slots, (slot) =>
+        Option.isSome(slot)
+          ? services.droppedItemService.spawn({
+              itemType: slot.value.itemType,
+              count: slot.value.count,
+              position: { x: refreshedPos.x, y: refreshedPos.y + 0.5, z: refreshedPos.z },
+              velocity: { x: 0, y: 0.12, z: 0 },
+            }).pipe(Effect.catchAllCause(() => Effect.void), Effect.asVoid)
+          : Effect.void,
+      )
+      yield* services.inventoryService.clear()
       yield* services.xpService.reset()
       yield* services.fishingService.cancel()
       const isCreative = yield* services.gameMode.isCreative()
