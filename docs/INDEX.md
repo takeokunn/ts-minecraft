@@ -81,6 +81,7 @@ Technical specifications and API documentation
 
 - [Vanilla Parity Matrix](./reference/vanilla-parity.md) - Grounded inventory of implemented vs. missing vanilla features (live-verified)
 - [Competitive Landscape](./reference/competitive-landscape.md) - Survey of open-source Minecraft clones vs. this project (sourced, dated)
+- [Shipping Readiness 2026-07-10](./reference/shipping-readiness-2026-07-10.md) - Evidence-based release-quality snapshot (gates, E2E coverage, perf, a11y, known limitations)
 - [API Reference](./reference/api/README.md) - API documentation
   - [Effect-TS APIs](./reference/api/effect-ts-effect-api.md)
   - [Domain APIs](./reference/api/domain-apis.md)
