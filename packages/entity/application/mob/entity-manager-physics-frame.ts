@@ -42,7 +42,9 @@ export const prepareEntityPhysicsFrame = (
   // HOVER instead of walking (the long-deferred flight gap): lift off while
   // grounded, then ride a deterministic tick-driven bob around their altitude.
   const isDragon = entity.type === EntityType.EnderDragon
-  const isHoverType = entity.type === EntityType.Ghast || entity.type === EntityType.Blaze
+  // Guardians "hover" too: the same mechanic keeps them suspended in their
+  // water column instead of sinking to the seabed like a land mob.
+  const isHoverType = entity.type === EntityType.Ghast || entity.type === EntityType.Blaze || entity.type === EntityType.Guardian
   const hoverY = entity.isGrounded
     ? HOVER_LIFT_VELOCITY_Y
     : Math.sin(tick * HOVER_BOB_RATE) * HOVER_BOB_AMPLITUDE_Y

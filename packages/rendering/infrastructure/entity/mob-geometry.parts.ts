@@ -107,6 +107,14 @@ export const GHAST_PARTS: SquidParts = {
 }
 export const GHAST_PALETTE: SquidPalette = { head: 0xd8d8d8, body: 0xefefef, tentacle: 0xbdbdbd }
 export const GLOW_SQUID_PALETTE: SquidPalette = { head: 0x37d6c8, body: 0x5df0df, tentacle: 0x1db8aa }
+// Guardian: teal cube body with tan spikes on the squid frame (matches
+// GUARDIAN_SPECS in entity-instance-specs.ts).
+export const GUARDIAN_PARTS: SquidParts = {
+  head: [0.55, 0.45, 0.55],
+  body: [0.85, 0.85, 0.85],
+  tentacle: [0.12, 0.4, 0.12],
+}
+export const GUARDIAN_PALETTE: SquidPalette = { head: 0x5a8272, body: 0x6f9e8c, tentacle: 0xc8b48a }
 
 export const WITCH_PARTS: ZombieParts = {
   head: [0.42, 0.55, 0.42],

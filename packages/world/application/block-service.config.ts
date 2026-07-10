@@ -100,6 +100,7 @@ export const NON_PLACEABLE_ITEM_TYPES: HashSet.HashSet<InventoryItem> = HashSet.
   'SNOWBALL',
   'FEATHER',
   'INK_SAC',
+  'PRISMARINE_SHARD',
   // Armor — worn, not placed
   'LEATHER_HELMET',
   'LEATHER_CHESTPLATE',

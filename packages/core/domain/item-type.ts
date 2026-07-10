@@ -61,6 +61,7 @@ export const ItemTypeSchema = Schema.Literal(
   'SNOWBALL',
   'FEATHER',
   'INK_SAC',
+  'PRISMARINE_SHARD',
   'STRING',
   'SPIDER_EYE',
   'ENDER_PEARL',

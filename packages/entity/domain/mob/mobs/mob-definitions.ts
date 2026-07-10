@@ -5,6 +5,7 @@ import { BeeDefinition } from './bee'
 import { BlazeDefinition } from './blaze'
 import { VillagerDefinition } from './villager'
 import { GhastDefinition } from './ghast'
+import { GuardianDefinition } from './guardian'
 import { ChickenDefinition } from './chicken'
 import { CowDefinition } from './cow'
 import { CreeperDefinition } from './creeper'
@@ -45,4 +46,5 @@ export const MobDefinitions = {
   [EntityType.Blaze]: BlazeDefinition,
   [EntityType.Villager]: VillagerDefinition,
   [EntityType.Ghast]: GhastDefinition,
+  [EntityType.Guardian]: GuardianDefinition,
 } as Readonly<Record<EntityType, MobDefinition>>

@@ -2033,6 +2033,38 @@ saveTile(140, 'observer', (ctx) => {
   ctx.fillRect(13, 14, 6, 4)
 })
 
+// 145: prismarine shard — teal crystalline sliver (guardian drop).
+saveTile(145, 'item-prismarine-shard', (ctx) => {
+  ctx.clearRect(0, 0, TILE_PX, TILE_PX)
+  // main shard body: elongated teal crystal
+  ctx.fillStyle = '#67b5a4'
+  ctx.beginPath()
+  ctx.moveTo(16, 3)
+  ctx.lineTo(24, 12)
+  ctx.lineTo(19, 28)
+  ctx.lineTo(11, 26)
+  ctx.lineTo(9, 12)
+  ctx.closePath()
+  ctx.fill()
+  // darker facet
+  ctx.fillStyle = '#3f8577'
+  ctx.beginPath()
+  ctx.moveTo(16, 3)
+  ctx.lineTo(24, 12)
+  ctx.lineTo(19, 28)
+  ctx.lineTo(16, 14)
+  ctx.closePath()
+  ctx.fill()
+  // highlight edge
+  ctx.strokeStyle = '#a8dfd2'
+  ctx.lineWidth = 2
+  ctx.beginPath()
+  ctx.moveTo(16, 4)
+  ctx.lineTo(10, 12)
+  ctx.lineTo(12, 25)
+  ctx.stroke()
+})
+
 // Save combined atlas (single file loaded by chunk-mesh.ts at runtime).
 writeFileSync(join(OUTPUT_DIR, 'atlas.png'), atlasCanvas.toBuffer('image/png'))
 console.log(`  ✓ atlas.png (512×512, all 140 tiles combined)`)

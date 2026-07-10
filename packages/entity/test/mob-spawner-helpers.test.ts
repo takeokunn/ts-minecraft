@@ -126,3 +126,23 @@ describe('selectMobType', () => {
     expect(selectMobType(false, 0)).toBe(EntityType.Cow)
   })
 })
+
+describe('selectMobType — aquatic spawns', () => {
+  it('night aquatic spawns rotate guardians and drowned', () => {
+    const picks = [1, 2, 3, 4].map((cursor) =>
+      selectMobType(true, cursor, 'overworld', { x: 0, y: 60, z: 0 }, true),
+    )
+    expect(new Set(picks)).toEqual(new Set([EntityType.Guardian, EntityType.Drowned]))
+  })
+
+  it('day aquatic spawns rotate squid variants only', () => {
+    const picks = [1, 2, 3, 4].map((cursor) =>
+      selectMobType(false, cursor, 'overworld', { x: 0, y: 60, z: 0 }, true),
+    )
+    expect(new Set(picks)).toEqual(new Set([EntityType.Squid, EntityType.GlowSquid]))
+  })
+
+  it('non-aquatic selection is unchanged by the new parameter default', () => {
+    expect(selectMobType(false, 0)).toBe(selectMobType(false, 0, 'overworld', undefined, false))
+  })
+})

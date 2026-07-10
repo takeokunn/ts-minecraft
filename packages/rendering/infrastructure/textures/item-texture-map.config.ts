@@ -174,6 +174,7 @@ export const ITEM_TILE_MAP: Readonly<Record<InventoryItem, number>> = {
   SNOWBALL: 10,
   FEATHER: 48,
   INK_SAC: 49,
+  PRISMARINE_SHARD: 145,
   STRING: 48,
   SPIDER_EYE: 93,
   ENDER_PEARL: 61,

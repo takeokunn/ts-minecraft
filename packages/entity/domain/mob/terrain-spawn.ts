@@ -23,18 +23,46 @@ const blockIdAt = (chunk: Chunk, lx: number, y: number, lz: number): number =>
  *
  * An absent blockLight grid reads as 0 (dark) — only lit surfaces suppress spawns.
  */
+// A resolved spawn position, optionally flagged aquatic when it sits inside a
+// deep water column. Structurally a Position, so resolver consumers that only
+// care about coordinates keep working unchanged.
+export type ResolvedSpawnPosition = Position & { readonly aquatic?: boolean }
+
+// Water this deep spawns aquatic mobs INSIDE the column instead of placing a
+// land mob on the surface film.
+const AQUATIC_SPAWN_MIN_DEPTH = 3
+
 export const resolveMobSpawnPosition = (
   chunk: Chunk,
   candidatePosition: Position,
   isHostileSpawn: boolean = false,
-): Option.Option<Position> => {
+): Option.Option<ResolvedSpawnPosition> => {
   const blockX = Math.floor(candidatePosition.x)
   const blockZ = Math.floor(candidatePosition.z)
   const lx = toLocalAxis(blockX)
   const lz = toLocalAxis(blockZ)
+  const waterIndex = blockTypeToIndex('WATER')
 
   for (let y = CHUNK_HEIGHT - 1; y >= 0; y--) {
-    if (blockIdAt(chunk, lx, y, lz) === 0) continue
+    const first = blockIdAt(chunk, lx, y, lz)
+    if (first === 0) continue
+
+    // Deep water column: spawn submerged (aquatic rotation) rather than
+    // standing a cow on the ocean surface. Shallow water falls through to the
+    // surface-spawn path below, matching ponds and river edges.
+    if (first === waterIndex) {
+      let groundY = y
+      while (groundY >= 0 && blockIdAt(chunk, lx, groundY, lz) === waterIndex) groundY--
+      const depth = y - groundY
+      if (depth >= AQUATIC_SPAWN_MIN_DEPTH) {
+        return Option.some({
+          x: candidatePosition.x,
+          y: y - 1 + MOB_HALF_HEIGHT,
+          z: candidatePosition.z,
+          aquatic: true,
+        })
+      }
+    }
 
     const bodyBlockY = y + 1
     const headBlockY = y + 2

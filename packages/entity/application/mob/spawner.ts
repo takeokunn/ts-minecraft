@@ -92,8 +92,9 @@ export class MobSpawner extends Effect.Service<MobSpawner>()(
               return Option.none<EntityId>()
             }
 
+            const isAquaticSpawn = (spawnPosition as { readonly aquatic?: boolean }).aquatic === true
             const entityId = yield* entityManager.addEntity(
-              selectMobType(spawnsHostile, cursor, dimension, spawnPosition),
+              selectMobType(spawnsHostile, cursor, dimension, spawnPosition, isAquaticSpawn),
               spawnPosition,
             )
 

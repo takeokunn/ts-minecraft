@@ -40,6 +40,20 @@ export const ALL_HOSTILE_MOBS: ReadonlyArray<EntityType> = [
   ...HOSTILE_MOBS,
   EntityType.Blaze,
   EntityType.Ghast,
+  EntityType.Guardian,
+]
+
+// Deep-water spawn rotations: hostile picks alternate guardians and drowned;
+// passive picks stay squid. Selected when the resolved spawn position is
+// submerged (aquatic flag from the spawn resolver).
+export const AQUATIC_HOSTILE_MOBS: ReadonlyArray<EntityType> = [
+  EntityType.Guardian,
+  EntityType.Drowned,
+]
+
+export const AQUATIC_PASSIVE_MOBS: ReadonlyArray<EntityType> = [
+  EntityType.Squid,
+  EntityType.GlowSquid,
 ]
 
 // Vanilla daylight burn applies to UNDEAD mobs only — creepers, spiders,

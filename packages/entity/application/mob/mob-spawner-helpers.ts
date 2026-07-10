@@ -4,7 +4,7 @@ import type { Dimension } from '@ts-minecraft/world'
 import { isNearFortressSite } from '@ts-minecraft/world'
 import { EntityType } from '../../domain/mob/entity'
 import { MIN_SPAWN_DISTANCE } from '../../domain/mob/spawner-config'
-import { PASSIVE_MOBS, HOSTILE_MOBS, NETHER_HOSTILE_MOBS } from '../../domain/mob/mob-categories'
+import { AQUATIC_HOSTILE_MOBS, AQUATIC_PASSIVE_MOBS, PASSIVE_MOBS, HOSTILE_MOBS, NETHER_HOSTILE_MOBS } from '../../domain/mob/mob-categories'
 
 export const getSpawnPosition = (playerPosition: Position, cursor: number): Position => {
   const angle = ((cursor % 16) / 16) * Math.PI * 2
@@ -22,6 +22,7 @@ export const selectMobType = (
   cursor: number,
   dimension: Dimension = 'overworld',
   spawnPosition?: Position,
+  isAquaticSpawn: boolean = false,
 ): EntityType => {
   if (dimension === 'nether') {
     // Fortress grounds are guarded by Blazes; elsewhere the nether rotation
@@ -38,6 +39,15 @@ export const selectMobType = (
   if (dimension === 'end') {
     // Vanilla end islands spawn endermen exclusively.
     return EntityType.Enderman
+  }
+
+  // Submerged spawn point (deep water): only aquatic mobs — guardians patrol
+  // the depths at night, squid school there by day. A land rotation here would
+  // put a chicken on the seabed.
+  if (isAquaticSpawn) {
+    return isNight
+      ? Option.getOrElse(Arr.get(AQUATIC_HOSTILE_MOBS, cursor % AQUATIC_HOSTILE_MOBS.length), () => EntityType.Guardian)
+      : Option.getOrElse(Arr.get(AQUATIC_PASSIVE_MOBS, cursor % AQUATIC_PASSIVE_MOBS.length), () => EntityType.Squid)
   }
 
   if (isNight) {

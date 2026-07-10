@@ -67,6 +67,7 @@ const EntityTypeSchema = Schema.Literal(
   'Blaze',
   'Villager',
   'Ghast',
+  'Guardian',
 )
 
 const EntityStateSchema = Schema.Struct({

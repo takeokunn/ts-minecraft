@@ -61,6 +61,13 @@ const GHAST_SPECS = buildSquidSpecs(
   { head: 0xd8d8d8, body: 0xefefef, tentacle: 0xbdbdbd },
 )
 
+// Guardian: a blocky one-eyed puffer — squid frame with the vanilla teal
+// body, tan spike tentacles reading as the spike ring.
+const GUARDIAN_SPECS = buildSquidSpecs(
+  { head: [0.55, 0.45, 0.55], body: [0.85, 0.85, 0.85], tentacle: [0.12, 0.4, 0.12] },
+  { head: 0x5a8272, body: 0x6f9e8c, tentacle: 0xc8b48a },
+)
+
 const WITCH_SPECS = buildBipedSpecs(
   { head: [0.42, 0.55, 0.42], body: [0.56, 1.05, 0.32], arm: [0.18, 0.95, 0.18], leg: [0.18, 0.45, 0.18] },
   { head: 0x6b8f4e, body: 0x4b2a63, arm: 0x3a214f, leg: 0x2a1a36 },
@@ -226,6 +233,7 @@ const SPECS_BY_TYPE: Readonly<Record<EntityType, Readonly<Record<PartRole, Optio
   ZombieVillager: ZOMBIE_VILLAGER_SPECS,
   Villager: VILLAGER_SPECS,
   Ghast: GHAST_SPECS,
+  Guardian: GUARDIAN_SPECS,
   Creeper: CREEPER_SPECS,
   Skeleton: SKELETON_SPECS,
   Spider: SPIDER_SPECS,
@@ -254,6 +262,7 @@ export const ROLES_BY_TYPE: Readonly<Record<EntityType, ReadonlyArray<PartRole>>
   ZombieVillager: ['head', 'body', 'armL', 'armR', 'legFL', 'legFR'],
   Villager: ['head', 'body', 'armL', 'armR', 'legFL', 'legFR'],
   Ghast: ['head', 'body', 'legFL', 'legFR', 'legBL', 'legBR'],
+  Guardian: ['head', 'body', 'legFL', 'legFR', 'legBL', 'legBR'],
   Creeper: ['head', 'body', 'legFL', 'legFR', 'legBL', 'legBR'],
   Skeleton: ['head', 'body', 'armL', 'armR', 'legFL', 'legFR'],
   Spider: ['head', 'body', 'legFL', 'legFR', 'legBL', 'legBR'],

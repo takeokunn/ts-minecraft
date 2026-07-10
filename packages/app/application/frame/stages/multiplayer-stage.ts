@@ -31,6 +31,7 @@ const ACTIVE_REMOTE_ENTITY_TYPES: ReadonlySet<string> = new Set([
   EntityType.Enderman,
   EntityType.EnderDragon,
   EntityType.Endermite,
+  EntityType.Guardian,
 ])
 
 const isActiveRemoteEntityType = (value: string): value is EntityTypeValue =>
