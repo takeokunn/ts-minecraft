@@ -1,7 +1,8 @@
 import { Effect, Option } from 'effect'
-import { ChunkCoord, CHUNK_HEIGHT, CHUNK_SIZE, type WorldId } from '@ts-minecraft/core'
+import { blockTypeToIndex, ChunkCoord, CHUNK_HEIGHT, CHUNK_SIZE, type WorldId } from '@ts-minecraft/core'
 import { createFluidBuffer } from '@ts-minecraft/block/domain/fluid'
 import { computeMaxY, type Chunk } from '../domain/chunk'
+import { healHollowWaterBeds } from '../domain/terrain/water-bed-healer'
 import { StorageError } from '../domain/errors'
 import type { ChunkManagerError } from './chunk-manager-constants'
 import { storedChunkPayload, type ChunkCacheEntry } from './chunk-manager-cache'
@@ -49,6 +50,14 @@ export const loadStoredChunk = (
     }
 
     const baseChunk = buildChunkFromStoredPayload(coord, payload)
+    // Repair chunks saved before the carver fix (hollow river/lake beds) BEFORE
+    // computing light, so the recomputed grids reflect the healed water body.
+    healHollowWaterBeds(
+      baseChunk.blocks,
+      blockTypeToIndex('AIR'),
+      blockTypeToIndex('WATER'),
+      blockTypeToIndex('ICE'),
+    )
     const grids: LightGrids = yield* ctx.lightEngine.updateLight(baseChunk)
     return Option.some({ ...baseChunk, skyLight: grids.skyLight, blockLight: grids.blockLight })
   })
