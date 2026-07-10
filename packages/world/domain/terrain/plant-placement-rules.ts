@@ -14,6 +14,10 @@ import {
   GROUND_PLANT_PLACEMENT_SALT,
   GROUND_PLANT_VARIANT_SALT,
   HORIZONTAL_OFFSETS,
+  KELP_DENSITY_BY_BIOME,
+  KELP_HEIGHT_SALT,
+  KELP_MAX_HEIGHT,
+  KELP_PLACEMENT_SALT,
   LILY_PAD_DENSITY_BY_BIOME,
   LILY_PAD_PLACEMENT_SALT,
   MAX_NATURAL_MUSHROOM_SHADE_SCAN,
@@ -215,6 +219,32 @@ export const canPlaceMushroomAt = (
     && hasNaturalMushroomShade(blocks, lx, surfaceY, lz)
   )
 }
+
+export const shouldPlaceKelp = (
+  biome: BiomeType,
+  surfaceY: number,
+  wx: number,
+  wz: number,
+): boolean => shouldPlaceByDensity(KELP_DENSITY_BY_BIOME, KELP_PLACEMENT_SALT, biome, surfaceY, wx, wz)
+
+// Kelp grows from a solid sea floor up through the water column.
+export const canPlaceKelpAt = (
+  blocks: Uint8Array,
+  lx: number,
+  surfaceY: number,
+  lz: number,
+): boolean => {
+  const supportBlock = blockAt(blocks, lx, surfaceY, lz)
+  return (
+    (supportBlock === SAND_BLOCK_INDEX || supportBlock === DIRT_BLOCK_INDEX)
+    && blockAt(blocks, lx, surfaceY + 1, lz) === WATER_BLOCK_INDEX
+  )
+}
+
+// Taller than land plants (1..KELP_MAX_HEIGHT); the placement op additionally
+// stops below the water surface so the stalk never breaches it.
+export const kelpNaturalHeight = (wx: number, wz: number): number =>
+  1 + Math.floor(plantRng(wx, wz, KELP_HEIGHT_SALT) * KELP_MAX_HEIGHT)
 
 export const canPlaceLilyPadAt = (
   blocks: Uint8Array,

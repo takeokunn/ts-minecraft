@@ -3,6 +3,7 @@ import type { ColumnState } from './generator-types'
 import { columnStateIndex } from './plant-placement-model'
 import {
   placeCactusStack,
+  placeKelpStack,
   placeGroundPlant,
   placeLilyPad,
   placeMushroom,
@@ -10,6 +11,7 @@ import {
 } from './plant-placement-ops'
 import {
   canPlaceCactusAt,
+  canPlaceKelpAt,
   canPlaceGroundPlantAt,
   canPlaceLilyPadAt,
   canPlaceMushroomAt,
@@ -18,6 +20,7 @@ import {
   selectMushroomBlockIndex,
   shouldPlaceCactus,
   shouldPlaceGroundPlant,
+  shouldPlaceKelp,
   shouldPlaceLilyPad,
   shouldPlaceMushroom,
   shouldPlaceSugarCane,
@@ -44,6 +47,14 @@ export const placeChunkPlants = (
 
       const wx = baseWorldX + lx
       const wz = baseWorldZ + lz
+      if (
+        shouldPlaceKelp(state.biome, state.surfaceY, wx, wz)
+        && canPlaceKelpAt(blocks, lx, state.surfaceY, lz)
+      ) {
+        placeKelpStack(blocks, lx, state.surfaceY, lz, wx, wz)
+        continue
+      }
+
       if (
         shouldPlaceCactus(state.biome, state.surfaceY, wx, wz)
         && canPlaceCactusAt(blocks, lx, state.surfaceY, lz)

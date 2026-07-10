@@ -1,5 +1,8 @@
 import {
   AIR_BLOCK_INDEX,
+  KELP_BLOCK_INDEX,
+  KELP_SURFACE_CLEARANCE,
+  WATER_BLOCK_INDEX,
   CACTUS_BLOCK_INDEX,
   CACTUS_HEIGHT_SALT,
   CHUNK_HEIGHT,
@@ -9,7 +12,7 @@ import {
   blockAt,
   setBlock,
 } from './plant-placement-model'
-import { canPlaceCactusSegmentAt, naturalHeight } from './plant-placement-rules'
+import { canPlaceCactusSegmentAt, kelpNaturalHeight, naturalHeight } from './plant-placement-rules'
 
 export const placeSugarCaneStack = (
   blocks: Uint8Array,
@@ -23,6 +26,29 @@ export const placeSugarCaneStack = (
   for (let offset = 1; offset <= height && surfaceY + offset < CHUNK_HEIGHT; offset++) {
     if (blockAt(blocks, lx, surfaceY + offset, lz) !== AIR_BLOCK_INDEX) return
     setBlock(blocks, lx, surfaceY + offset, lz, SUGAR_CANE_BLOCK_INDEX)
+  }
+}
+
+// Kelp replaces WATER cells from the sea floor upward; it stops early if the
+// column runs out of water (keeping KELP_SURFACE_CLEARANCE water blocks above
+// the stalk so it never pokes through the surface).
+export const placeKelpStack = (
+  blocks: Uint8Array,
+  lx: number,
+  surfaceY: number,
+  lz: number,
+  wx: number,
+  wz: number,
+): void => {
+  const height = kelpNaturalHeight(wx, wz)
+  for (let offset = 1; offset <= height && surfaceY + offset < CHUNK_HEIGHT; offset++) {
+    const y = surfaceY + offset
+    if (blockAt(blocks, lx, y, lz) !== WATER_BLOCK_INDEX) return
+    // Keep a water cushion above: every cell in the clearance band must be water.
+    for (let above = 1; above <= KELP_SURFACE_CLEARANCE; above++) {
+      if (blockAt(blocks, lx, y + above, lz) !== WATER_BLOCK_INDEX) return
+    }
+    setBlock(blocks, lx, y, lz, KELP_BLOCK_INDEX)
   }
 }
 

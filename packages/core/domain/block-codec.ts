@@ -68,6 +68,8 @@ export const INDEX_TO_BLOCK_TYPE: ReadonlyArray<BlockType> = [
   // Extended piston arm - index 112
   'PISTON_HEAD',
   'POWERED_RAIL',
+  // Underwater flora - index 114
+  'KELP',
 ]
 
 export const BLOCK_COUNT = INDEX_TO_BLOCK_TYPE.length

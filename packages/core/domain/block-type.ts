@@ -121,6 +121,8 @@ export const BlockTypeSchema = Schema.Literal(
   'COMPARATOR',
   'DISPENSER',
   'PISTON_HEAD',
-  'POWERED_RAIL'
+  'POWERED_RAIL',
+  // Append-only: block ids are positional — new types go at the END (save compat).
+  'KELP'
 )
 export type BlockType = Schema.Schema.Type<typeof BlockTypeSchema>
