@@ -36,6 +36,7 @@ const PASSABLE_BLOCK_IDS: ReadonlySet<number> = new Set([
   blockTypeToIndex('SUGAR_CANE'),
   blockTypeToIndex('LILY_PAD'),
   blockTypeToIndex('KELP'),
+  blockTypeToIndex('SEAGRASS'),
   blockTypeToIndex('RAIL'),
   blockTypeToIndex('POWERED_RAIL'),
 ])

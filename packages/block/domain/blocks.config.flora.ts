@@ -29,4 +29,5 @@ export const floraBlocks: ReadonlyArray<Block> = [
   new Block({ id: makeBlockId('block:cactus'), type: 'CACTUS', properties: cactusBlockProperties, faces: defaultBlockFaces }),
   new Block({ id: makeBlockId('block:lily_pad'), type: 'LILY_PAD', properties: plantBlockProperties, faces: defaultBlockFaces }),
   new Block({ id: makeBlockId('block:kelp'), type: 'KELP', properties: plantBlockProperties, faces: defaultBlockFaces }),
+  new Block({ id: makeBlockId('block:seagrass'), type: 'SEAGRASS', properties: plantBlockProperties, faces: defaultBlockFaces }),
 ]

@@ -9,6 +9,7 @@ import type { ColumnState } from '../domain/terrain/generator-types'
 const SAND = blockTypeToIndex('SAND')
 const WATER = blockTypeToIndex('WATER')
 const KELP = blockTypeToIndex('KELP')
+const SEAGRASS = blockTypeToIndex('SEAGRASS')
 
 const FLOOR_Y = 50
 const WATER_TOP_Y = 63
@@ -74,13 +75,32 @@ describe('kelp generation (ocean depth content)', () => {
     }
   })
 
+  it('scatters single-block seagrass tufts on ocean floors alongside kelp', () => {
+    const blocks = makeOceanChunk()
+    placeChunkPlants(blocks, 0, 0, makeOceanColumns())
+
+    let seagrass = 0
+    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+      for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+        if (blocks[chunkBlockIndexUnchecked(lx, FLOOR_Y + 1, lz)] === SEAGRASS) {
+          seagrass++
+          // Tufts are exactly one block tall.
+          expect(blocks[chunkBlockIndexUnchecked(lx, FLOOR_Y + 2, lz)]).not.toBe(SEAGRASS)
+        }
+      }
+    }
+    // Density 0.22 over the columns kelp left free ⇒ assert a robust band.
+    expect(seagrass).toBeGreaterThan(15)
+    expect(seagrass).toBeLessThan(140)
+  })
+
   it('places no kelp on land biomes', () => {
     const blocks = makeOceanChunk()
     const landColumns = makeOceanColumns().map((c) => ({ ...c, biome: 'PLAINS' as const }))
     placeChunkPlants(blocks, 0, 0, landColumns)
 
     let kelp = 0
-    for (const b of blocks) if (b === KELP) kelp++
+    for (const b of blocks) if (b === KELP || b === SEAGRASS) kelp++
     expect(kelp).toBe(0)
   })
 })

@@ -81,6 +81,7 @@ export const ITEM_TILE_MAP: Readonly<Record<InventoryItem, number>> = {
   FERN: 108,
   SUGAR_CANE: 109,
   KELP: 109,
+  SEAGRASS: 107,
   CACTUS: 110,
   LILY_PAD: 111,
   ICE: 112,

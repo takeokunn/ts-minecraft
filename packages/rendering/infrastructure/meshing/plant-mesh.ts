@@ -24,6 +24,7 @@ const CROSS_PLANT_IDS = [
   blockTypeToIndex('FERN'),
   blockTypeToIndex('SUGAR_CANE'),
   blockTypeToIndex('KELP'),
+  blockTypeToIndex('SEAGRASS'),
 ] as const
 
 const CACTUS_ID = blockTypeToIndex('CACTUS')

@@ -70,6 +70,7 @@ export const INDEX_TO_BLOCK_TYPE: ReadonlyArray<BlockType> = [
   'POWERED_RAIL',
   // Underwater flora - index 114
   'KELP',
+  'SEAGRASS',
 ]
 
 export const BLOCK_COUNT = INDEX_TO_BLOCK_TYPE.length

@@ -2,6 +2,7 @@ import {
   AIR_BLOCK_INDEX,
   KELP_BLOCK_INDEX,
   KELP_SURFACE_CLEARANCE,
+  SEAGRASS_BLOCK_INDEX,
   WATER_BLOCK_INDEX,
   CACTUS_BLOCK_INDEX,
   CACTUS_HEIGHT_SALT,
@@ -50,6 +51,16 @@ export const placeKelpStack = (
     }
     setBlock(blocks, lx, y, lz, KELP_BLOCK_INDEX)
   }
+}
+
+// Single-block seagrass tuft replacing the water cell on the sea floor.
+export const placeSeagrass = (
+  blocks: Uint8Array,
+  lx: number,
+  surfaceY: number,
+  lz: number,
+): void => {
+  setBlock(blocks, lx, surfaceY + 1, lz, SEAGRASS_BLOCK_INDEX)
 }
 
 export const placeCactusStack = (

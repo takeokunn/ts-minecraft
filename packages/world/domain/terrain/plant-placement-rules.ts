@@ -18,6 +18,8 @@ import {
   KELP_HEIGHT_SALT,
   KELP_MAX_HEIGHT,
   KELP_PLACEMENT_SALT,
+  SEAGRASS_DENSITY_BY_BIOME,
+  SEAGRASS_PLACEMENT_SALT,
   LILY_PAD_DENSITY_BY_BIOME,
   LILY_PAD_PLACEMENT_SALT,
   MAX_NATURAL_MUSHROOM_SHADE_SCAN,
@@ -240,6 +242,13 @@ export const canPlaceKelpAt = (
     && blockAt(blocks, lx, surfaceY + 1, lz) === WATER_BLOCK_INDEX
   )
 }
+
+export const shouldPlaceSeagrass = (
+  biome: BiomeType,
+  surfaceY: number,
+  wx: number,
+  wz: number,
+): boolean => shouldPlaceByDensity(SEAGRASS_DENSITY_BY_BIOME, SEAGRASS_PLACEMENT_SALT, biome, surfaceY, wx, wz)
 
 // Taller than land plants (1..KELP_MAX_HEIGHT); the placement op additionally
 // stops below the water surface so the stalk never breaches it.

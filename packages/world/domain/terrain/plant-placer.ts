@@ -4,6 +4,7 @@ import { columnStateIndex } from './plant-placement-model'
 import {
   placeCactusStack,
   placeKelpStack,
+  placeSeagrass,
   placeGroundPlant,
   placeLilyPad,
   placeMushroom,
@@ -21,6 +22,7 @@ import {
   shouldPlaceCactus,
   shouldPlaceGroundPlant,
   shouldPlaceKelp,
+  shouldPlaceSeagrass,
   shouldPlaceLilyPad,
   shouldPlaceMushroom,
   shouldPlaceSugarCane,
@@ -52,6 +54,15 @@ export const placeChunkPlants = (
         && canPlaceKelpAt(blocks, lx, state.surfaceY, lz)
       ) {
         placeKelpStack(blocks, lx, state.surfaceY, lz, wx, wz)
+        continue
+      }
+
+      // Seagrass reuses kelp's floor test (solid floor + water above).
+      if (
+        shouldPlaceSeagrass(state.biome, state.surfaceY, wx, wz)
+        && canPlaceKelpAt(blocks, lx, state.surfaceY, lz)
+      ) {
+        placeSeagrass(blocks, lx, state.surfaceY, lz)
         continue
       }
 

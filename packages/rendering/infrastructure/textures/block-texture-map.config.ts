@@ -131,4 +131,5 @@ export const TILE_MAP: ReadonlyArray<Readonly<Record<TextureFaceDir, number>>> =
   { top: 130, bottom: 130, side: 130 }, // 112: PISTON_HEAD (wooden plate faces)
   { top: 144, bottom: 144, side: 144 }, // 113: POWERED_RAIL
   { top: 109, bottom: 109, side: 109 }, // 114: KELP (green stalk tile shared with sugar cane)
+  { top: 107, bottom: 107, side: 107 }, // 115: SEAGRASS (grass-tuft tile shared with tall grass)
 ]

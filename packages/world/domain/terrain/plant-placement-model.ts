@@ -15,6 +15,7 @@ export const TALL_GRASS_BLOCK_INDEX = blockTypeToIndex('TALL_GRASS')
 export const FERN_BLOCK_INDEX = blockTypeToIndex('FERN')
 export const LILY_PAD_BLOCK_INDEX = blockTypeToIndex('LILY_PAD')
 export const KELP_BLOCK_INDEX = blockTypeToIndex('KELP')
+export const SEAGRASS_BLOCK_INDEX = blockTypeToIndex('SEAGRASS')
 export const BROWN_MUSHROOM_BLOCK_INDEX = blockTypeToIndex('BROWN_MUSHROOM')
 export const RED_MUSHROOM_BLOCK_INDEX = blockTypeToIndex('RED_MUSHROOM')
 
@@ -36,6 +37,7 @@ export const KELP_HEIGHT_SALT = 101
 // Kelp columns rise well above the 1-3 land-plant range but must stay under the surface.
 export const KELP_MAX_HEIGHT = 8
 export const KELP_SURFACE_CLEARANCE = 2
+export const SEAGRASS_PLACEMENT_SALT = 103
 export const MAX_NATURAL_PLANT_HEIGHT = 3
 export const MAX_NATURAL_MUSHROOM_SHADE_SCAN = 12
 
@@ -51,6 +53,10 @@ export const SUGAR_CANE_DENSITY_BY_BIOME: Partial<Record<BiomeType, number>> = {
 
 export const KELP_DENSITY_BY_BIOME: Partial<Record<BiomeType, number>> = {
   OCEAN: 0.16,
+}
+
+export const SEAGRASS_DENSITY_BY_BIOME: Partial<Record<BiomeType, number>> = {
+  OCEAN: 0.22,
 }
 
 export const CACTUS_DENSITY_BY_BIOME: Partial<Record<BiomeType, number>> = {
