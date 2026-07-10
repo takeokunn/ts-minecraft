@@ -13,7 +13,7 @@ import { makeGameMode, makeGameState, makeMusicManager, makeSettingsService, mak
 import { makeEquipmentService, makeHotbarService, makeInventoryService } from './inventory-test-kit'
 import { makeAchievementService, makeCameraState, makeFirstPersonCamera, makeFishingService, makeHealthService, makeHungerService, makeStatisticsService, makeThirdPersonCamera, makeXPService } from './player-test-kit'
 import { makeChunkMeshService, makeEntityRenderer, makeParticleSystem, makePerfHud, makeWorldRendererService } from './rendering-test-kit'
-import { makeDroppedItemService, makeDroppedXpOrbService } from '../../packages/app/test/frame-handler-test-kit/entity'
+import { makeDroppedItemService, makeDroppedXpOrbService, makeParkedVehicleService } from '../../packages/app/test/frame-handler-test-kit/entity'
 import { makeAchievementToast, makeCrosshair, makeDamageOverlay, makeDimensionFade, makeSleepOverlay } from '../../packages/app/test/frame-handler-test-kit/presentation/hud'
 import { makeBiomeService, makeDroppedItemRenderer, makeDroppedXpOrbRenderer, makeRemotePlayerRenderer } from '../../packages/app/test/frame-handler-test-kit/world'
 import { makeBlockService, makeChunkManagerService, makeCropGrowthService, makeFluidService, makeNetherService, makeWeatherService } from './terrain-test-kit'
@@ -179,7 +179,7 @@ export const makeServices = (opts: {
     droppedItemRenderer: makeDroppedItemRenderer(),
     droppedXpOrbRenderer: makeDroppedXpOrbRenderer(),
     remotePlayerRenderer: makeRemotePlayerRenderer(),
-    vehicleVisual: { update: () => {} },
+    vehicleVisual: { update: () => {}, syncParked: () => {} },
     chunkMeshService: makeChunkMeshService(),
     particleSystem: makeParticleSystem(),
     healthService: makeHealthService(),
@@ -195,6 +195,7 @@ export const makeServices = (opts: {
     fluidService: makeFluidService(),
     biomeService: makeBiomeService(),
     droppedItemService: makeDroppedItemService(),
+    parkedVehicleService: makeParkedVehicleService(),
     droppedXpOrbService: makeDroppedXpOrbService(),
     chestService: makeChestService(),
     furnaceService: makeFurnaceService(),

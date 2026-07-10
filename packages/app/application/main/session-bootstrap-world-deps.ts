@@ -65,6 +65,7 @@ export type SessionBootstrapWorldPresentationDeps = {
   readonly weatherService: WeatherService
   readonly cropGrowthService: CropGrowthService
   readonly entityManager: EntityManager
+  readonly parkedVehicleService: import('@ts-minecraft/entity/application/parked-vehicle-service').ParkedVehicleService
 }
 
 export type SessionBootstrapWorldDeps = {

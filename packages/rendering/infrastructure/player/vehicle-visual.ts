@@ -8,12 +8,22 @@ import { PLAYER_HALF_HEIGHT } from '@ts-minecraft/core'
 // boxes in the same low-poly style as the remote-player avatar.
 export type VehicleKind = 'boat' | 'minecart'
 
+export type ParkedVehicleView = {
+  readonly id: string
+  readonly kind: VehicleKind
+  readonly position: { readonly x: number; readonly y: number; readonly z: number }
+  readonly yaw: number
+}
+
 export type VehicleVisual = {
   readonly update: (
     kind: VehicleKind | null,
     position: { readonly x: number; readonly y: number; readonly z: number },
     yaw: number,
   ) => void
+  // Parked world vehicles: instances rebuilt only when the parked set changes
+  // (id/position signature), so the per-frame cost is one string compare.
+  readonly syncParked: (parked: ReadonlyArray<ParkedVehicleView>) => void
 }
 
 const box = (w: number, h: number, d: number, color: number, x = 0, y = 0, z = 0): THREE.Mesh => {
@@ -59,6 +69,22 @@ export const createVehicleVisual = (scene: THREE.Scene): VehicleVisual => {
   minecart.visible = false
   scene.add(root)
 
+  const parkedRoot = new THREE.Group()
+  parkedRoot.name = 'parked-vehicles'
+  scene.add(parkedRoot)
+  let parkedSignature = ''
+
+  const disposeGroup = (group: THREE.Object3D): void => {
+    group.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        child.geometry.dispose()
+        const material = child.material
+        if (Array.isArray(material)) material.forEach((m) => m.dispose())
+        else material.dispose()
+      }
+    })
+  }
+
   return {
     update: (kind, position, yaw) => {
       if (kind === null) {
@@ -71,6 +97,26 @@ export const createVehicleVisual = (scene: THREE.Scene): VehicleVisual => {
       // player position is the body centre; the vehicle sits under the feet
       root.position.set(position.x, position.y - PLAYER_HALF_HEIGHT - 0.05, position.z)
       root.rotation.y = yaw
+    },
+
+    syncParked: (parked) => {
+      const signature = parked
+        .map((vehicle) => `${vehicle.id}:${vehicle.position.x.toFixed(2)},${vehicle.position.y.toFixed(2)},${vehicle.position.z.toFixed(2)}`)
+        .join('|')
+      if (signature === parkedSignature) return
+      parkedSignature = signature
+      // remove() mutates children — drain from the front instead of iterating.
+      while (parkedRoot.children.length > 0) {
+        const child = parkedRoot.children[0]!
+        parkedRoot.remove(child)
+        disposeGroup(child)
+      }
+      for (const vehicle of parked) {
+        const body = vehicle.kind === 'boat' ? buildBoat() : buildMinecart()
+        body.position.set(vehicle.position.x, vehicle.position.y, vehicle.position.z)
+        body.rotation.y = vehicle.yaw
+        parkedRoot.add(body)
+      }
     },
   }
 }

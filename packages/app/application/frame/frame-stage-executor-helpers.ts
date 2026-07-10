@@ -214,6 +214,9 @@ export const runPresentationFrameStages = (
       const vehicleKind = boating ? 'boat' as const : minecarting ? 'minecart' as const : null
       const vehicleYaw = vehicleKind !== null ? (yield* services.playerCameraState.getRotation()).yaw : 0
       services.vehicleVisual.update(vehicleKind, inputs.playerPos, vehicleYaw)
+      // Parked world vehicles: change-gated inside syncParked (signature compare).
+      const parkedVehicles = yield* services.parkedVehicleService.getAll()
+      services.vehicleVisual.syncParked(parkedVehicles)
       if (minecarting) {
         // vanilla powered rails: the boost fires only while the rail cell is
         // redstone-powered; unpowered powered rails brake (see orchestration)

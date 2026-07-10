@@ -3,7 +3,7 @@ import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/t
 
 type SessionRuntimeEntityServices = Pick<
   FrameHandlerServices,
-  'debugFeatureFlags' | 'droppedItemService' | 'droppedXpOrbService' | 'entityManager' | 'mobSpawner' | 'villageService' | 'tradingPresentation'
+  'debugFeatureFlags' | 'droppedItemService' | 'parkedVehicleService' | 'droppedXpOrbService' | 'entityManager' | 'mobSpawner' | 'villageService' | 'tradingPresentation'
 >
 
 export const buildSessionRuntimeEntityServices = ({
@@ -13,6 +13,7 @@ export const buildSessionRuntimeEntityServices = ({
 }): SessionRuntimeEntityServices => ({
   debugFeatureFlags: services.debugFeatureFlags,
   droppedItemService: services.droppedItemService,
+  parkedVehicleService: services.parkedVehicleService,
   droppedXpOrbService: services.droppedXpOrbService,
   entityManager: services.entityManager,
   mobSpawner: services.mobSpawner,

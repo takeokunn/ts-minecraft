@@ -22,6 +22,8 @@ export const runInteractionStageUseTargetActions = (
     | 'xpService'
     | 'multiplayer'
     | 'entityManager'
+    | 'parkedVehicleService'
+    | 'inputService'
     | 'equipmentService'
     | 'fishingService'
     | 'hungerService'

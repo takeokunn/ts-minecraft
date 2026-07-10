@@ -142,6 +142,13 @@ export const WorldMetadataSchema = Schema.Struct({
   entityStates: Schema.optional(Schema.Array(EntityStateSchema)),
   // Dimension the player was in when the world was saved (absent → overworld).
   activeDimension: Schema.optional(Schema.Literal('overworld', 'nether', 'end')),
+  // Parked world vehicles (boats/minecarts left in the world by dismounting).
+  parkedVehicles: Schema.optional(Schema.Array(Schema.Struct({
+    id: Schema.String,
+    kind: Schema.Literal('boat', 'minecart'),
+    position: Schema.Struct({ x: Schema.Number, y: Schema.Number, z: Schema.Number }),
+    yaw: Schema.Number,
+  }))),
   // Nether/End portal registry — restoring it keeps portal links across reloads.
   portals: Schema.optional(Schema.Array(Schema.Struct({
     dimension: Schema.Literal('overworld', 'nether', 'end'),

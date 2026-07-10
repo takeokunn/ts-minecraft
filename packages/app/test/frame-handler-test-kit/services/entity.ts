@@ -1,4 +1,4 @@
-import { makeCameraState, makeChestService, makeDroppedItemService, makeDroppedXpOrbService, makeEntityManager, makeFishingService, makeStatisticsService, makeAchievementService, makeFirstPersonCamera, makeFurnaceService, makeGameMode, makeGameState, makeHealthService, makeHungerService, makeMobSpawner, makeMusicManager, makeRedstoneService, makeSettingsService, makeSoundManager, makeThirdPersonCamera, makeTimeService, makeVillageService, makeXPService } from '../entity'
+import { makeCameraState, makeChestService, makeDroppedItemService, makeDroppedXpOrbService, makeParkedVehicleService, makeEntityManager, makeFishingService, makeStatisticsService, makeAchievementService, makeFirstPersonCamera, makeFurnaceService, makeGameMode, makeGameState, makeHealthService, makeHungerService, makeMobSpawner, makeMusicManager, makeRedstoneService, makeSettingsService, makeSoundManager, makeThirdPersonCamera, makeTimeService, makeVillageService, makeXPService } from '../entity'
 
 export const makeEntityServices = (playerCameraState: ReturnType<typeof makeCameraState>['service']) => ({
   gameState: makeGameState(),
@@ -14,6 +14,7 @@ export const makeEntityServices = (playerCameraState: ReturnType<typeof makeCame
   statisticsService: makeStatisticsService(),
   achievementService: makeAchievementService(),
   droppedItemService: makeDroppedItemService(),
+  parkedVehicleService: makeParkedVehicleService(),
   droppedXpOrbService: makeDroppedXpOrbService(),
   soundManager: makeSoundManager(),
   musicManager: makeMusicManager(),

@@ -50,6 +50,7 @@ export const buildSessionBootstrapWorldOrchestration = ({
       cropGrowthService,
       netherService,
       entityManager,
+      parkedVehicleService,
     } = presentation
 
     yield* gameModeService.set(initialGameMode)
@@ -96,6 +97,7 @@ export const buildSessionBootstrapWorldOrchestration = ({
       weatherService,
       storageService: bootCtx.storageService,
       netherService,
+      parkedVehicleService,
       cropGrowthService,
       entityManager,
       worldBootstrap,
@@ -133,6 +135,7 @@ export const buildSessionBootstrapWorldOrchestration = ({
       netherService,
       chunkManagerService,
       entityManager,
+      parkedVehicleService,
       spawnPosition,
     })
 

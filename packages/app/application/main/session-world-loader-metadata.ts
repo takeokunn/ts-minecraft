@@ -11,6 +11,7 @@ export type SavedStatistics = NonNullable<WorldMetadata['statistics']>
 export type SavedUnlockedAchievements = NonNullable<WorldMetadata['unlockedAchievements']>
 export type SavedActiveDimension = NonNullable<WorldMetadata['activeDimension']>
 export type SavedPortals = NonNullable<WorldMetadata['portals']>
+export type SavedParkedVehicles = NonNullable<WorldMetadata['parkedVehicles']>
 
 export type WorldBootstrap = {
   readonly seed: number
@@ -25,6 +26,7 @@ export type WorldBootstrap = {
   readonly savedUnlockedAchievements: Option.Option<SavedUnlockedAchievements>
   readonly savedActiveDimension: Option.Option<SavedActiveDimension>
   readonly savedPortals: Option.Option<SavedPortals>
+  readonly savedParkedVehicles: Option.Option<SavedParkedVehicles>
   readonly gameMode: GameMode
 }
 
@@ -53,6 +55,7 @@ const buildWorldBootstrap = (input: {
   readonly savedUnlockedAchievements: Option.Option<SavedUnlockedAchievements>
   readonly savedActiveDimension: Option.Option<SavedActiveDimension>
   readonly savedPortals: Option.Option<SavedPortals>
+  readonly savedParkedVehicles: Option.Option<SavedParkedVehicles>
   readonly gameMode: GameMode
 }): WorldBootstrap => ({
   seed: input.seed,
@@ -67,6 +70,7 @@ const buildWorldBootstrap = (input: {
   savedUnlockedAchievements: input.savedUnlockedAchievements,
   savedActiveDimension: input.savedActiveDimension,
   savedPortals: input.savedPortals,
+  savedParkedVehicles: input.savedParkedVehicles,
   gameMode: input.gameMode,
 })
 
@@ -84,6 +88,7 @@ export const buildLoadedWorldBootstrap = (metadata: WorldMetadata): WorldBootstr
     savedUnlockedAchievements: Option.fromNullable(metadata.unlockedAchievements),
     savedActiveDimension: Option.fromNullable(metadata.activeDimension),
     savedPortals: Option.fromNullable(metadata.portals),
+    savedParkedVehicles: Option.fromNullable(metadata.parkedVehicles),
     gameMode: metadata.gameMode,
   })
 
@@ -101,6 +106,7 @@ export const buildFreshWorldState = (input: FreshWorldMetadataInput): FreshWorld
     savedUnlockedAchievements: Option.none<SavedUnlockedAchievements>(),
     savedActiveDimension: Option.none<SavedActiveDimension>(),
     savedPortals: Option.none<SavedPortals>(),
+    savedParkedVehicles: Option.none<SavedParkedVehicles>(),
     gameMode: input.gameMode,
   })
 

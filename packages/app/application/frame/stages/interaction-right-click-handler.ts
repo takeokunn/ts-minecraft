@@ -9,6 +9,7 @@ import { handleFeedAnimal } from '@ts-minecraft/app/frame/stages/interaction-ite
 import { handleEnderPearlThrow } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler/ender-pearl'
 import { handleFoodConsumption } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler/food-consumption'
 import { handleBoatMount } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler/boat-mount'
+import { handleParkedVehicleEnter } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler/vehicle-enter'
 import { handleMinecartMount } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler/minecart-mount'
 import { handleShearAnimal } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler/shear-animal'
 import { handleFarmingInteraction } from '@ts-minecraft/app/frame/stages/interaction-farming-handler'
@@ -35,6 +36,8 @@ export const handleRightClickPriorityFromContext = (
     | 'xpService'
     | 'multiplayer'
     | 'entityManager'
+    | 'parkedVehicleService'
+    | 'inputService'
     | 'equipmentService'
     | 'fishingService'
     | 'hungerService'
@@ -56,6 +59,7 @@ export const handleRightClickPriorityFromContext = (
     if (yield* handleFoodConsumption(services, context.snapshot.totalTimeSecs)) return
     if (yield* handleBoatMount(services)) return
     if (yield* handleMinecartMount(services)) return
+    if (yield* handleParkedVehicleEnter(services)) return
     if (yield* handleEnderPearlThrow(deps, services, { targetHit: context.targetHit })) return
     if (yield* handleBucket(services, refs, { targetHit: context.targetHit })) return
 

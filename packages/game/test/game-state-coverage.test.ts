@@ -17,6 +17,7 @@ import { PhysicsWorldPortLayer, RigidBodyPortLayer, ShapePortLayer } from '@ts-m
 import { InventoryService } from '@ts-minecraft/inventory/application/inventory-service'
 import { EquipmentService } from '@ts-minecraft/inventory/application/equipment-service'
 import { DroppedItemService } from '@ts-minecraft/entity/application/dropped-item-service'
+import { ParkedVehicleService } from '@ts-minecraft/entity/application/parked-vehicle-service'
 import { BlockRegistry } from '@ts-minecraft/block/application/block-registry'
 import { NoOpChunkManagerLayer, createTestInputService, createTestLayer } from './game-state-test-utils'
 
@@ -71,6 +72,7 @@ describe('application/game-state (coverage)', () => {
       inventoryLayer,
       EquipmentService.Default,
       DroppedItemService.Default,
+    ParkedVehicleService.Default,
     )
     return Layer.mergeAll(
       GameStateService.Default.pipe(Layer.provide(dependencyLayers)),
@@ -101,6 +103,7 @@ describe('application/game-state (coverage)', () => {
       inventoryLayer,
       EquipmentService.Default,
       DroppedItemService.Default,
+    ParkedVehicleService.Default,
     )
     return Layer.mergeAll(
       GameStateService.Default.pipe(Layer.provide(dependencyLayers)),
@@ -180,6 +183,7 @@ describe('application/game-state (coverage)', () => {
         inventoryLayer,
         EquipmentService.Default,
         DroppedItemService.Default,
+    ParkedVehicleService.Default,
       )
       return Layer.mergeAll(
         GameStateService.Default.pipe(Layer.provide(dependencyLayers)),
@@ -259,6 +263,7 @@ describe('application/game-state (coverage)', () => {
         inventoryLayer,
         EquipmentService.Default,
         DroppedItemService.Default,
+    ParkedVehicleService.Default,
       )
       return Layer.mergeAll(
         GameStateService.Default.pipe(Layer.provide(dependencyLayers)),
@@ -327,6 +332,7 @@ describe('application/game-state (coverage)', () => {
         inventoryLayer,
         EquipmentService.Default,
         DroppedItemService.Default,
+    ParkedVehicleService.Default,
       )
       return Layer.mergeAll(
         GameStateService.Default.pipe(Layer.provide(dependencyLayers)),
@@ -409,6 +415,7 @@ describe('application/game-state (coverage)', () => {
         InventoryService.Default.pipe(Layer.provide(BlockRegistry.Default)),
         EquipmentService.Default,
         DroppedItemService.Default,
+    ParkedVehicleService.Default,
       )
       const testLayer = Layer.mergeAll(
         GameStateService.Default.pipe(Layer.provide(dependencyLayers)),

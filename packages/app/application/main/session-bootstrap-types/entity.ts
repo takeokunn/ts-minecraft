@@ -25,6 +25,7 @@ export type SessionEntityBootstrapServices = {
   readonly statisticsService: StatisticsService
   readonly achievementService: AchievementService
   readonly droppedItemService: DroppedItemService
+  readonly parkedVehicleService: import('@ts-minecraft/entity/application/parked-vehicle-service').ParkedVehicleService
   readonly droppedXpOrbService: DroppedXpOrbService
   readonly entityManager: EntityManager
   readonly mobSpawner: MobSpawner

@@ -18,6 +18,7 @@ export const runInteractionStageActions = (
     | 'chunkManagerService'
     | 'crosshair'
     | 'entityManager'
+    | 'parkedVehicleService'
     | 'equipmentService'
     | 'hotbarService'
     | 'inputService'

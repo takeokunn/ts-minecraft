@@ -19,6 +19,7 @@ import { StorageService, CropGrowthService, NetherService } from '@ts-minecraft/
 import { StorageError } from '@ts-minecraft/world'
 import { DEFAULT_PLAYER_ID, WorldId, type Position } from '@ts-minecraft/core'
 
+import type { ParkedVehicleService } from '@ts-minecraft/entity/application/parked-vehicle-service'
 import type { WorldBootstrap } from './session-world-loader-metadata'
 import { buildSessionSaveMetadata } from './session-save-metadata'
 import { buildSessionSavePlayerState } from './session-save-player-state'
@@ -40,6 +41,7 @@ export type PersistSessionStateDeps = {
   readonly storageService: StorageService
   readonly cropGrowthService: CropGrowthService
   readonly netherService: NetherService
+  readonly parkedVehicleService: ParkedVehicleService
   readonly entityManager: EntityManager
   readonly worldBootstrap: WorldBootstrap
   readonly worldId: WorldId
@@ -47,7 +49,7 @@ export type PersistSessionStateDeps = {
 }
 
 export const buildPersistSessionState = (deps: PersistSessionStateDeps) => (): Effect.Effect<void, PlayerError | StorageError> => {
-  const { gameState, inventoryService, equipmentService, healthService, hungerService, xpService, statisticsService, achievementService, timeService, chestService, furnaceService, gameModeService, weatherService, storageService, cropGrowthService, netherService, entityManager, worldBootstrap, worldId, respawnPositionRef } = deps
+  const { gameState, inventoryService, equipmentService, healthService, hungerService, xpService, statisticsService, achievementService, timeService, chestService, furnaceService, gameModeService, weatherService, storageService, cropGrowthService, netherService, parkedVehicleService, entityManager, worldBootstrap, worldId, respawnPositionRef } = deps
   return Effect.gen(function* () {
     const nowMs = yield* Clock.currentTimeMillis
     const playerPosition = yield* gameState.getPlayerPosition(DEFAULT_PLAYER_ID)
@@ -72,6 +74,7 @@ export const buildPersistSessionState = (deps: PersistSessionStateDeps) => (): E
     }))
     const activeDimension = yield* netherService.getDimension()
     const portals = yield* netherService.serializePortals()
+    const parkedVehicles = yield* parkedVehicleService.serialize()
     const statistics = yield* statisticsService.serialize()
     const unlockedAchievements = yield* achievementService.serialize()
     const metadata = buildSessionSaveMetadata({
@@ -97,6 +100,7 @@ export const buildPersistSessionState = (deps: PersistSessionStateDeps) => (): E
       unlockedAchievements,
       activeDimension,
       portals,
+      parkedVehicles,
       gameMode,
     })
     yield* storageService.saveWorldMetadata(worldId, metadata)

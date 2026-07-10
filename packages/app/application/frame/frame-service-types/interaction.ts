@@ -1,6 +1,7 @@
 import type {
   DroppedItemService,
 } from '@ts-minecraft/entity/application/dropped-item-service'
+import type { ParkedVehicleService } from '@ts-minecraft/entity/application/parked-vehicle-service'
 import type {
   DroppedXpOrbService,
 } from '@ts-minecraft/entity/application/dropped-xp-orb-service'
@@ -14,6 +15,7 @@ import type { TradingPresentationService } from '@ts-minecraft/presentation'
 export type FrameInteractionServices = {
   readonly blockService: BlockService
   readonly droppedItemService: DroppedItemService
+  readonly parkedVehicleService: ParkedVehicleService
   readonly droppedXpOrbService: DroppedXpOrbService
   readonly entityManager: EntityManager
   readonly redstoneService: RedstoneService

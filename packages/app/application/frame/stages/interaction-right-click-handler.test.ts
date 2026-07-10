@@ -63,7 +63,7 @@ const makeDeps = () =>
     respawnPositionRef: {} as never,
   }) as never
 
-const makeServices = () => ({}) as never
+const makeServices = () => ({ parkedVehicleService: { getAll: () => Effect.succeed([]) } }) as never
 
 const makeRefs = () => ({}) as never
 

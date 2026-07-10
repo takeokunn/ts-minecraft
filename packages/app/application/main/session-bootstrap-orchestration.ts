@@ -47,6 +47,7 @@ export const buildSessionBootstrapOrchestration = (deps: SessionBootstrapDeps) =
       statisticsService,
       achievementService,
       entityManager,
+      parkedVehicleService,
     } = entity
 
     const { canvas, renderer, perfHud, settingsService, soundManager, musicManager, terrainPool } = bootCtx
@@ -107,6 +108,7 @@ export const buildSessionBootstrapOrchestration = (deps: SessionBootstrapDeps) =
         netherService,
         chunkManagerService,
         entityManager,
+        parkedVehicleService,
       },
     })
 

@@ -24,6 +24,7 @@ export const runInteractionStageFrame = (
     | 'cropGrowthService'
     | 'soundManager'
     | 'entityManager'
+    | 'parkedVehicleService'
     | 'inventoryService'
     | 'inventoryRenderer' | 'sleepOverlay'
     | 'chestService'

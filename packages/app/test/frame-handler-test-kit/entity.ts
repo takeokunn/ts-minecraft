@@ -149,6 +149,21 @@ export const makeDroppedItemService = () => ({
   reset: () => Effect.void,
 }) as unknown as InstanceType<typeof import('@ts-minecraft/entity').DroppedItemService>
 
+/** Creates an empty parked vehicle service fake. */
+export const makeParkedVehicleService = () => ({
+  park: (_kind: unknown, _position: unknown, _yaw?: unknown) => Effect.succeed({
+    id: 'fake-parked-vehicle',
+    kind: 'boat',
+    position: { x: 0, y: 64, z: 0 },
+    yaw: 0,
+  }),
+  getAll: () => Effect.succeed([]),
+  claimNearest: (_position: unknown, _maxDistance: unknown) => Effect.succeed(Option.none()),
+  serialize: () => Effect.succeed([]),
+  restore: (_vehicles: unknown) => Effect.void,
+  reset: () => Effect.void,
+}) as unknown as InstanceType<typeof import('@ts-minecraft/entity').ParkedVehicleService>
+
 /** Creates an empty dropped XP orb service fake. */
 export const makeDroppedXpOrbService = () => ({
   spawn: (_input: unknown) => Effect.succeed({

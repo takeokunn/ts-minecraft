@@ -36,6 +36,7 @@ export const initializeSessionBootstrapWorldPresentation = ({
   weatherService,
   cropGrowthService,
   entityManager,
+  parkedVehicleService,
   spawnPosition,
 }: SessionBootstrapWorldPresentationDeps) =>
   Effect.gen(function* () {
@@ -60,6 +61,7 @@ export const initializeSessionBootstrapWorldPresentation = ({
       weatherService,
       cropGrowthService,
       entityManager,
+      parkedVehicleService,
       spawnPosition,
     })
 

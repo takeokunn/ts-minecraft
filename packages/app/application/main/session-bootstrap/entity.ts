@@ -9,6 +9,7 @@ import { FishingService } from '@ts-minecraft/entity/application/fishing-service
 import { StatisticsService } from '@ts-minecraft/entity/application/statistics-service'
 import { AchievementService } from '@ts-minecraft/entity/application/achievement-service'
 import { DroppedItemService } from '@ts-minecraft/entity/application/dropped-item-service'
+import { ParkedVehicleService } from '@ts-minecraft/entity/application/parked-vehicle-service'
 import { DroppedXpOrbService } from '@ts-minecraft/entity/application/dropped-xp-orb-service'
 import { EntityManager } from '@ts-minecraft/entity/application/mob/entity-manager'
 import { MobSpawner } from '@ts-minecraft/entity/application/mob/spawner'
@@ -27,6 +28,7 @@ export const buildEntityBootstrapServices = Effect.gen(function* () {
     statisticsService,
     achievementService,
     droppedItemService,
+    parkedVehicleService,
     droppedXpOrbService,
     entityManager,
     mobSpawner,
@@ -43,6 +45,7 @@ export const buildEntityBootstrapServices = Effect.gen(function* () {
     StatisticsService,
     AchievementService,
     DroppedItemService,
+    ParkedVehicleService,
     DroppedXpOrbService,
     EntityManager,
     MobSpawner,
@@ -61,6 +64,7 @@ export const buildEntityBootstrapServices = Effect.gen(function* () {
     statisticsService,
     achievementService,
     droppedItemService,
+    parkedVehicleService,
     droppedXpOrbService,
     entityManager,
     mobSpawner,

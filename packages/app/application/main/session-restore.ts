@@ -34,10 +34,11 @@ export const restoreSavedState = (
     readonly netherService: Pick<NetherService, 'setDimension' | 'deserializePortals'>
     readonly chunkManagerService: Pick<ChunkManagerService, 'setActiveDimension'>
     readonly entityManager: EntityManager
+    readonly parkedVehicleService: import('@ts-minecraft/entity/application/parked-vehicle-service').ParkedVehicleService
     readonly gameState: Pick<GameStateService, 'enterBoat' | 'enterMinecart'>
   },
 ): Effect.Effect<void, never> => {
-  const { inventoryService, equipmentService, healthService, hungerService, xpService, statisticsService, achievementService, chestService, furnaceService, weatherService, cropGrowthService, netherService, chunkManagerService, entityManager, gameState } = services
+  const { inventoryService, equipmentService, healthService, hungerService, xpService, statisticsService, achievementService, chestService, furnaceService, weatherService, cropGrowthService, netherService, chunkManagerService, entityManager, parkedVehicleService, gameState } = services
   return Effect.gen(function* () {
     // Establish clean per-world state FIRST, then overlay saved state below.
     // These services are app-scoped singletons reused across worlds (only the
@@ -52,6 +53,7 @@ export const restoreSavedState = (
     yield* healthService.reset()
     yield* hungerService.reset()
     yield* entityManager.clear()
+    yield* parkedVehicleService.reset()
     yield* statisticsService.reset()
     yield* achievementService.reset()
     // Dimension state is app-scoped too: quitting to title from the nether must
@@ -111,6 +113,10 @@ export const restoreSavedState = (
       const savedPortals = Option.getOrNull(worldBootstrap.savedPortals)
       if (savedPortals !== null) {
         yield* netherService.deserializePortals(savedPortals)
+      }
+      const savedParkedVehicles = Option.getOrNull(worldBootstrap.savedParkedVehicles)
+      if (savedParkedVehicles !== null) {
+        yield* parkedVehicleService.restore(savedParkedVehicles.map((vehicle) => ({ ...vehicle, position: { ...vehicle.position } })))
       }
       const savedActiveDimension = Option.getOrElse(worldBootstrap.savedActiveDimension, () => 'overworld' as const)
       if (savedEntityStates !== null) {

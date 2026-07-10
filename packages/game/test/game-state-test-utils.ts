@@ -1,6 +1,7 @@
 import { Layer, MutableHashMap, MutableHashSet, Effect, Option } from 'effect'
 import { ChunkManagerService } from '@ts-minecraft/world'
 import { DroppedItemService } from '@ts-minecraft/entity/application/dropped-item-service'
+import { ParkedVehicleService } from '@ts-minecraft/entity/application/parked-vehicle-service'
 import { HealthService } from '@ts-minecraft/entity/application/health-service'
 import { HungerService } from '@ts-minecraft/entity/application/hunger-service'
 import { PlayerInputService } from '@ts-minecraft/entity/application/player-input-service'
@@ -65,6 +66,7 @@ export const TestGameLayer = GameStateService.Default.pipe(
   Layer.provide(InventoryLayerForTest),
   Layer.provide(EquipmentService.Default),
   Layer.provide(DroppedItemService.Default),
+  Layer.provide(ParkedVehicleService.Default),
 )
 
 export const createTestInputService = (initialState: {
@@ -138,6 +140,7 @@ export const createTestLayer = (inputService: ReturnType<typeof createTestInputS
     InventoryLayerForTest,
     EquipmentService.Default,
     DroppedItemService.Default,
+    ParkedVehicleService.Default,
   )
   return GameStateService.Default.pipe(Layer.provideMerge(dependencyLayers))
 }

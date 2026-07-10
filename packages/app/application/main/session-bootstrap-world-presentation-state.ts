@@ -38,6 +38,7 @@ export type SessionBootstrapWorldPresentationStateDeps = {
   readonly netherService: import('@ts-minecraft/world').NetherService
   readonly chunkManagerService: import('@ts-minecraft/world').ChunkManagerService
   readonly entityManager: EntityManager
+  readonly parkedVehicleService: import('@ts-minecraft/entity/application/parked-vehicle-service').ParkedVehicleService
   readonly spawnPosition: { readonly x: number; readonly y: number; readonly z: number }
 }
 
@@ -62,6 +63,7 @@ export const initializeSessionBootstrapWorldPresentationState = ({
   netherService,
   chunkManagerService,
   entityManager,
+  parkedVehicleService,
   spawnPosition,
 }: SessionBootstrapWorldPresentationStateDeps) =>
   Effect.gen(function* () {
@@ -87,6 +89,7 @@ export const initializeSessionBootstrapWorldPresentationState = ({
       netherService,
       chunkManagerService,
       entityManager,
+      parkedVehicleService,
       gameState,
     })
 

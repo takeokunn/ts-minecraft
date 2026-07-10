@@ -127,6 +127,7 @@ const makeDeps = (overrides?: {
       storageService,
       cropGrowthService,
       netherService,
+      parkedVehicleService: { serialize: vi.fn(() => Effect.succeed([])) } as never,
       entityManager,
       worldBootstrap,
       worldId,

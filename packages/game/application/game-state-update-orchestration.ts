@@ -52,6 +52,15 @@ export type GameStateUpdateOrchestrationDeps = {
   readonly minecartingRef: Ref.Ref<boolean>
   readonly poweredRailBoostRef: Ref.Ref<boolean>
   readonly inventoryService: { readonly addBlock: (blockType: 'BOAT' | 'MINECART', count: number) => Effect.Effect<unknown, unknown> }
+  // Dismount parks the vehicle at the rider's position as a world object
+  // (structural, like inventoryService — the concrete service lives in entity).
+  readonly parkedVehicleService: {
+    readonly park: (
+      kind: 'boat' | 'minecart',
+      position: { readonly x: number; readonly y: number; readonly z: number },
+      yaw: number,
+    ) => Effect.Effect<unknown, never>
+  }
   readonly playerId: PlayerId
   readonly deltaTime: DeltaTimeSecs
   readonly waterHorizontalDrag?: number | undefined
@@ -213,9 +222,15 @@ export const runGameStateUpdate = (
     // at boat speed. Sneak or reaching land dismounts and refunds the item.
     const boating = yield* Ref.get(deps.boatingRef)
     if (boating && (frameContext.frameMotionState.sneaking || !postPhysicsContactState.inWater)) {
-      // refund-before-dismount: a full inventory keeps the rider mounted rather than destroying the item
-      const refunded = yield* deps.inventoryService.addBlock('BOAT', 1).pipe(Effect.as(true), Effect.catchAll(() => Effect.succeed(false)))
-      if (refunded) yield* Ref.set(deps.boatingRef, false)
+      // Dismount parks the boat in the world where the rider left it (the old
+      // model refunded the item, so boats vanished while unridden).
+      const dismountYaw = (yield* deps.cameraState.getRotation()).yaw
+      yield* deps.parkedVehicleService.park(
+        'boat',
+        { x: physPos.x, y: physPos.y - PLAYER_HALF_HEIGHT, z: physPos.z },
+        dismountYaw,
+      )
+      yield* Ref.set(deps.boatingRef, false)
     }
 
     if (postPhysicsContactState.inWater) {
@@ -250,9 +265,14 @@ export const runGameStateUpdate = (
       // jitter out on downward noise, so we sample the cell interior instead.
       const onRail = isOnRail(physPos.x, physPos.y - VEHICLE_SURFACE_SAMPLE_OFFSET, physPos.z, chunkCache, playerCx, playerCz)
       if (frameContext.frameMotionState.sneaking || !onRail) {
-        // refund-before-dismount: a full inventory keeps the rider mounted rather than destroying the item
-        const refunded = yield* deps.inventoryService.addBlock('MINECART', 1).pipe(Effect.as(true), Effect.catchAll(() => Effect.succeed(false)))
-        if (refunded) yield* Ref.set(deps.minecartingRef, false)
+        // Dismount parks the minecart on (or beside) its rail as a world object.
+        const dismountYaw = (yield* deps.cameraState.getRotation()).yaw
+        yield* deps.parkedVehicleService.park(
+          'minecart',
+          { x: physPos.x, y: physPos.y - PLAYER_HALF_HEIGHT, z: physPos.z },
+          dismountYaw,
+        )
+        yield* Ref.set(deps.minecartingRef, false)
       } else {
         const onPoweredRail = isOnPoweredRail(physPos.x, physPos.y - VEHICLE_SURFACE_SAMPLE_OFFSET, physPos.z, chunkCache, playerCx, playerCz)
         const boostActive = yield* Ref.get(deps.poweredRailBoostRef)

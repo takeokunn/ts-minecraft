@@ -32,6 +32,8 @@ export const runInteractionStageUseActions = (
     | 'xpService'
     | 'multiplayer'
     | 'entityManager'
+    | 'parkedVehicleService'
+    | 'inputService'
     | 'equipmentService'
     | 'fishingService'
     | 'hungerService'

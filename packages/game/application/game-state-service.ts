@@ -5,6 +5,7 @@ import { MovementService } from '@ts-minecraft/entity/application/movement-servi
 import { PlayerInputService } from '@ts-minecraft/entity/application/player-input-service'
 import { PlayerCameraStateService } from '@ts-minecraft/entity/application/camera-state'
 import { DroppedItemService } from '@ts-minecraft/entity/application/dropped-item-service'
+import { ParkedVehicleService } from '@ts-minecraft/entity/application/parked-vehicle-service'
 import { DeltaTimeSecs, PlayerId, Position, PhysicsBodyId, DEFAULT_PLAYER_ID, PLAYER_HALF_WIDTH, PLAYER_HALF_HEIGHT, type Vector3 } from '@ts-minecraft/core'
 import { PhysicsService } from './physics-service'
 import { ChunkManagerService } from '@ts-minecraft/world/application/chunk-manager-service'
@@ -62,6 +63,7 @@ export class GameStateService extends Effect.Service<GameStateService>()(
       const inventoryService = yield* InventoryService
       const equipmentService = yield* EquipmentService
       const droppedItemService = yield* DroppedItemService
+      const parkedVehicleService = yield* ParkedVehicleService
       const inputService = yield* PlayerInputService
       const timingStateRef = yield* Ref.make<TimingState>(INITIAL_TIMING_STATE)
       const playerBodyIdRef = yield* Ref.make<Option.Option<PhysicsBodyId>>(Option.none())
@@ -136,6 +138,7 @@ export class GameStateService extends Effect.Service<GameStateService>()(
             minecartingRef,
             poweredRailBoostRef,
             inventoryService,
+            parkedVehicleService,
             playerId,
             deltaTime,
             waterHorizontalDrag,

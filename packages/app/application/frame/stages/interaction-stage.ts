@@ -23,6 +23,7 @@ export const interactionStage = (
     | 'cropGrowthService'
     | 'soundManager'
     | 'entityManager'
+    | 'parkedVehicleService'
     | 'inventoryService'
     | 'inventoryRenderer' | 'sleepOverlay'
     | 'chestService'
