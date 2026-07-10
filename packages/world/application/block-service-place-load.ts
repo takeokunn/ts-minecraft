@@ -46,7 +46,8 @@ export const ensurePlacementTargetIsAir = (
         ),
       ),
       Effect.flatMap((existing) =>
-        existing === 'AIR'
+        // Vanilla: placing into a fluid cell displaces the fluid (underwater building).
+        existing === 'AIR' || existing === 'WATER'
           ? Effect.void
           : Effect.fail(
               new BlockServiceError({

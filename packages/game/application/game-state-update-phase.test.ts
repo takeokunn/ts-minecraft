@@ -24,7 +24,7 @@ const makeQueries = (overrides?: Partial<PlayerPostPhysicsContactQuery>): Player
   isSolid: () => false,
   isInLadder: () => false,
   isInCobweb: () => false,
-  isInWater: () => false,
+  isInLava: () => false, isInWater: () => false,
   ...overrides,
 })
 
@@ -90,7 +90,7 @@ describe('resolveUpdatePostPhysicsState', () => {
       isGrounded: false,
       onLadder: false,
       inCobweb: false,
-      inWater: false,
+      inWater: false, inLava: false,
     })
   })
 
@@ -100,7 +100,7 @@ describe('resolveUpdatePostPhysicsState', () => {
     const queries: PlayerPostPhysicsContactQuery = makeQueries({
       isInLadder: () => true,
       isInCobweb: () => true,
-      isInWater: () => true,
+      isInLava: () => false, isInWater: () => true,
     })
 
     const result = resolveUpdatePostPhysicsState({
@@ -125,7 +125,7 @@ describe('resolveUpdatePostPhysicsState', () => {
       isGrounded: false,
       onLadder: false,
       inCobweb: false,
-      inWater: false,
+      inWater: false, inLava: false,
     })
   })
 
@@ -135,7 +135,7 @@ describe('resolveUpdatePostPhysicsState', () => {
     const queries: PlayerPostPhysicsContactQuery = makeQueries({
       isInLadder: () => true,
       isInCobweb: () => true,
-      isInWater: () => true,
+      isInLava: () => false, isInWater: () => true,
     })
 
     const result = resolveUpdatePostPhysicsState({

@@ -45,6 +45,7 @@ export const isPassableBlockType = (blockType: BlockType): boolean => PASSABLE_B
 
 // Hoisted to module scope: computed once at module load, not per frame.
 const WATER_ID = blockTypeToIndex('WATER')
+const LAVA_ID = blockTypeToIndex('LAVA')
 const LADDER_ID = blockTypeToIndex('LADDER')
 const RAIL_ID = blockTypeToIndex('RAIL')
 const POWERED_RAIL_ID = blockTypeToIndex('POWERED_RAIL')
@@ -165,6 +166,13 @@ export const isInWater = (
   playerCx: number,
   playerCz: number,
 ): boolean => isBlockTypeAt(wx, wy, wz, chunkCache, playerCx, playerCz, WATER_ID)
+
+export const isInLava = (
+  wx: number, wy: number, wz: number,
+  chunkCache: ReadonlyArray<{ blocks: Uint8Array } | null>,
+  playerCx: number,
+  playerCz: number,
+): boolean => isBlockTypeAt(wx, wy, wz, chunkCache, playerCx, playerCz, LAVA_ID)
 
 export const isInLadder = (
   wx: number, wy: number, wz: number,

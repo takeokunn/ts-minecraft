@@ -35,6 +35,17 @@ export const handleDeathOrSurvival = (
           : Effect.void,
       )
       yield* services.inventoryService.clear()
+      // Vanilla: death drops a recoverable XP orb worth min(7 × level, 100);
+      // the rest of the XP is lost. Idempotent like the item drops — after
+      // reset() the level is 0 so re-entry spawns nothing.
+      const xp = yield* services.xpService.getXP()
+      const orbAmount = Math.min(7 * xp.level, 100)
+      if (orbAmount > 0) {
+        yield* services.droppedXpOrbService.spawn({
+          amount: orbAmount,
+          position: { x: refreshedPos.x, y: refreshedPos.y + 0.5, z: refreshedPos.z },
+        }).pipe(Effect.asVoid, Effect.catchAllCause(() => Effect.void))
+      }
       yield* services.xpService.reset()
       yield* services.fishingService.cancel()
       const isCreative = yield* services.gameMode.isCreative()

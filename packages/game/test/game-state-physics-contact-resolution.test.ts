@@ -15,7 +15,7 @@ describe('resolvePlayerPostPhysicsContactState', () => {
       isSolid: () => false,
       isInLadder: () => false,
       isInCobweb: () => false,
-      isInWater: () => false,
+      isInLava: () => false, isInWater: () => false,
     }
 
     const result = resolvePlayerPostPhysicsContactState(
@@ -47,7 +47,7 @@ describe('resolvePlayerPostPhysicsContactState', () => {
       isSolid: () => false,
       isInLadder: (_x, y, _z) => y === 21,
       isInCobweb: (_x, y, _z) => y === 20,
-      isInWater: (_x, y, _z) => y === 21,
+      isInLava: () => false, isInWater: (_x, y, _z) => y === 21,
     }
 
     const enabled = resolvePlayerPostPhysicsContactState(

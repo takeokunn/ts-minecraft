@@ -14,7 +14,7 @@ import {
   isBlockSolid,
   isInCobweb,
   isInLadder,
-  isInWater,
+  isInLava, isInWater,
   isOnPoweredRail,
   isOnRail,
 } from '../domain/block-collision-predicates'
@@ -26,8 +26,7 @@ import {
   type ChunkCache,
 } from './game-state-support'
 import { failMissingPhysicsBody, mapPhysicsServiceError, mapPlayerError } from './game-state-errors'
-import {
-  applyLadderVelocityInto,
+import { LAVA_HORIZONTAL_DRAG, applyLadderVelocityInto,
   applyCobwebSlowdownInto,
   DEFAULT_WATER_HORIZONTAL_DRAG,
 } from '../domain/player-physics'
@@ -187,6 +186,7 @@ export const runGameStateUpdate = (
         isInLadder: (wx, wy, wz) => isInLadder(wx, wy, wz, chunkCache, playerCx, playerCz),
         isInCobweb: (wx, wy, wz) => isInCobweb(wx, wy, wz, chunkCache, playerCx, playerCz),
         isInWater: (wx, wy, wz) => isInWater(wx, wy, wz, chunkCache, playerCx, playerCz),
+        isInLava: (wx, wy, wz) => isInLava(wx, wy, wz, chunkCache, playerCx, playerCz),
       },
       canApplyEnvironmentEffects: !isSpectator && !frameContext.frameMotionState.flying,
       sneaking: frameContext.frameMotionState.sneaking,
@@ -232,6 +232,13 @@ export const runGameStateUpdate = (
         const swimUp = !frameContext.frameMotionState.flying && (yield* deps.inputService.isKeyPressed(KeyMappings.JUMP))
         yield* applyWaterDrag(deps.physicsService, playerBodyId, physVel, swimUp, frameContext.frameMotionState.sneaking, waterHorizontalDrag)
       }
+    }
+
+    // Lava is far thicker than water: crawl-pace drag, and holding jump lets
+    // the player struggle upward out of it (vanilla lava swimming).
+    if (postPhysicsContactState.inLava) {
+      const lavaSwimUp = !frameContext.frameMotionState.flying && (yield* deps.inputService.isKeyPressed(KeyMappings.JUMP))
+      yield* applyWaterDrag(deps.physicsService, playerBodyId, physVel, lavaSwimUp, frameContext.frameMotionState.sneaking, LAVA_HORIZONTAL_DRAG)
     }
 
     // Minecart modality: while minecarting and on a rail the player rides at

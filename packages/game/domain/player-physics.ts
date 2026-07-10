@@ -21,6 +21,8 @@ export const COBWEB_VERTICAL_MULTIPLIER = 0.05
 export const DEFAULT_GROUND_FRICTION = 0.6
 export const SLIPPERY_SURFACE_DAMPING = 0.91
 export const DEFAULT_WATER_HORIZONTAL_DRAG = 0.4
+// Lava is far thicker than water (vanilla crawl pace through lava).
+export const LAVA_HORIZONTAL_DRAG = 0.2
 export const DEPTH_STRIDER_MAX_LEVEL = 3
 const MOVE_INPUT_EPSILON = 1e-6
 
@@ -265,6 +267,7 @@ export type PlayerPostPhysicsContactQuery = {
   readonly isInLadder: (wx: number, wy: number, wz: number) => boolean
   readonly isInCobweb: (wx: number, wy: number, wz: number) => boolean
   readonly isInWater: (wx: number, wy: number, wz: number) => boolean
+  readonly isInLava: (wx: number, wy: number, wz: number) => boolean
 }
 
 export type PlayerPostPhysicsContactState = {
@@ -272,6 +275,7 @@ export type PlayerPostPhysicsContactState = {
   readonly onLadder: boolean
   readonly inCobweb: boolean
   readonly inWater: boolean
+  readonly inLava: boolean
 }
 
 export const resolvePlayerPostPhysicsContactState = (
@@ -298,6 +302,9 @@ export const resolvePlayerPostPhysicsContactState = (
   const inWater = canApplyEnvironmentEffects
     && (queries.isInWater(physPos.x, physPos.y, physPos.z)
       || queries.isInWater(physPos.x, physPos.y + 1, physPos.z))
+  const inLava = canApplyEnvironmentEffects
+    && (queries.isInLava(physPos.x, physPos.y, physPos.z)
+      || queries.isInLava(physPos.x, physPos.y + 1, physPos.z))
 
-  return { isGrounded, onLadder, inCobweb, inWater }
+  return { isGrounded, onLadder, inCobweb, inWater, inLava }
 }
