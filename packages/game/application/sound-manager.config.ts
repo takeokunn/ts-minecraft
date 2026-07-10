@@ -31,6 +31,12 @@ export const SOUND_LIBRARY = {
   footstepWood: { frequency: 210, durationMs: 48, wave: 'triangle' as OscillatorWave, baseGain: 0.2 },
   rainAmbient: { frequency: 120, durationMs: 320, wave: 'triangle' as OscillatorWave, baseGain: 0.16 },
   thunderClap: { frequency: 55, durationMs: 650, wave: 'sawtooth' as OscillatorWave, baseGain: 0.46 },
+  // Bright ascending-feel chime distinct from `enchant` (660Hz/200ms triangle) —
+  // higher and longer so a level-up reads as a bigger moment than an item enchant.
+  levelUp: { frequency: 880, durationMs: 260, wave: 'triangle' as OscillatorWave, baseGain: 0.4 },
+  // Longer still and pitched above levelUp — an achievement toast is rarer than
+  // a level-up, so its cue should read as the biggest of the three "success" chimes.
+  achievementUnlock: { frequency: 990, durationMs: 340, wave: 'triangle' as OscillatorWave, baseGain: 0.42 },
 } satisfies Record<string, SoundDefinition>
 
 export const DEFAULT_LISTENER_POSITION = { x: 0, y: 64, z: 0 }

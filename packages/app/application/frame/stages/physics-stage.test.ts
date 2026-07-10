@@ -1776,3 +1776,70 @@ describe('physics-stage — nether portal travel', () => {
     expect(respawnSpy).toHaveBeenCalledOnce()
   }))
 })
+
+describe('XP level-up celebration', () => {
+  const makeXpLevelEl = () => ({
+    textContent: '',
+    offsetWidth: 0,
+    classList: { add: vi.fn(), remove: vi.fn() },
+  }) as unknown as HTMLElement
+
+  it.effect('plays the levelUp chime and pops the level number on a genuine level-up', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const fakeEl = makeXpLevelEl()
+    ;(deps as { xpLevelElement: unknown }).xpLevelElement = Option.some(fakeEl)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    const getXP = vi.fn(() =>
+      Effect.succeed({ level: 3, totalXP: 40, xpIntoLevel: 3, xpRequiredForNext: 12 })
+    )
+    ;(services.xpService as { getXP: unknown }).getXP = getXP
+    const playEffectSpy = vi.fn(() => Effect.void)
+    ;(services.soundManager as { playEffect: unknown }).playEffect = playEffectSpy
+
+    const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
+    yield* maintenanceHandler()
+    yield* frameHandler(0.016 as DeltaTimeSecs)
+
+    // First sync fills the -1 sentinel — loading a save at level 3 is not a level-up.
+    expect(playEffectSpy).not.toHaveBeenCalledWith('levelUp')
+
+    getXP.mockImplementation(() =>
+      Effect.succeed({ level: 4, totalXP: 55, xpIntoLevel: 0, xpRequiredForNext: 17 })
+    )
+    yield* frameHandler(0.016 as DeltaTimeSecs)
+
+    expect(playEffectSpy).toHaveBeenCalledWith('levelUp')
+    expect((fakeEl as unknown as { classList: { add: ReturnType<typeof vi.fn> } }).classList.add)
+      .toHaveBeenCalledWith('xp-level-up')
+  }))
+
+  it.effect('stays silent when XP grows within the same level', () => Effect.gen(function* () {
+    const deps = yield* makeDeps(false)
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    const getXP = vi.fn(() =>
+      Effect.succeed({ level: 3, totalXP: 40, xpIntoLevel: 3, xpRequiredForNext: 12 })
+    )
+    ;(services.xpService as { getXP: unknown }).getXP = getXP
+    const playEffectSpy = vi.fn(() => Effect.void)
+    ;(services.soundManager as { playEffect: unknown }).playEffect = playEffectSpy
+
+    const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
+    yield* maintenanceHandler()
+    yield* frameHandler(0.016 as DeltaTimeSecs)
+
+    getXP.mockImplementation(() =>
+      Effect.succeed({ level: 3, totalXP: 45, xpIntoLevel: 8, xpRequiredForNext: 12 })
+    )
+    yield* frameHandler(0.016 as DeltaTimeSecs)
+
+    expect(playEffectSpy).not.toHaveBeenCalledWith('levelUp')
+  }))
+})

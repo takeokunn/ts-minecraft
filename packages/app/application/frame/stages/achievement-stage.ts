@@ -9,7 +9,10 @@ import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/t
 export const ACHIEVEMENT_CHECK_INTERVAL_SECS = 1
 
 export const achievementStage = (
-  services: Pick<FrameHandlerServices, 'statisticsService' | 'achievementService' | 'achievementToast'>,
+  services: Pick<
+    FrameHandlerServices,
+    'statisticsService' | 'achievementService' | 'achievementToast' | 'soundManager'
+  >,
   accumulatorRef: MutableRef.MutableRef<number>,
   deltaTime: DeltaTimeSecs,
 ): Effect.Effect<void, never> =>
@@ -24,5 +27,6 @@ export const achievementStage = (
     const newlyUnlocked = yield* services.achievementService.checkUnlocks(stats)
     for (const achievement of newlyUnlocked) {
       yield* services.achievementToast.show(achievement.name, achievement.description)
+      yield* services.soundManager.playEffect('achievementUnlock')
     }
   })

@@ -92,6 +92,15 @@ const syncHungerHud = (
     }
   })
 
+// Replay the level-number pop animation (class re-add needs a reflow between
+// remove and add, or the browser coalesces the two and the animation never restarts).
+export const triggerXpLevelPop = (el: HTMLElement | null): void => {
+  if (el === null || !('classList' in el)) return
+  el.classList.remove('xp-level-up')
+  void el.offsetWidth
+  el.classList.add('xp-level-up')
+}
+
 const syncXpHud = (
   services: PhysicsStageServices,
   refs: PhysicsStageRefs,
@@ -101,6 +110,9 @@ const syncXpHud = (
     const xp = yield* services.xpService.getXP()
     const lastXP = MutableRef.get(refs.lastXPRef)
     if (lastXP.level !== xp.level || lastXP.xpIntoLevel !== xp.xpIntoLevel) {
+      // lastXP.level starts at the -1 sentinel, so the first sync after loading a
+      // save must not read as a level-up; only genuine in-session gains celebrate.
+      const leveledUp = lastXP.level >= 0 && xp.level > lastXP.level
       lastXP.level = xp.level
       lastXP.xpIntoLevel = xp.xpIntoLevel
       lastXP.xpRequiredForNext = xp.xpRequiredForNext
@@ -110,6 +122,10 @@ const syncXpHud = (
         writeHudText(inputs.xpBarMaxElementOrNull, xp.xpRequiredForNext)
         updateXpBar(inputs.xpBarElementOrNull, xp.xpIntoLevel, xp.xpRequiredForNext)
       })
+      if (leveledUp) {
+        yield* services.soundManager.playEffect('levelUp')
+        yield* Effect.sync(() => triggerXpLevelPop(inputs.xpLevelElementOrNull))
+      }
     }
   })
 
