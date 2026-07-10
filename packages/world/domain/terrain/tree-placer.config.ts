@@ -28,6 +28,18 @@ export const TREE_RNG_X_SCALE = 127.1
 export const TREE_RNG_Z_SCALE = 311.7
 export const TREE_RNG_AMPLITUDE = 43758.5453
 
+// Jittered-grid placement: the world is partitioned into TREE_GRID_SIZE² cells and
+// each cell nominates exactly ONE candidate column (hash-jittered inside the cell).
+// This caps tree density at 1/GRID_AREA per column and structurally guarantees crown
+// spacing — independent per-column rolls cluster at any usable density and fuse the
+// radius-2 canopies into a solid leaf slab (the "leaf landscape" bug).
+export const TREE_GRID_SIZE = 4
+export const TREE_GRID_AREA = TREE_GRID_SIZE * TREE_GRID_SIZE
+export const TREE_CELL_JITTER_X_SCALE = 3.97
+export const TREE_CELL_JITTER_Z_SCALE = 5.23
+// Cell-level density roll: place iff fract(cellRng * scale) < treeDensity * TREE_GRID_AREA
+export const TREE_DENSITY_ROLL_RNG_SCALE = 2.61
+
 // RNG scale for archetype-selection roll (all biomes)
 export const ARCHETYPE_ROLL_RNG_SCALE = 1.324717957244746
 

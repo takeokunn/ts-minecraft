@@ -7,6 +7,7 @@ import {
   shouldPlaceTree,
   selectTreeArchetype,
   placeTree,
+  treeCellCandidate,
   WOOD_BLOCK_INDEX,
 } from '@ts-minecraft/world'
 import { makeChunkBlockBuffer } from './chunk-buffer-test-utils'
@@ -26,57 +27,80 @@ const getBlock = (blocks: Uint8Array, lx: number, y: number, lz: number): number
 
 describe('shouldPlaceTree', () => {
   const SURFACE_Y = 70 // above 5, below CHUNK_HEIGHT - 15
+  // Jittered-grid placement: only a cell's single candidate column may sprout, so
+  // positive-path tests must probe candidate coordinates (density 1.0 → roll always passes).
+  const CANDIDATE = treeCellCandidate(3, 2)
 
   it('returns { place: false } when treeDensity=0', () => {
-    const result = shouldPlaceTree(0, SURFACE_Y, 100, 200)
+    const result = shouldPlaceTree(0, SURFACE_Y, CANDIDATE.wx, CANDIDATE.wz)
     expect(result.place).toBe(false)
   })
 
-  it('allows tree origins near chunk edges so neighboring chunks can contribute seamless canopies', () => {
-    const edgeOrigin = shouldPlaceTree(1.0, SURFACE_Y, 15, 8)
-    expect(edgeOrigin.place).toBe(true)
+  it('places a tree at a cell candidate column when the density roll passes', () => {
+    const result = shouldPlaceTree(1.0, SURFACE_Y, CANDIDATE.wx, CANDIDATE.wz)
+    expect(result.place).toBe(true)
+  })
+
+  it('rejects non-candidate columns even at density 1.0 — the grid guarantees crown spacing', () => {
+    // Step one column over WITHIN the same 4×4 cell — never a second candidate there.
+    const cellLocalX = CANDIDATE.wx - 3 * 4
+    const neighborWx = cellLocalX === 3 ? CANDIDATE.wx - 1 : CANDIDATE.wx + 1
+    expect(shouldPlaceTree(1.0, SURFACE_Y, neighborWx, CANDIDATE.wz).place).toBe(false)
+  })
+
+  it('candidate columns exist near chunk edges so neighboring chunks contribute seamless canopies', () => {
+    // Cell (3,2) spans wx 12..15 / wz 8..11 — its candidate lies inside the 3-block
+    // canopy margin of the chunk at (0,0), and the neighbor chunk derives the SAME
+    // candidate from the same world-space hash.
+    expect(CANDIDATE.wx).toBeGreaterThanOrEqual(12)
+    expect(CANDIDATE.wx).toBeLessThan(16)
+    const again = treeCellCandidate(3, 2)
+    expect(again.wx).toBe(CANDIDATE.wx)
+    expect(again.wz).toBe(CANDIDATE.wz)
   })
 
   it('returns { place: false } when surfaceY <= 5', () => {
-    const result = shouldPlaceTree(1.0, 5, 100, 200)
+    const result = shouldPlaceTree(1.0, 5, CANDIDATE.wx, CANDIDATE.wz)
     expect(result.place).toBe(false)
   })
 
   it('returns { place: false } when surfaceY >= CHUNK_HEIGHT - 15', () => {
-    const result = shouldPlaceTree(1.0, CHUNK_HEIGHT - 15, 100, 200)
+    const result = shouldPlaceTree(1.0, CHUNK_HEIGHT - 15, CANDIDATE.wx, CANDIDATE.wz)
     expect(result.place).toBe(false)
   })
 
   it('returns { place: false } for submerged columns (surfaceY < SEA_LEVEL) — no trees on/under water', () => {
     // Regression: a forest column dipping below the waterline used to plant a trunk
     // on the seabed that grew up through the surface ("tree growing on the ocean").
-    expect(shouldPlaceTree(1.0, SEA_LEVEL - 1, 100, 200).place).toBe(false)
-    expect(shouldPlaceTree(1.0, SEA_LEVEL - 5, 33, 77).place).toBe(false)
+    expect(shouldPlaceTree(1.0, SEA_LEVEL - 1, CANDIDATE.wx, CANDIDATE.wz).place).toBe(false)
+    expect(shouldPlaceTree(1.0, SEA_LEVEL - 5, CANDIDATE.wx, CANDIDATE.wz).place).toBe(false)
   })
 
   it('allows trees exactly at the waterline (surfaceY === SEA_LEVEL, dry land)', () => {
     // surfaceY === SEA_LEVEL is dry: water only fills surfaceY+1…SEA_LEVEL, which is empty here.
-    const result = shouldPlaceTree(1.0, SEA_LEVEL, 12, 90)
+    const result = shouldPlaceTree(1.0, SEA_LEVEL, CANDIDATE.wx, CANDIDATE.wz)
     expect(result.place).toBe(true)
   })
 
   it('respects a custom seaLevel when deciding whether a column is submerged', () => {
     const terrainLevels = { seaLevel: 40, lakeLevel: 62 }
 
-    expect(shouldPlaceTree(1.0, terrainLevels.seaLevel - 1, 100, 200, terrainLevels).place).toBe(false)
-    expect(shouldPlaceTree(1.0, terrainLevels.seaLevel, 100, 200, terrainLevels).place).toBe(true)
+    expect(shouldPlaceTree(1.0, terrainLevels.seaLevel - 1, CANDIDATE.wx, CANDIDATE.wz, terrainLevels).place).toBe(false)
+    expect(shouldPlaceTree(1.0, terrainLevels.seaLevel, CANDIDATE.wx, CANDIDATE.wz, terrainLevels).place).toBe(true)
   })
 
   it('is deterministic — same inputs produce the same result', () => {
-    const r1 = shouldPlaceTree(0.5, SURFACE_Y, 32, 64)
-    const r2 = shouldPlaceTree(0.5, SURFACE_Y, 32, 64)
+    const r1 = shouldPlaceTree(0.5, SURFACE_Y, CANDIDATE.wx, CANDIDATE.wz)
+    const r2 = shouldPlaceTree(0.5, SURFACE_Y, CANDIDATE.wx, CANDIDATE.wz)
     expect(r1.place).toBe(r2.place)
     expect(r1.treeRng).toBe(r2.treeRng)
   })
 
-  it('different wx/wz produce different treeRng values', () => {
-    const r1 = shouldPlaceTree(1.0, SURFACE_Y, 0, 0)
-    const r2 = shouldPlaceTree(1.0, SURFACE_Y, 1, 0)
+  it('different candidate columns produce different treeRng values (per-tree shape variety)', () => {
+    const c1 = treeCellCandidate(0, 0)
+    const c2 = treeCellCandidate(1, 0)
+    const r1 = shouldPlaceTree(1.0, SURFACE_Y, c1.wx, c1.wz)
+    const r2 = shouldPlaceTree(1.0, SURFACE_Y, c2.wx, c2.wz)
     // treeRng uses wx/wz in a sine hash — different coords → different hash
     expect(r1.treeRng).not.toBe(r2.treeRng)
   })

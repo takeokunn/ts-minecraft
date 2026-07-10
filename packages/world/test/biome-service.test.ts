@@ -190,15 +190,15 @@ describe('BiomeService.getBiomeProperties', () => {
   const propertyExpectations: ReadonlyArray<PropExpectation> = [
     { biome: 'PLAINS',    surfaceBlock: 'GRASS', subSurfaceBlock: 'DIRT',  minTreeDensity: 0 },
     { biome: 'DESERT',    surfaceBlock: 'SAND',  subSurfaceBlock: 'SAND',  minTreeDensity: 0 },
-    { biome: 'FOREST',    surfaceBlock: 'GRASS', subSurfaceBlock: 'DIRT',  minTreeDensity: 0.1 },
+    { biome: 'FOREST',    surfaceBlock: 'GRASS', subSurfaceBlock: 'DIRT',  minTreeDensity: 0.03 },
     { biome: 'OCEAN',     surfaceBlock: 'SAND',  subSurfaceBlock: 'SAND',  minTreeDensity: 0 },
     { biome: 'MOUNTAINS', surfaceBlock: 'STONE', subSurfaceBlock: 'STONE', minTreeDensity: 0 },
     { biome: 'SNOW',      surfaceBlock: 'SNOW',  subSurfaceBlock: 'DIRT',  minTreeDensity: 0 },
-    { biome: 'SWAMP',     surfaceBlock: 'GRASS', subSurfaceBlock: 'DIRT',  minTreeDensity: 0.1 },
-    { biome: 'JUNGLE',    surfaceBlock: 'GRASS', subSurfaceBlock: 'DIRT',  minTreeDensity: 0.4 },
+    { biome: 'SWAMP',     surfaceBlock: 'GRASS', subSurfaceBlock: 'DIRT',  minTreeDensity: 0.02 },
+    { biome: 'JUNGLE',    surfaceBlock: 'GRASS', subSurfaceBlock: 'DIRT',  minTreeDensity: 0.05 },
     { biome: 'BEACH',     surfaceBlock: 'SAND',  subSurfaceBlock: 'SAND',  minTreeDensity: 0 },
     { biome: 'RIVER',     surfaceBlock: 'SAND',  subSurfaceBlock: 'SAND',  minTreeDensity: 0 },
-    { biome: 'TAIGA',     surfaceBlock: 'GRASS', subSurfaceBlock: 'DIRT',  minTreeDensity: 0.2 },
+    { biome: 'TAIGA',     surfaceBlock: 'GRASS', subSurfaceBlock: 'DIRT',  minTreeDensity: 0.03 },
     { biome: 'SAVANNA',   surfaceBlock: 'GRASS', subSurfaceBlock: 'DIRT',  minTreeDensity: 0 },
   ]
 

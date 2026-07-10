@@ -12,6 +12,9 @@ import {
   TREE_RNG_X_SCALE, TREE_RNG_Z_SCALE, TREE_RNG_AMPLITUDE,
   ARCHETYPE_ROLL_RNG_SCALE,
   TREE_MIN_SURFACE_Y, TREE_SURFACE_Y_HEADROOM,
+  TREE_GRID_SIZE, TREE_GRID_AREA,
+  TREE_CELL_JITTER_X_SCALE, TREE_CELL_JITTER_Z_SCALE,
+  TREE_DENSITY_ROLL_RNG_SCALE,
 } from './tree-placer.config'
 
 export { type TreeArchetype }
@@ -161,8 +164,28 @@ export const selectTreeArchetype = (
   }
 }
 
+// The single tree-candidate column of a grid cell, hash-jittered inside the cell.
+// Pure function of cell coordinates → identical across chunk seams and reloads.
+export const treeCellCandidate = (
+  cellX: number,
+  cellZ: number,
+): { wx: number; wz: number; cellRng: number } => {
+  const cellRng = Math.sin(cellX * TREE_RNG_X_SCALE + cellZ * TREE_RNG_Z_SCALE) * TREE_RNG_AMPLITUDE
+  return {
+    wx: cellX * TREE_GRID_SIZE + Math.floor(fract(cellRng * TREE_CELL_JITTER_X_SCALE) * TREE_GRID_SIZE),
+    wz: cellZ * TREE_GRID_SIZE + Math.floor(fract(cellRng * TREE_CELL_JITTER_Z_SCALE) * TREE_GRID_SIZE),
+    cellRng,
+  }
+}
+
 // Deterministic sine-hash RNG — tree placement reproducible across chunk reloads.
 // Returns treeRng so the caller can reuse it for trunk-height without recomputing.
+//
+// treeDensity is the EFFECTIVE per-column tree probability (vanilla forest ≈ 0.04).
+// Placement is jittered-grid, not per-column Bernoulli: only the one candidate column
+// of each TREE_GRID_SIZE² cell may sprout, and it does so when the cell's density roll
+// passes treeDensity·TREE_GRID_AREA. Independent per-column rolls at forest-like rates
+// fused the radius-2 crowns into a walkable leaf slab ("木がおかしい").
 export const shouldPlaceTree = (
   treeDensity: number,
   surfaceY: number,
@@ -185,9 +208,15 @@ export const shouldPlaceTree = (
   ) {
     return { place: false, treeRng: 0 }
   }
+  const candidate = treeCellCandidate(Math.floor(wx / TREE_GRID_SIZE), Math.floor(wz / TREE_GRID_SIZE))
+  if (candidate.wx !== wx || candidate.wz !== wz) {
+    return { place: false, treeRng: 0 }
+  }
+  if (fract(candidate.cellRng * TREE_DENSITY_ROLL_RNG_SCALE) >= treeDensity * TREE_GRID_AREA) {
+    return { place: false, treeRng: 0 }
+  }
   const treeRng = Math.sin(wx * TREE_RNG_X_SCALE + wz * TREE_RNG_Z_SCALE) * TREE_RNG_AMPLITUDE
-  const treeProb = fract(treeRng)
-  return { place: treeProb < treeDensity, treeRng }
+  return { place: true, treeRng }
 }
 
 // Writes are cropped to chunk boundaries.
