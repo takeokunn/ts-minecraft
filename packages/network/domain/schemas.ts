@@ -94,6 +94,9 @@ export const PlayerJoinMessageSchema = Schema.Struct({
   // The joiner's current time of day [0,1); the first joiner's clock becomes
   // the session's authoritative time (echoed back via WorldInfo).
   timeOfDay: Schema.optional(Schema.Number),
+  // The joiner's day length in seconds — lets the server extrapolate the
+  // session clock for late joiners instead of echoing a frozen phase.
+  dayLengthSeconds: Schema.optional(Schema.Number),
   // Set by the server ONLY on the direct join echo to the joiner itself, so a
   // client adopts its assigned playerId without guessing by name — two players
   // sharing a name must not cross-bind. Absent on broadcasts and on

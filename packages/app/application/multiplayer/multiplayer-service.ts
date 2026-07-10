@@ -30,7 +30,7 @@ export type {
 const OVERWORLD_ID = WorldId.make('overworld')
 
 export type MultiplayerService = {
-  readonly connect: (serverUrl: string, playerName: PlayerName, localTimeOfDay?: number) => Effect.Effect<void, never>
+  readonly connect: (serverUrl: string, playerName: PlayerName, localTimeOfDay?: number, localDayLengthSeconds?: number) => Effect.Effect<void, never>
   // Terrain-seed handshake: the session records the local world's seed before
   // connecting; the server echoes the authoritative (first joiner's) seed back.
   readonly setLocalWorldSeed: (seed: number) => Effect.Effect<void, never>
@@ -205,12 +205,12 @@ export const MultiplayerServiceImpl = (
       ({ x: Math.floor(pos.x), y: Math.floor(pos.y), z: Math.floor(pos.z) }) as Vec3
 
     const service: MultiplayerService = {
-      connect: (serverUrl, playerName, localTimeOfDay) =>
+      connect: (serverUrl, playerName, localTimeOfDay, localDayLengthSeconds) =>
         Effect.gen(function* () {
           yield* stopDrain
           yield* resetSessionState
           const localSeed = yield* Ref.get(localWorldSeedRef)
-          const connected = yield* client.connect(serverUrl, playerName, localSeed ?? undefined, localTimeOfDay).pipe(
+          const connected = yield* client.connect(serverUrl, playerName, localSeed ?? undefined, localTimeOfDay, localDayLengthSeconds).pipe(
             Effect.as(true),
             Effect.catchAll((e) =>
               Effect.logWarning(`Multiplayer connect failed: ${String(e)}`).pipe(Effect.as(false)),

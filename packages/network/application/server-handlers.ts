@@ -77,6 +77,19 @@ export const handlePlayerJoin = (
     const sessionTimeOfDay = yield* Ref.updateAndGet(services.gameServer.timeOfDay, (current) =>
       current !== null ? current : (message.timeOfDay ?? null),
     )
+    yield* Ref.update(services.gameServer.timeCapturedAtMs, (current) =>
+      current !== null ? current : (message.timeOfDay !== undefined ? Date.now() : null),
+    )
+    yield* Ref.update(services.gameServer.dayLengthSeconds, (current) =>
+      current !== null ? current : (message.dayLengthSeconds ?? null),
+    )
+    // Extrapolate the session clock so late joiners get the CURRENT phase, not
+    // the phase frozen at first join.
+    const capturedAtMs = yield* Ref.get(services.gameServer.timeCapturedAtMs)
+    const dayLenSecs = yield* Ref.get(services.gameServer.dayLengthSeconds)
+    const extrapolatedTimeOfDay = sessionTimeOfDay !== null && capturedAtMs !== null && dayLenSecs !== null && dayLenSecs > 0
+      ? (sessionTimeOfDay + (Date.now() - capturedAtMs) / (dayLenSecs * 1000)) % 1
+      : sessionTimeOfDay
     // The first joiner also becomes the entity host: the one client whose mobs
     // are authoritative for the session (everyone else's snapshots are dropped).
     const sessionEntityHost = yield* Ref.updateAndGet(services.gameServer.entityHost, (current) =>
@@ -86,7 +99,7 @@ export const handlePlayerJoin = (
       yield* sendEncodedToConnection(connection, {
         type: MessageType.WorldInfo,
         worldSeed: sessionSeed,
-        ...(sessionTimeOfDay !== null ? { timeOfDay: sessionTimeOfDay } : {}),
+        ...(extrapolatedTimeOfDay !== null ? { timeOfDay: extrapolatedTimeOfDay } : {}),
         ...(sessionEntityHost !== null ? { entityHostPlayerId: sessionEntityHost } : {}),
         timestamp: Date.now(),
       })
@@ -155,11 +168,16 @@ export const handlePlayerLeave = (
       yield* Ref.set(services.gameServer.entityHost, nextHost)
       const sessionSeed = yield* Ref.get(services.gameServer.worldSeed)
       const sessionTimeOfDay = yield* Ref.get(services.gameServer.timeOfDay)
+      const capturedAtMs = yield* Ref.get(services.gameServer.timeCapturedAtMs)
+      const dayLenSecs = yield* Ref.get(services.gameServer.dayLengthSeconds)
+      const extrapolatedTimeOfDay = sessionTimeOfDay !== null && capturedAtMs !== null && dayLenSecs !== null && dayLenSecs > 0
+        ? (sessionTimeOfDay + (Date.now() - capturedAtMs) / (dayLenSecs * 1000)) % 1
+        : sessionTimeOfDay
       if (nextHost !== null && sessionSeed !== null) {
         yield* services.serverService.broadcast({
           type: MessageType.WorldInfo,
           worldSeed: sessionSeed,
-          ...(sessionTimeOfDay !== null ? { timeOfDay: sessionTimeOfDay } : {}),
+          ...(extrapolatedTimeOfDay !== null ? { timeOfDay: extrapolatedTimeOfDay } : {}),
           entityHostPlayerId: nextHost,
           timestamp: Date.now(),
         })

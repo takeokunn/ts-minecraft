@@ -7,7 +7,7 @@ import { decodeNetworkMessage, encodeNetworkMessage } from './codec'
 export type ConnectionState = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'disconnected' | 'failed'
 
 export type ClientServiceShape = {
-  readonly connect: (serverUrl: string, playerName: PlayerName, worldSeed?: number, timeOfDay?: number) => Effect.Effect<void, NetworkError>
+  readonly connect: (serverUrl: string, playerName: PlayerName, worldSeed?: number, timeOfDay?: number, dayLengthSeconds?: number) => Effect.Effect<void, NetworkError>
   readonly disconnect: () => Effect.Effect<void, never>
   readonly getConnectionState: () => Effect.Effect<ConnectionState, never>
   readonly sendMessage: (message: NetworkMessage) => Effect.Effect<void, NetworkError>
@@ -16,14 +16,15 @@ export type ClientServiceShape = {
 
 export const ClientService = Context.GenericTag<ClientServiceShape>('@minecraft/network/ClientService')
 
-const makeInitialJoin = (playerName: PlayerName, worldSeed?: number, timeOfDay?: number): NetworkMessage => ({
+const makeInitialJoin = (playerName: PlayerName, worldSeed?: number, timeOfDay?: number, dayLengthSeconds?: number): NetworkMessage => ({
   type: MessageType.PlayerJoin,
   playerId: PlayerId.make('pending'),
   playerName,
   worldId: WorldId.make('overworld'),
   position: { x: 0, y: 64, z: 0 },
   timestamp: Date.now(),
-  ...(worldSeed !== undefined ? { worldSeed } : {}),
+  ...(worldSeed !== undefined ? { worldSeed } : {  ...(dayLengthSeconds !== undefined ? { dayLengthSeconds } : {}),
+}),
   ...(timeOfDay !== undefined ? { timeOfDay } : {}),
 })
 
@@ -117,7 +118,7 @@ export const ClientServiceImpl = (
       })
 
     const service: ClientServiceShape = {
-      connect: (serverUrl, playerName, worldSeed, timeOfDay) =>
+      connect: (serverUrl, playerName, worldSeed, timeOfDay, dayLengthSeconds) =>
         Effect.gen(function* () {
           yield* Ref.set(stateRef, 'connecting')
           yield* Ref.set(serverUrlRef, Option.some(serverUrl))
@@ -126,7 +127,7 @@ export const ClientServiceImpl = (
           yield* Ref.set(timeOfDayRef, Option.fromNullable(timeOfDay))
           const handle = yield* port.connect(serverUrl)
           yield* installHandle(handle)
-          yield* sendRawMessage(handle, makeInitialJoin(playerName, worldSeed, timeOfDay))
+          yield* sendRawMessage(handle, makeInitialJoin(playerName, worldSeed, timeOfDay, dayLengthSeconds))
           yield* Ref.set(stateRef, 'connected')
           yield* installWatcher(handle)
         }).pipe(

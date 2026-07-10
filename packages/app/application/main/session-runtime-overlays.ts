@@ -63,6 +63,8 @@ export type ConnectionTimeSync = {
   readonly getTimeOfDay: () => Effect.Effect<number, never>
   // Adopt the session-authoritative time echoed back by the server.
   readonly setTimeOfDay: (fraction: number) => Effect.Effect<void, never>
+  // Day length (seconds) so the server can extrapolate the clock for late joiners.
+  readonly getDayLength: () => Effect.Effect<number, never>
 }
 
 export const connectFromConnectionPanel = (
@@ -83,7 +85,8 @@ export const connectFromConnectionPanel = (
 
     yield* panel.setStatus(`Connecting to ${serverUrl}...`)
     const localTimeOfDay = timeSync === undefined ? undefined : yield* timeSync.getTimeOfDay()
-    yield* multiplayer.connect(serverUrl, PlayerName.make(playerName), localTimeOfDay)
+    const localDayLength = timeSync === undefined ? undefined : yield* timeSync.getDayLength()
+    yield* multiplayer.connect(serverUrl, PlayerName.make(playerName), localTimeOfDay, localDayLength)
 
     const state = yield* multiplayer.getConnectionState()
     const connected = state === 'connected'
@@ -335,6 +338,7 @@ export const installSessionRuntimeOverlays = (
       yield* installMultiplayerConnectionPanel(connectionPanel, services.multiplayer.value, pauseMenu, adoptHostWorld, {
         getTimeOfDay: () => timeService.getTimeOfDay(),
         setTimeOfDay: (fraction) => timeService.setTimeOfDay(fraction),
+        getDayLength: () => timeService.getDayLength(),
       })
       yield* installMultiplayerChatPanel(chatPanel, services.multiplayer.value)
       yield* installMultiplayerPlayerListPanel(playerListPanel, services.multiplayer.value)
