@@ -31,6 +31,7 @@ export const renderAchievementsPanelHtml = (
       <li>Blocks mined: ${stats.blocksMinedTotal}</li>
       <li>Mobs defeated: ${stats.mobsKilledTotal}</li>
       <li>Items crafted: ${stats.itemsCraftedTotal}</li>
+      <li>Deaths: ${stats.deathsTotal}</li>
       <li>Dimensions visited: ${stats.dimensionsVisited.length === 0 ? 'overworld' : stats.dimensionsVisited.join(', ')}</li>
     </ul>
   `

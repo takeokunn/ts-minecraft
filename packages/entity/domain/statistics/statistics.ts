@@ -12,6 +12,7 @@ export interface Statistics {
   readonly mobsKilledTotal: number
   readonly mobsKilledByType: Readonly<Partial<Record<EntityType, number>>>
   readonly itemsCraftedTotal: number
+  readonly deathsTotal: number
   readonly itemsCraftedByType: Readonly<Partial<Record<InventoryItem, number>>>
   readonly dimensionsVisited: ReadonlyArray<Dimension>
 }
@@ -23,6 +24,7 @@ export const INITIAL_STATISTICS: Statistics = {
   mobsKilledByType: {},
   itemsCraftedTotal: 0,
   itemsCraftedByType: {},
+  deathsTotal: 0,
   dimensionsVisited: [],
 }
 
@@ -50,6 +52,11 @@ export const recordItemCrafted = (stats: Statistics, itemType: InventoryItem): S
   ...stats,
   itemsCraftedTotal: stats.itemsCraftedTotal + 1,
   itemsCraftedByType: incrementByType(stats.itemsCraftedByType, itemType),
+})
+
+export const recordDeath = (stats: Statistics): Statistics => ({
+  ...stats,
+  deathsTotal: stats.deathsTotal + 1,
 })
 
 export const recordDimensionVisited = (stats: Statistics, dimension: Dimension): Statistics =>

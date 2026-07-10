@@ -131,6 +131,7 @@ export const WorldMetadataSchema = Schema.Struct({
     mobsKilledByType: Schema.Record({ key: Schema.String, value: Schema.Number.pipe(Schema.int(), Schema.nonNegative()) }),
     itemsCraftedTotal: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
     itemsCraftedByType: Schema.Record({ key: Schema.String, value: Schema.Number.pipe(Schema.int(), Schema.nonNegative()) }),
+    deathsTotal: Schema.optionalWith(Schema.Number.pipe(Schema.int(), Schema.nonNegative()), { default: () => 0 }),
     dimensionsVisited: Schema.Array(Schema.Literal('overworld', 'nether', 'end')),
   })),
   unlockedAchievements: Schema.optional(Schema.Array(Schema.String)),

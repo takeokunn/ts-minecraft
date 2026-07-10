@@ -45,6 +45,15 @@ describe('application/statistics-service', () => {
     }).pipe(Effect.provide(TestLayer)),
   )
 
+  it.effect('recordDeath increments the death total', () =>
+    Effect.gen(function* () {
+      const svc = yield* StatisticsService
+      yield* svc.recordDeath()
+      const after = yield* svc.recordDeath()
+      expect(after.deathsTotal).toBe(2)
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
   it.effect('recordDimensionVisited dedupes repeats', () =>
     Effect.gen(function* () {
       const svc = yield* StatisticsService

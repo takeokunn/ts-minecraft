@@ -412,10 +412,11 @@ const makeDeps = () => {
         _tag: '@minecraft/entity/EntityManager',
       },
       statisticsService: {
-        getStatistics: () => Effect.succeed({ blocksMinedTotal: 0, blocksMinedByType: {}, mobsKilledTotal: 0, mobsKilledByType: {}, itemsCraftedTotal: 0, itemsCraftedByType: {}, dimensionsVisited: [] }),
+        getStatistics: () => Effect.succeed({ blocksMinedTotal: 0, blocksMinedByType: {}, mobsKilledTotal: 0, mobsKilledByType: {}, itemsCraftedTotal: 0, itemsCraftedByType: {}, deathsTotal: 0, dimensionsVisited: [] }),
         recordBlockMined: (_b: unknown) => Effect.succeed({}),
         recordMobKilled: (_m: unknown) => Effect.succeed({}),
         recordItemCrafted: (_i: unknown) => Effect.succeed({}),
+        recordDeath: () => Effect.succeed({}),
         recordDimensionVisited: (_d: unknown) => Effect.succeed({}),
         reset: () => Effect.void,
         serialize: () => Effect.succeed({}),

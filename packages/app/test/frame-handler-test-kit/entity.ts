@@ -111,13 +111,14 @@ export const makeFishingService = () => ({
 
 /** Creates an inert statistics service fake. */
 export const makeStatisticsService = () => ({
-  getStatistics: () => Effect.succeed({ blocksMinedTotal: 0, blocksMinedByType: {}, mobsKilledTotal: 0, mobsKilledByType: {}, itemsCraftedTotal: 0, itemsCraftedByType: {}, dimensionsVisited: [] }),
-  recordBlockMined: (_blockType: unknown) => Effect.succeed({ blocksMinedTotal: 1, blocksMinedByType: {}, mobsKilledTotal: 0, mobsKilledByType: {}, itemsCraftedTotal: 0, itemsCraftedByType: {}, dimensionsVisited: [] }),
-  recordMobKilled: (_mobType: unknown) => Effect.succeed({ blocksMinedTotal: 0, blocksMinedByType: {}, mobsKilledTotal: 1, mobsKilledByType: {}, itemsCraftedTotal: 0, itemsCraftedByType: {}, dimensionsVisited: [] }),
-  recordItemCrafted: (_itemType: unknown) => Effect.succeed({ blocksMinedTotal: 0, blocksMinedByType: {}, mobsKilledTotal: 0, mobsKilledByType: {}, itemsCraftedTotal: 1, itemsCraftedByType: {}, dimensionsVisited: [] }),
-  recordDimensionVisited: (_dimension: unknown) => Effect.succeed({ blocksMinedTotal: 0, blocksMinedByType: {}, mobsKilledTotal: 0, mobsKilledByType: {}, itemsCraftedTotal: 0, itemsCraftedByType: {}, dimensionsVisited: [] }),
+  getStatistics: () => Effect.succeed({ blocksMinedTotal: 0, blocksMinedByType: {}, mobsKilledTotal: 0, mobsKilledByType: {}, itemsCraftedTotal: 0, itemsCraftedByType: {}, deathsTotal: 0, dimensionsVisited: [] }),
+  recordBlockMined: (_blockType: unknown) => Effect.succeed({ blocksMinedTotal: 1, blocksMinedByType: {}, mobsKilledTotal: 0, mobsKilledByType: {}, itemsCraftedTotal: 0, itemsCraftedByType: {}, deathsTotal: 0, dimensionsVisited: [] }),
+  recordMobKilled: (_mobType: unknown) => Effect.succeed({ blocksMinedTotal: 0, blocksMinedByType: {}, mobsKilledTotal: 1, mobsKilledByType: {}, itemsCraftedTotal: 0, itemsCraftedByType: {}, deathsTotal: 0, dimensionsVisited: [] }),
+  recordItemCrafted: (_itemType: unknown) => Effect.succeed({ blocksMinedTotal: 0, blocksMinedByType: {}, mobsKilledTotal: 0, mobsKilledByType: {}, itemsCraftedTotal: 1, itemsCraftedByType: {}, deathsTotal: 0, dimensionsVisited: [] }),
+  recordDeath: () => Effect.succeed({ blocksMinedTotal: 0, blocksMinedByType: {}, mobsKilledTotal: 0, mobsKilledByType: {}, itemsCraftedTotal: 1, itemsCraftedByType: {}, deathsTotal: 0, dimensionsVisited: [] }),
+  recordDimensionVisited: (_dimension: unknown) => Effect.succeed({ blocksMinedTotal: 0, blocksMinedByType: {}, mobsKilledTotal: 0, mobsKilledByType: {}, itemsCraftedTotal: 0, itemsCraftedByType: {}, deathsTotal: 0, dimensionsVisited: [] }),
   reset: () => Effect.void,
-  serialize: () => Effect.succeed({ blocksMinedTotal: 0, blocksMinedByType: {}, mobsKilledTotal: 0, mobsKilledByType: {}, itemsCraftedTotal: 0, itemsCraftedByType: {}, dimensionsVisited: [] }),
+  serialize: () => Effect.succeed({ blocksMinedTotal: 0, blocksMinedByType: {}, mobsKilledTotal: 0, mobsKilledByType: {}, itemsCraftedTotal: 0, itemsCraftedByType: {}, deathsTotal: 0, dimensionsVisited: [] }),
   deserialize: (_saved: unknown) => Effect.void,
 }) as unknown as InstanceType<typeof import('@ts-minecraft/entity').StatisticsService>
 

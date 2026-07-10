@@ -272,7 +272,7 @@ export const createMockXPLayer = () => {
 
 const EMPTY_STATISTICS = {
   blocksMinedTotal: 0, blocksMinedByType: {}, mobsKilledTotal: 0, mobsKilledByType: {},
-  itemsCraftedTotal: 0, itemsCraftedByType: {}, dimensionsVisited: [],
+  itemsCraftedTotal: 0, itemsCraftedByType: {}, deathsTotal: 0, dimensionsVisited: [],
 }
 
 export const createMockStatisticsLayer = () => {
@@ -283,6 +283,7 @@ export const createMockStatisticsLayer = () => {
     recordBlockMined: (_blockType) => Effect.succeed(EMPTY_STATISTICS),
     recordMobKilled: (_mobType) => Effect.succeed(EMPTY_STATISTICS),
     recordItemCrafted,
+    recordDeath: () => Effect.succeed(EMPTY_STATISTICS),
     recordDimensionVisited: (_dimension) => Effect.succeed(EMPTY_STATISTICS),
     reset: () => Effect.void,
     serialize: () => Effect.succeed(EMPTY_STATISTICS),

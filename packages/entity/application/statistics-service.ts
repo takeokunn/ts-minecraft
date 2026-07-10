@@ -7,6 +7,7 @@ import {
   recordBlockMined as pureRecordBlockMined,
   recordMobKilled as pureRecordMobKilled,
   recordItemCrafted as pureRecordItemCrafted,
+  recordDeath as pureRecordDeath,
   recordDimensionVisited as pureRecordDimensionVisited,
   type Statistics,
 } from '../domain/statistics/statistics'
@@ -28,6 +29,9 @@ export class StatisticsService extends Effect.Service<StatisticsService>()(
 
         recordItemCrafted: (itemType: InventoryItem): Effect.Effect<Statistics, never> =>
           Ref.updateAndGet(statsRef, (s) => pureRecordItemCrafted(s, itemType)),
+
+        recordDeath: (): Effect.Effect<Statistics, never> =>
+          Ref.updateAndGet(statsRef, (s) => pureRecordDeath(s)),
 
         recordDimensionVisited: (dimension: Dimension): Effect.Effect<Statistics, never> =>
           Ref.updateAndGet(statsRef, (s) => pureRecordDimensionVisited(s, dimension)),

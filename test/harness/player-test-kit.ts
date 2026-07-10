@@ -81,7 +81,7 @@ export const makeFishingService = () => ({
 
 const EMPTY_STATISTICS = {
   blocksMinedTotal: 0, blocksMinedByType: {}, mobsKilledTotal: 0, mobsKilledByType: {},
-  itemsCraftedTotal: 0, itemsCraftedByType: {}, dimensionsVisited: [],
+  itemsCraftedTotal: 0, itemsCraftedByType: {}, deathsTotal: 0, dimensionsVisited: [],
 }
 
 /** Creates an inert statistics service fake. */
@@ -90,6 +90,7 @@ export const makeStatisticsService = () => ({
   recordBlockMined: (_blockType: unknown) => Effect.succeed(EMPTY_STATISTICS),
   recordMobKilled: (_mobType: unknown) => Effect.succeed(EMPTY_STATISTICS),
   recordItemCrafted: (_itemType: unknown) => Effect.succeed(EMPTY_STATISTICS),
+  recordDeath: () => Effect.succeed(EMPTY_STATISTICS),
   recordDimensionVisited: (_dimension: unknown) => Effect.succeed(EMPTY_STATISTICS),
   reset: () => Effect.void,
   serialize: () => Effect.succeed(EMPTY_STATISTICS),

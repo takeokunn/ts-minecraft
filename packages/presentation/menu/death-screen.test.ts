@@ -6,6 +6,7 @@ import { DEFAULT_PLAYER_ID, type Position, DeltaTimeSecs } from '@ts-minecraft/c
 import { GameModeService, GameStateService } from '@ts-minecraft/game'
 import { HealthService } from '@ts-minecraft/entity/application/health-service'
 import { HungerService } from '@ts-minecraft/entity/application/hunger-service'
+import { StatisticsService } from '@ts-minecraft/entity/application/statistics-service'
 import { DeathScreenService } from './death-screen'
 import type { SessionControl } from '@ts-minecraft/app/main/session-control'
 
@@ -232,6 +233,7 @@ const makeTestLayer = (documentRef: MockDocument, mode: 'survival' | 'creative')
       Layer.provide(makeGameModeLayer(mode)),
       Layer.provideMerge(HealthService.Default),
       Layer.provideMerge(HungerService.Default),
+      Layer.provideMerge(StatisticsService.Default),
       Layer.provide(Layer.succeed(DomOperationsService, dom.service)),
     ),
   }
@@ -283,6 +285,8 @@ describe('DeathScreenService', () => {
           expect(MutableRef.get(control.isPausedRef)).toBe(false)
           // Vanilla: respawn restores food to full alongside health.
           expect((yield* hunger.getHunger()).foodLevel).toBe(20)
+          // Vanilla statistics count every death.
+          expect((yield* (yield* StatisticsService).getStatistics()).deathsTotal).toBe(1)
         }).pipe(Effect.provide(layer)),
       ),
     )

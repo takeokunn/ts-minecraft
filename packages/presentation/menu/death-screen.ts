@@ -4,6 +4,7 @@ import { GameStateService } from '@ts-minecraft/game'
 import { GameModeService } from '@ts-minecraft/game'
 import { HealthService } from '@ts-minecraft/entity/application/health-service'
 import { HungerService } from '@ts-minecraft/entity/application/hunger-service'
+import { StatisticsService } from '@ts-minecraft/entity/application/statistics-service'
 import { DEFAULT_PLAYER_ID } from '@ts-minecraft/core'
 import {
   type SessionControl,
@@ -28,6 +29,7 @@ export class DeathScreenService extends Effect.Service<DeathScreenService>()(
       const gameMode = yield* GameModeService
       const healthService = yield* HealthService
       const hungerService = yield* HungerService
+      const statisticsService = yield* StatisticsService
       const { backdropEl, messageEl, respawnBtn, quitBtn } = yield* Effect.acquireRelease(
         Effect.sync((): DeathScreenDom => buildDeathScreenDOM(dom)),
         ({ backdropEl }) =>
@@ -160,6 +162,8 @@ export class DeathScreenService extends Effect.Service<DeathScreenService>()(
                     const deathWatcher: Effect.Effect<void, never> = Effect.gen(function* () {
                       while (true) {
                         yield* healthService.awaitDeath()
+                        // Vanilla counts every death regardless of game mode.
+                        yield* statisticsService.recordDeath()
                         const isCreative = yield* gameMode.isCreative()
                         if (!isCreative) {
                           const deathMessage = yield* healthService.getDeathMessage()

@@ -99,7 +99,7 @@ const makeDeps = (overrides?: {
     getDimension: vi.fn(() => Effect.succeed('overworld' as const)),
   }
   const statisticsService = {
-    serialize: vi.fn(() => Effect.succeed({ blocksMinedTotal: 0, blocksMinedByType: {}, mobsKilledTotal: 0, mobsKilledByType: {}, itemsCraftedTotal: 0, itemsCraftedByType: {}, dimensionsVisited: [] })),
+    serialize: vi.fn(() => Effect.succeed({ blocksMinedTotal: 0, blocksMinedByType: {}, mobsKilledTotal: 0, mobsKilledByType: {}, itemsCraftedTotal: 0, itemsCraftedByType: {}, deathsTotal: 0, dimensionsVisited: [] })),
   }
   const achievementService = {
     serialize: vi.fn(() => Effect.succeed([])),

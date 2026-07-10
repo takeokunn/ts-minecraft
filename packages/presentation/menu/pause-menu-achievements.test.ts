@@ -32,6 +32,7 @@ describe('renderAchievementsPanelHtml', () => {
     expect(html).toContain('Blocks mined: 1')
     expect(html).toContain('Mobs defeated: 0')
     expect(html).toContain('Items crafted: 0')
+    expect(html).toContain('Deaths: 0')
     expect(html).toContain('Dimensions visited: nether')
   })
 

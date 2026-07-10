@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   INITIAL_STATISTICS,
+  recordDeath,
   recordBlockMined,
   recordMobKilled,
   recordItemCrafted,
@@ -45,6 +46,13 @@ describe('recordItemCrafted', () => {
     const s = recordItemCrafted(INITIAL_STATISTICS, 'WOODEN_PICKAXE')
     expect(s.itemsCraftedTotal).toBe(1)
     expect(s.itemsCraftedByType.WOODEN_PICKAXE).toBe(1)
+  })
+})
+
+describe('recordDeath', () => {
+  it('increments the death total', () => {
+    const s = recordDeath(recordDeath(INITIAL_STATISTICS))
+    expect(s.deathsTotal).toBe(2)
   })
 })
 
