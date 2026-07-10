@@ -275,6 +275,20 @@ export class RedstoneService extends Effect.Service<RedstoneService>()(
             return result
           }),
 
+        cycleRepeaterDelay: (position: Position): Effect.Effect<Option.Option<RedstoneComponent>, never> =>
+          Effect.gen(function* () {
+            const result = yield* Ref.modify(stateRef, (state): [Option.Option<RedstoneComponent>, RedstoneState] => {
+              const key = positionKey(position)
+              const currentValue = Option.getOrNull(HashMap.get(state.components, key))
+              if (currentValue === null || currentValue.type !== RedstoneComponentType.Repeater) return [Option.none(), state]
+              const nextDelay = ((currentValue.state.repeaterDelay ?? 1) % 4) + 1
+              const updated: RedstoneComponent = { ...currentValue, state: { ...currentValue.state, repeaterDelay: nextDelay } }
+              return [Option.some(updated), { ...state, components: HashMap.set(state.components, key, updated) }]
+            })
+            if (Option.isSome(result)) yield* Ref.set(dirtyRef, true)
+            return result
+          }),
+
         toggleTorch: (position: Position): Effect.Effect<Option.Option<RedstoneComponent>, never> =>
           Effect.gen(function* () {
             const result = yield* Ref.modify(stateRef, (state): [Option.Option<RedstoneComponent>, RedstoneState] => {

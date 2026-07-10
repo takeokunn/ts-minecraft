@@ -47,6 +47,11 @@ export const RedstoneComponentStateSchema = Schema.Struct({
   comparatorOutput: Schema.optional(Schema.Number),
   // Comparator mode: subtract (true) or compare (false/absent, the default).
   comparatorSubtract: Schema.optional(Schema.Boolean),
+  // Repeater delay setting 1-4 (absent → 1) and the in-flight transition:
+  // pending output + remaining ticks until it applies.
+  repeaterDelay: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.between(1, 4))),
+  repeaterPending: Schema.optional(Schema.Boolean),
+  repeaterCountdown: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.nonNegative())),
 })
 export type RedstoneComponentState = Schema.Schema.Type<typeof RedstoneComponentStateSchema>
 

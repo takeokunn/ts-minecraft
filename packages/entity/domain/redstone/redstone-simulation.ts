@@ -161,13 +161,59 @@ export const updateRepeaters = (
       z: Math.floor(component.position.z) - offset.z,
     }
     const rearPower = Option.getOrElse(HashMap.get(powered, positionKey(rear)), () => 0)
-    const nextActive = rearPower > 0
-    if (nextActive !== component.state.active) {
+    const base = toBlockPosition(component.position)
+
+    // Locking: an ACTIVE repeater facing into this one from the side freezes it.
+    const sideOffsets = facing === 'east' || facing === 'west'
+      ? [{ x: 0, z: 1 }, { x: 0, z: -1 }]
+      : [{ x: 1, z: 0 }, { x: -1, z: 0 }]
+    let locked = false
+    for (const side of sideOffsets) {
+      const sideComponent = Option.getOrNull(
+        HashMap.get(components, positionKey({ x: base.x + side.x, y: base.y, z: base.z + side.z })),
+      )
+      if (sideComponent !== null
+        && sideComponent.type === RedstoneComponentType.Repeater
+        && sideComponent.state.active) {
+        const sideFacing = sideComponent.state.pistonFacing ?? 'east'
+        const sideOffset = REPEATER_FACING_OFFSETS[sideFacing]
+        // Pointing into us: side position + its facing lands on our cell.
+        if (base.x + side.x + sideOffset.x === base.x && base.z + side.z + sideOffset.z === base.z) {
+          locked = true
+          break
+        }
+      }
+    }
+    if (locked) return
+
+    const desired = rearPower > 0
+    const delay = component.state.repeaterDelay ?? 1
+    const pending = component.state.repeaterPending
+    const countdown = component.state.repeaterCountdown ?? 0
+
+    if (pending !== undefined) {
+      // A transition is in flight: count it down; apply at zero.
+      if (countdown > 0) {
+        changed = true
+        nextComponents = HashMap.set(nextComponents, key, {
+          ...component,
+          state: { ...component.state, repeaterCountdown: countdown - 1 },
+        })
+      } else {
+        changed = true
+        nextComponents = HashMap.set(nextComponents, key, {
+          ...component,
+          state: { ...component.state, active: pending, repeaterPending: undefined, repeaterCountdown: undefined },
+        })
+      }
+      return
+    }
+
+    if (desired !== component.state.active) {
       changed = true
-      nextComponents = HashMap.set(nextComponents, key, {
-        ...component,
-        state: { ...component.state, active: nextActive },
-      })
+      nextComponents = HashMap.set(nextComponents, key, delay <= 1
+        ? { ...component, state: { ...component.state, active: desired } }
+        : { ...component, state: { ...component.state, repeaterPending: desired, repeaterCountdown: delay - 1 } })
     }
   })
   return [nextComponents, changed]

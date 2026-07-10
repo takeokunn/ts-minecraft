@@ -157,4 +157,26 @@ describe('redstone/redstone-service', () => {
       expect(powerRestored).toBe(14)
     }).pipe(Effect.provide(RedstoneService.Default))
   )
+  it.effect('repeater delay: a 2-tick repeater applies its output one tick later than a 1-tick one', () =>
+    Effect.gen(function* () {
+      const redstone = yield* RedstoneService
+
+      // lever → repeater(east) → wire, repeater rear at the lever cell.
+      yield* redstone.setComponent({ x: 0, y: 64, z: 0 }, RedstoneComponentType.Lever)
+      yield* redstone.setComponent({ x: 1, y: 64, z: 0 }, RedstoneComponentType.Repeater, { pistonFacing: 'east' })
+      yield* redstone.setComponent({ x: 2, y: 64, z: 0 }, RedstoneComponentType.Wire)
+      yield* redstone.cycleRepeaterDelay({ x: 1, y: 64, z: 0 }) // 1 → 2 ticks
+
+      yield* redstone.toggleLever({ x: 0, y: 64, z: 0 })
+      yield* redstone.tick() // propagate lever
+      yield* redstone.tick() // repeater samples rear, starts countdown (delay 2)
+      const repeaterMidCountdown = yield* redstone.getComponent({ x: 1, y: 64, z: 0 })
+      expect(Option.getOrNull(repeaterMidCountdown)?.state.active).toBe(false)
+
+      yield* redstone.tick() // countdown reaches zero → active
+      yield* redstone.tick() // re-propagation carries power to the wire
+      const repeaterAfter = yield* redstone.getComponent({ x: 1, y: 64, z: 0 })
+      expect(Option.getOrNull(repeaterAfter)?.state.active).toBe(true)
+    }).pipe(Effect.provide(RedstoneService.Default))
+  )
 })

@@ -85,7 +85,14 @@ const dispatchRedstoneAction = (
         Effect.flatMap((toggled) =>
           Option.isSome(toggled)
             ? Effect.void
-            : services.redstoneService.toggleComparatorMode(position).pipe(Effect.asVoid),
+            : services.redstoneService.toggleComparatorMode(position).pipe(
+                Effect.flatMap((modeToggled) =>
+                  Option.isSome(modeToggled)
+                    ? Effect.void
+                    // Repeaters: the toggle key cycles the 1-4 tick delay.
+                    : services.redstoneService.cycleRepeaterDelay(position).pipe(Effect.asVoid),
+                ),
+              ),
         ),
       )),
     Match.when({ pressButton: true }, () => services.redstoneService.pressButton(position)),
