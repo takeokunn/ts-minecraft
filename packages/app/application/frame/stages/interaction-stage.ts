@@ -6,6 +6,7 @@ import type { FrameHandlerDeps } from '@ts-minecraft/app/application/frame/types
 import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
 import type { FrameStageRefs } from '@ts-minecraft/app/application/frame/types/stage-refs'
 import { runInteractionStageFrame } from '@ts-minecraft/app/frame/stages/interaction-stage-frame'
+import { tickFoodConsumption } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler/food-consumption'
 
 export const interactionStage = (
   deps: Pick<FrameHandlerDeps, 'camera' | 'scene' | 'gamePausedRef' | 'respawnPositionRef' | 'breakProgressElement'>,
@@ -68,6 +69,11 @@ export const interactionStage = (
       ? (x: number, y: number, z: number) =>
           blockIdAtCached(x, y, z, targetingChunkCache, targetingPlayerChunk.cx, targetingPlayerChunk.cz, 3)
       : undefined
+    // Chew ticker: finishes (or cancels) an in-progress food use after the
+    // vanilla 1.61s hold.
+    const rightHeld = yield* services.inputService.isMouseDown(2)
+    yield* tickFoodConsumption(services, MutableRef.get(refs.totalTimeSecsRef), rightHeld)
+
     yield* services.blockHighlight.update(deps.camera, deps.scene, targetingBlockIdAt)
     // Only force-hide when the debug flag is off. Forcing visible=true here
     // overrode update()'s own decisions (fluid targets draw no outline), which

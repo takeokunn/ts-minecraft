@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from 'vitest'
+import { beforeEach, describe, it, expect, vi } from 'vitest'
 import { Effect, Option } from 'effect'
-import { handleFoodConsumption } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler/food-consumption'
+import { handleFoodConsumption, tickFoodConsumption, resetEatingStateForTest } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler/food-consumption'
 import { MAX_FOOD_LEVEL } from '@ts-minecraft/entity/application/hunger-service.config'
 
 // Base mock factory — every service method starts as a vi.fn() returning safe
@@ -38,30 +38,31 @@ const makeServices = () => ({
 })
 
 describe('handleFoodConsumption', () => {
+  beforeEach(() => resetEatingStateForTest())
   it('returns false when nothing is held', async () => {
     const s = makeServices()
-    expect(await Effect.runPromise(handleFoodConsumption(s as never))).toBe(false)
+    expect(await Effect.runPromise(handleFoodConsumption(s as never, 0))).toBe(false)
     expect(s.inventoryService.removeBlock).not.toHaveBeenCalled()
   })
 
   it('returns false for a non-food, non-armor item (STONE)', async () => {
     const s = makeServices()
     s.hotbarService.getSelectedBlockType.mockReturnValue(Effect.succeed(Option.some('STONE')))
-    expect(await Effect.runPromise(handleFoodConsumption(s as never))).toBe(false)
+    expect(await Effect.runPromise(handleFoodConsumption(s as never, 0))).toBe(false)
     expect(s.hungerService.eat).not.toHaveBeenCalled()
   })
 
   it('returns false for a valid item that is not food or equipment', async () => {
     const s = makeServices()
     s.hotbarService.getSelectedBlockType.mockReturnValue(Effect.succeed(Option.some('COAL')))
-    expect(await Effect.runPromise(handleFoodConsumption(s as never))).toBe(false)
+    expect(await Effect.runPromise(handleFoodConsumption(s as never, 0))).toBe(false)
     expect(s.hungerService.eat).not.toHaveBeenCalled()
   })
 
   it('returns false for an unknown held item', async () => {
     const s = makeServices()
     s.hotbarService.getSelectedBlockType.mockReturnValue(Effect.succeed(Option.some('NOT_AN_ITEM')))
-    expect(await Effect.runPromise(handleFoodConsumption(s as never))).toBe(false)
+    expect(await Effect.runPromise(handleFoodConsumption(s as never, 0))).toBe(false)
     expect(s.hungerService.getHunger).not.toHaveBeenCalled()
   })
 
@@ -69,15 +70,16 @@ describe('handleFoodConsumption', () => {
     const s = makeServices()
     s.hotbarService.getSelectedBlockType.mockReturnValue(Effect.succeed(Option.some('APPLE')))
     s.hungerService.getHunger.mockReturnValue(Effect.succeed({ foodLevel: MAX_FOOD_LEVEL, saturation: 5, exhaustion: 0 }))
-    expect(await Effect.runPromise(handleFoodConsumption(s as never))).toBe(false)
+    expect(await Effect.runPromise(handleFoodConsumption(s as never, 0))).toBe(false)
     expect(s.inventoryService.removeBlock).not.toHaveBeenCalled()
   })
 
   it('eats food when hungry: removes item, updates hunger, returns true', async () => {
     const s = makeServices()
     s.hotbarService.getSelectedBlockType.mockReturnValue(Effect.succeed(Option.some('APPLE')))
-    const ate = await Effect.runPromise(handleFoodConsumption(s as never))
+    const ate = await Effect.runPromise(handleFoodConsumption(s as never, 0))
     expect(ate).toBe(true)
+    await Effect.runPromise(tickFoodConsumption(s as never, 2, true)) // hold past 1.61s
     expect(s.inventoryService.removeBlock).toHaveBeenCalledWith('APPLE', 1, expect.anything())
     expect(s.hungerService.eat).toHaveBeenCalled()
     expect(s.healthService.heal).not.toHaveBeenCalled()
@@ -87,15 +89,17 @@ describe('handleFoodConsumption', () => {
     const s = makeServices()
     s.hotbarService.getSelectedBlockType.mockReturnValue(Effect.succeed(Option.some('APPLE')))
     s.inventoryService.removeBlock.mockReturnValue(Effect.fail('slot-empty'))
-    expect(await Effect.runPromise(handleFoodConsumption(s as never))).toBe(true)
+    expect(await Effect.runPromise(handleFoodConsumption(s as never, 0))).toBe(true)
+    await Effect.runPromise(tickFoodConsumption(s as never, 2, true))
     expect(s.hungerService.eat).not.toHaveBeenCalled()
   })
 
   it('GOLDEN_APPLE grants Regeneration II for 5s in addition to eating', async () => {
     const s = makeServices()
     s.hotbarService.getSelectedBlockType.mockReturnValue(Effect.succeed(Option.some('GOLDEN_APPLE')))
-    const ate = await Effect.runPromise(handleFoodConsumption(s as never))
+    const ate = await Effect.runPromise(handleFoodConsumption(s as never, 0))
     expect(ate).toBe(true)
+    await Effect.runPromise(tickFoodConsumption(s as never, 2, true)) // hold past 1.61s
     expect(s.hungerService.eat).toHaveBeenCalled()
     expect(s.healthService.addStatusEffect).toHaveBeenCalledWith('REGENERATION', 1, 5)
   })
@@ -103,8 +107,9 @@ describe('handleFoodConsumption', () => {
   it('ROTTEN_FLESH inflicts Hunger I for 30s in addition to eating', async () => {
     const s = makeServices()
     s.hotbarService.getSelectedBlockType.mockReturnValue(Effect.succeed(Option.some('ROTTEN_FLESH')))
-    const ate = await Effect.runPromise(handleFoodConsumption(s as never))
+    const ate = await Effect.runPromise(handleFoodConsumption(s as never, 0))
     expect(ate).toBe(true)
+    await Effect.runPromise(tickFoodConsumption(s as never, 2, true)) // hold past 1.61s
     expect(s.hungerService.eat).toHaveBeenCalled()
     expect(s.healthService.addStatusEffect).toHaveBeenCalledWith('HUNGER', 0, 30)
   })
@@ -112,7 +117,7 @@ describe('handleFoodConsumption', () => {
   it('POTION_SWIFTNESS grants Speed I for 180s and returns a glass bottle', async () => {
     const s = makeServices()
     s.hotbarService.getSelectedBlockType.mockReturnValue(Effect.succeed(Option.some('POTION_SWIFTNESS')))
-    const drank = await Effect.runPromise(handleFoodConsumption(s as never))
+    const drank = await Effect.runPromise(handleFoodConsumption(s as never, 0))
     expect(drank).toBe(true)
     expect(s.inventoryService.removeBlock).toHaveBeenCalled()
     expect(s.healthService.addStatusEffect).toHaveBeenCalledWith('SPEED', 0, 180)
@@ -124,7 +129,7 @@ describe('handleFoodConsumption', () => {
   it('POTION_HEALING heals 4 HP instantly and returns a glass bottle', async () => {
     const s = makeServices()
     s.hotbarService.getSelectedBlockType.mockReturnValue(Effect.succeed(Option.some('POTION_HEALING')))
-    const drank = await Effect.runPromise(handleFoodConsumption(s as never))
+    const drank = await Effect.runPromise(handleFoodConsumption(s as never, 0))
     expect(drank).toBe(true)
     expect(s.healthService.heal).toHaveBeenCalledWith(4)
     expect(s.healthService.addStatusEffect).not.toHaveBeenCalled()
@@ -135,7 +140,7 @@ describe('handleFoodConsumption', () => {
     const s = makeServices()
     s.hotbarService.getSelectedBlockType.mockReturnValue(Effect.succeed(Option.some('FISHING_ROD')))
     s.fishingService.isFishing.mockReturnValue(Effect.succeed(true))
-    const result = await Effect.runPromise(handleFoodConsumption(s as never))
+    const result = await Effect.runPromise(handleFoodConsumption(s as never, 0))
     expect(result).toBe(true)
     expect(s.fishingService.cancel).toHaveBeenCalled()
     expect(s.fishingService.cast).not.toHaveBeenCalled()
@@ -145,7 +150,7 @@ describe('handleFoodConsumption', () => {
     const s = makeServices()
     s.hotbarService.getSelectedBlockType.mockReturnValue(Effect.succeed(Option.some('FISHING_ROD')))
     s.fishingService.isFishing.mockReturnValue(Effect.succeed(false))
-    const result = await Effect.runPromise(handleFoodConsumption(s as never))
+    const result = await Effect.runPromise(handleFoodConsumption(s as never, 0))
     expect(result).toBe(true)
     expect(s.fishingService.cast).toHaveBeenCalled()
     expect(s.fishingService.cancel).not.toHaveBeenCalled()
@@ -163,7 +168,7 @@ describe('handleFoodConsumption', () => {
         { type: 'LUCK_OF_THE_SEA', level: 3 },
       ],
     })))
-    const result = await Effect.runPromise(handleFoodConsumption(s as never))
+    const result = await Effect.runPromise(handleFoodConsumption(s as never, 0))
     expect(result).toBe(true)
     expect(s.fishingService.cast).toHaveBeenCalledWith(17, 2, 3)
   })
@@ -174,7 +179,7 @@ describe('handleFoodConsumption', () => {
     s.hotbarService.getSelectedBlockType.mockReturnValue(Effect.succeed(Option.some('IRON_HELMET')))
     s.inventoryService.getSlot.mockReturnValue(Effect.succeed(Option.some(helmetStack)))
     s.equipmentService.getEquippedItem.mockReturnValue(Effect.succeed(Option.none()))
-    const result = await Effect.runPromise(handleFoodConsumption(s as never))
+    const result = await Effect.runPromise(handleFoodConsumption(s as never, 0))
     expect(result).toBe(true)
     expect(s.inventoryService.removeBlock).toHaveBeenCalled()
     expect(s.equipmentService.equip).toHaveBeenCalledWith(helmetStack)
@@ -184,7 +189,7 @@ describe('handleFoodConsumption', () => {
     const s = makeServices()
     s.hotbarService.getSelectedBlockType.mockReturnValue(Effect.succeed(Option.some('IRON_HELMET')))
     s.inventoryService.getSlot.mockReturnValue(Effect.succeed(Option.none()))
-    expect(await Effect.runPromise(handleFoodConsumption(s as never))).toBe(false)
+    expect(await Effect.runPromise(handleFoodConsumption(s as never, 0))).toBe(false)
     expect(s.equipmentService.equip).not.toHaveBeenCalled()
   })
 
@@ -192,7 +197,7 @@ describe('handleFoodConsumption', () => {
     const s = makeServices()
     s.hotbarService.getSelectedBlockType.mockReturnValue(Effect.succeed(Option.some('IRON_HELMET')))
     s.inventoryService.getSlot.mockReturnValue(Effect.fail('read-failed'))
-    expect(await Effect.runPromise(handleFoodConsumption(s as never))).toBe(false)
+    expect(await Effect.runPromise(handleFoodConsumption(s as never, 0))).toBe(false)
     expect(s.equipmentService.equip).not.toHaveBeenCalled()
   })
 
@@ -200,7 +205,7 @@ describe('handleFoodConsumption', () => {
     const s = makeServices()
     s.hotbarService.getSelectedBlockType.mockReturnValue(Effect.succeed(Option.some('IRON_HELMET')))
     s.inventoryService.getSlot.mockReturnValue(Effect.succeed(Option.some({ itemType: 'STONE', count: 1 })))
-    expect(await Effect.runPromise(handleFoodConsumption(s as never))).toBe(false)
+    expect(await Effect.runPromise(handleFoodConsumption(s as never, 0))).toBe(false)
     expect(s.equipmentService.equip).not.toHaveBeenCalled()
   })
 
@@ -211,7 +216,7 @@ describe('handleFoodConsumption', () => {
     s.hotbarService.getSelectedBlockType.mockReturnValue(Effect.succeed(Option.some('IRON_HELMET')))
     s.inventoryService.getSlot.mockReturnValue(Effect.succeed(Option.some(helmetStack)))
     s.equipmentService.getEquippedItem.mockReturnValue(Effect.succeed(Option.some(displacedStack)))
-    expect(await Effect.runPromise(handleFoodConsumption(s as never))).toBe(true)
+    expect(await Effect.runPromise(handleFoodConsumption(s as never, 0))).toBe(true)
     expect(s.inventoryService.addBlock).toHaveBeenCalledWith('LEATHER_HELMET', 1)
   })
 
@@ -220,7 +225,7 @@ describe('handleFoodConsumption', () => {
     s.hotbarService.getSelectedBlockType.mockReturnValue(Effect.succeed(Option.some('IRON_HELMET')))
     s.inventoryService.getSlot.mockReturnValue(Effect.succeed(Option.some({ itemType: 'IRON_HELMET', count: 1 })))
     s.inventoryService.removeBlock.mockReturnValue(Effect.fail('remove-failed'))
-    expect(await Effect.runPromise(handleFoodConsumption(s as never))).toBe(true)
+    expect(await Effect.runPromise(handleFoodConsumption(s as never, 0))).toBe(true)
     expect(s.equipmentService.equip).not.toHaveBeenCalled()
   })
 })

@@ -1,4 +1,5 @@
 import { describe, it } from '@effect/vitest'
+import { createFrameHandlers } from '@ts-minecraft/app/frame-handler'
 import { Effect, HashMap, MutableHashSet, MutableRef, Option, Ref } from 'effect'
 import { expect, vi } from 'vitest'
 import { makeDeps } from '../../../test/frame-handler-test-kit/orchestration/deps'
@@ -1363,8 +1364,14 @@ describe('step 7 — block interaction', () => {
   it.effect('right-click holding food eats it: restores hunger, consumes one, skips placement', () => Effect.gen(function* () {
     const deps = yield* makeDeps(false)
     const inputService = makeInputService()
+    let clicked = false
     ;(inputService as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
-      Effect.succeed(btn === 2)
+      Effect.sync(() => {
+        if (btn !== 2 || clicked) return false
+        clicked = true
+        return true
+      })
+    ;(inputService as { isMouseDown: unknown }).isMouseDown = (btn: number) => Effect.succeed(btn === 2)
     const services = makeServices({
       inputService,
       inventoryRenderer: makeInventoryRenderer({ open: false }),
@@ -1385,7 +1392,11 @@ describe('step 7 — block interaction', () => {
     const placeSpy = vi.fn(() => Effect.void)
     ;(services.blockService as { placeBlock: unknown }).placeBlock = placeSpy
 
-    yield* runFrame(deps, services)
+    const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
+    yield* maintenanceHandler()
+    for (let frame = 0; frame < 110; frame++) {
+      yield* frameHandler(0.016 as DeltaTimeSecs)
+    }
 
     expect(eatSpy).toHaveBeenCalledWith(4, 0.3) // APPLE: foodLevel 4, saturationModifier 0.3
     expect(removeSpy).toHaveBeenCalled()
@@ -2392,8 +2403,14 @@ describe('step R38 — bow kill spawns XP orb', () => {
   it.effect('eating GOLDEN_APPLE grants Regeneration II (R53)', () => Effect.gen(function* () {
     const deps = yield* makeDeps(false)
     const inputService = makeInputService()
+    let clicked = false
     ;(inputService as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
-      Effect.succeed(btn === 2)
+      Effect.sync(() => {
+        if (btn !== 2 || clicked) return false
+        clicked = true
+        return true
+      })
+    ;(inputService as { isMouseDown: unknown }).isMouseDown = (btn: number) => Effect.succeed(btn === 2)
     const services = makeServices({
       inputService,
       inventoryRenderer: makeInventoryRenderer({ open: false }),
@@ -2411,7 +2428,11 @@ describe('step R38 — bow kill spawns XP orb', () => {
     const effectSpy = vi.fn(() => Effect.void)
     ;(services.healthService as { addStatusEffect: unknown }).addStatusEffect = effectSpy
 
-    yield* runFrame(deps, services)
+    const { frameHandler, maintenanceHandler } = yield* createFrameHandlers(deps, services)
+    yield* maintenanceHandler()
+    for (let frame = 0; frame < 110; frame++) {
+      yield* frameHandler(0.016 as DeltaTimeSecs)
+    }
 
     expect(effectSpy).toHaveBeenCalledWith('REGENERATION', 1, 5)
   }))

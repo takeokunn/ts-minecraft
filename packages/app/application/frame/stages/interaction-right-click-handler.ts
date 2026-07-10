@@ -53,7 +53,7 @@ export const handleRightClickPriorityFromContext = (
     if (yield* handleShearAnimal(deps, services)) return
     if (yield* handleFeedAnimal(deps, services)) return
     if (yield* handleFarmingInteraction(services, refs, { targetHit: context.targetHit })) return
-    if (yield* handleFoodConsumption(services)) return
+    if (yield* handleFoodConsumption(services, context.snapshot.totalTimeSecs)) return
     if (yield* handleBoatMount(services)) return
     if (yield* handleMinecartMount(services)) return
     if (yield* handleEnderPearlThrow(deps, services, { targetHit: context.targetHit })) return
