@@ -41,7 +41,9 @@ export const handleFoodConsumption = (
     if (route.kind !== 'food') return false
 
     const hunger = yield* services.hungerService.getHunger()
-    if (hunger.foodLevel >= MAX_FOOD_LEVEL) return false
+    // Vanilla: golden apples are always edible, even at full hunger — their
+    // value is the effects, not the food points.
+    if (hunger.foodLevel >= MAX_FOOD_LEVEL && item !== 'GOLDEN_APPLE') return false
 
     yield* services.inventoryService.removeBlock(item, 1, selectedHotbarSlotIndex(selectedSlot)).pipe(
       Effect.flatMap(() => services.hungerService.eat(route.food.foodLevel, route.food.saturationModifier)),
