@@ -21,6 +21,22 @@ export const applyHungerTicks = (
   Effect.gen(function* () {
     const health = yield* services.healthService.getHealth()
     const canRegen = health.current < health.max
+
+    // Peaceful: hunger never drains and health regenerates steadily regardless
+    // of food level (vanilla). The regular exhaustion/starvation pipeline is
+    // skipped entirely.
+    if (inputs.difficulty === 'peaceful') {
+      const [peacefulTicks, peacefulRemainder] = advanceFixedStep(
+        MutableRef.get(refs.hungerTickAccumulatorRef),
+        inputs.deltaTime,
+        HUNGER_TICK_INTERVAL_SECS,
+      )
+      MutableRef.set(refs.hungerTickAccumulatorRef, peacefulRemainder)
+      if (canRegen && peacefulTicks > 0) {
+        yield* services.healthService.heal(peacefulTicks)
+      }
+      return
+    }
     // HUNGER status effect (rotten flesh) drains exhaustion continuously
     // while active — deltaTime-proportional, so frame rate doesn't matter.
     const statusEffects = yield* services.healthService.getStatusEffects()

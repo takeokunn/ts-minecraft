@@ -1,6 +1,7 @@
+import { setSkyExposureProbe } from '@ts-minecraft/entity'
 import { Effect, MutableRef, Option as EffectOption, Ref } from 'effect'
 import { markEffect } from '@ts-minecraft/rendering'
-import { blockTypeToIndex } from '@ts-minecraft/core'
+import { CHUNK_HEIGHT, blockTypeToIndex } from '@ts-minecraft/core'
 import { getParticleUvOffset } from '@ts-minecraft/rendering'
 import * as THREE from 'three'
 import {
@@ -161,6 +162,16 @@ export const entityUpdateStage = (
 
     const isBlockSolid = (wx: number, wy: number, wz: number): boolean =>
       isCachedBlockSolidForMobPhysics(wx, wy, wz, chunkCache, playerCx, playerCz, ENTITY_PHYSICS_CHUNK_RADIUS)
+
+    // Sky-exposure probe for daylight burning: an undead under any solid cover
+    // (or outside the cached area — conservative burn) is exempt. Scans the
+    // column above the head; runs only on burn ticks for a handful of undead.
+    setSkyExposureProbe((wx, wy, wz) => {
+      for (let y = Math.ceil(wy); y < CHUNK_HEIGHT; y++) {
+        if (isBlockSolid(wx, y, wz)) return false
+      }
+      return true
+    })
     const getBlockCollisionShape = (wx: number, wy: number, wz: number) =>
       getCachedBlockCollisionShapeAt(wx, wy, wz, chunkCache, playerCx, playerCz, ENTITY_PHYSICS_CHUNK_RADIUS)
 

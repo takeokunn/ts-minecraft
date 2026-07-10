@@ -14,6 +14,13 @@ import {
 import { tickEntityFire, type FireTick } from './entity-manager-fire'
 import { shouldEndermanBecomeProvoked } from './entity-manager-ai-enderman'
 
+// Sky-exposure probe pushed by the app layer (entities cannot read world
+// blocks). null → every undead burns, matching the pre-probe behavior.
+let skyExposureProbe: ((x: number, y: number, z: number) => boolean) | null = null
+export const setSkyExposureProbe = (probe: ((x: number, y: number, z: number) => boolean) | null): void => {
+  skyExposureProbe = probe
+}
+
 export type EntityFrameContext = {
   readonly tick: number
   readonly deltaTime: DeltaTimeSecs
@@ -124,7 +131,11 @@ export const prepareEntityAIFrame = (
 
   // Vanilla: only undead hostiles burn in daylight — creepers/spiders/
   // endermen/witches survive the day.
-  const burning = daytimeBurningActive && UNDEAD_MOBS.has(entity.type)
+  // Shade/water exemption: the app layer probes sky exposure at the mob's head
+  // (unset probe → burn, the pre-probe behavior).
+  const exposedToSky = skyExposureProbe === null
+    || skyExposureProbe(entity.position.x, entity.position.y + 1, entity.position.z)
+  const burning = daytimeBurningActive && exposedToSky && UNDEAD_MOBS.has(entity.type)
   const fireTick = tickEntityFire(entity, deltaTime)
   const burnDamage = (burning ? 1 : 0) + fireTick.damage
   const nextHealth = Math.max(0, entity.health - burnDamage)
