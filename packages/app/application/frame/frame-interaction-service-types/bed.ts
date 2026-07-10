@@ -6,7 +6,7 @@ import type { FrameInventoryServices } from '../frame-service-types/inventory'
 import type { FrameLivingServices } from '../frame-service-types/living'
 import type { FrameWorldServices } from '../frame-service-types/world'
 
-export type FrameBedInteractionServices = Pick<FrameInteractionServices, 'blockService'> &
+export type FrameBedInteractionServices = Pick<FrameInteractionServices, 'blockService' | 'entityManager'> &
   Pick<FrameWorldServices, 'timeService' | 'netherService'> &
   Pick<FrameGameplayServices, 'gameState' | 'gameMode' | 'multiplayer'> &
   Pick<FrameLivingServices, 'healthService' | 'hungerService'> &

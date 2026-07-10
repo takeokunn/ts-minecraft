@@ -21,6 +21,11 @@ import { resolveRightClickTargetRoute } from './interaction-right-click-target-r
 import { selectedHotbarSlotIndex } from './selected-hotbar-slot'
 import { applyExplosionPlayerDamage } from '@ts-minecraft/entity/application/explosion-service'
 
+// Sleep-blocking hostiles (vanilla checks any monster in range).
+const HOSTILE_MOB_TYPES_FOR_SLEEP: ReadonlySet<string> = new Set([
+  'Zombie', 'Skeleton', 'Spider', 'Creeper', 'Enderman', 'Witch', 'Drowned', 'ZombieVillager', 'Endermite',
+])
+
 const BED_EXPLOSION_BREAK_RADIUS = 4
 
 // Right-clicking a BED block at night skips to dawn and sets the player's spawn point.
@@ -43,6 +48,18 @@ export const handleBed = (
       yield* applyExplosionPlayerDamage(services, bedPos, TNT_EXPLOSION_POWER)
       return true
     }
+    // Vanilla: monsters nearby prevent sleep (8 blocks horizontal, 5 vertical).
+    const entities = yield* services.entityManager.getEntities()
+    const monsterNearby = entities.some((entity) =>
+      HOSTILE_MOB_TYPES_FOR_SLEEP.has(entity.type)
+      && Math.abs(entity.position.x - bedPos.x) <= 8
+      && Math.abs(entity.position.z - bedPos.z) <= 8
+      && Math.abs(entity.position.y - bedPos.y) <= 5)
+    if (monsterNearby) {
+      yield* services.sleepOverlay.showMessage('You may not rest now; there are monsters nearby')
+      return true
+    }
+
     const isNight = yield* services.timeService.isNight()
     if (!isNight) {
       // Vanilla refusal message; handled=true so the click doesn't fall

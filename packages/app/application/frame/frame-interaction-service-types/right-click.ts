@@ -6,7 +6,7 @@ import type { FrameLivingServices } from '../frame-service-types/living'
 import type { FramePresentationServices } from '../frame-service-types/presentation'
 import type { FrameWorldServices } from '../frame-service-types/world'
 
-export type FrameRightClickInteractionServices = Pick<FrameInteractionServices, 'blockService' | 'redstoneService'> &
+export type FrameRightClickInteractionServices = Pick<FrameInteractionServices, 'blockService' | 'redstoneService' | 'entityManager'> &
   Pick<FrameWorldServices, 'chunkManagerService' | 'timeService' | 'netherService'> &
   Pick<FrameInventoryServices, 'hotbarService' | 'inventoryService' | 'equipmentService' | 'chestService' | 'furnaceService'> &
   Pick<FramePresentationServices, 'inventoryRenderer' | 'sleepOverlay'> &

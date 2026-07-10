@@ -93,6 +93,7 @@ const makeServices = (opts: {
       isSpectator: vi.fn(() => Effect.succeed(false)),
     },
     netherService: { registerPortal: registerPortalSpy, getDimension: () => Effect.succeed('overworld' as const) },
+    entityManager: { getEntities: () => Effect.succeed([]) },
     hotbarService: { getSelectedSlot: getSelectedSlotSpy },
     inventoryService: { damageSlot: damageSlotSpy },
     healthService: {
@@ -617,6 +618,7 @@ const makeRightClickServices = (
   const playEffect = vi.fn(() => Effect.void)
 
   const services = {
+    entityManager: { getEntities: () => Effect.succeed([]) } as never,
     blockService: {
       forceSetBlock: vi.fn(() => Effect.void),
       placeBlock,
@@ -1289,6 +1291,7 @@ const makeBedServices = (opts: {
   protectionReduction?: number
   blastProtectionReduction?: number
 }): FrameBedInteractionServices => ({
+  entityManager: { getEntities: () => Effect.succeed([]) } as never,
   blockService: {
     forceSetBlock: vi.fn(() => Effect.void),
   },
