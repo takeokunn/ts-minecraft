@@ -610,6 +610,87 @@ describe('MultiplayerService dimension-tagged block edits', () => {
   })
 })
 
+describe('MultiplayerService container sync', () => {
+  const containerUpdateMessage = (worldIdStr: string): NetworkMessage => ({
+    type: MessageType.ContainerUpdate,
+    playerId: playerId('remote'),
+    worldId: WorldId.make(worldIdStr),
+    position: { x: 7, y: 65, z: -2 },
+    slots: [
+      { itemType: 'DIAMOND', count: 3, durability: null },
+      null,
+      { itemType: 'IRON_PICKAXE', count: 1, durability: 200 },
+    ],
+    timestamp: 9,
+  })
+
+  it('sendContainerUpdate emits a ContainerUpdate with floored position and slots', async () => {
+    const sent: NetworkMessage[] = []
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const svc = yield* MultiplayerServiceImpl(makeClient(sent, {
+          inbound: [joinMessage('self', 'alice', 0, 64, 0)],
+        }))
+        yield* svc.connect('ws://test', playerName('alice'))
+        yield* Effect.sleep(10)
+        yield* svc.sendContainerUpdate({ x: 7.4, y: 65, z: -2.2 }, [
+          { itemType: 'DIAMOND', count: 3, durability: null },
+          null,
+        ])
+      }),
+    )
+    const update = sent.find((m) => m.type === MessageType.ContainerUpdate)
+    expect(update).toMatchObject({
+      playerId: playerId('self'),
+      worldId: 'overworld',
+      position: { x: 7, y: 65, z: -3 },
+      slots: [{ itemType: 'DIAMOND', count: 3, durability: null }, null],
+    })
+  })
+
+  it('queues inbound container updates and drains them once', async () => {
+    const drained = await Effect.runPromise(
+      Effect.gen(function* () {
+        const svc = yield* MultiplayerServiceImpl(makeClient([], {
+          inbound: [containerUpdateMessage('overworld')],
+        }))
+        yield* svc.connect('ws://test', playerName('bea'))
+        yield* Effect.sleep(10)
+        const first = yield* svc.drainContainerUpdates
+        const second = yield* svc.drainContainerUpdates
+        return [first, second] as const
+      }),
+    )
+    expect(drained[0]).toEqual([
+      {
+        x: 7,
+        y: 65,
+        z: -2,
+        slots: [
+          { itemType: 'DIAMOND', count: 3, durability: null },
+          null,
+          { itemType: 'IRON_PICKAXE', count: 1, durability: 200 },
+        ],
+      },
+    ])
+    expect(drained[1]).toEqual([])
+  })
+
+  it('drops inbound container updates from another dimension', async () => {
+    const drained = await Effect.runPromise(
+      Effect.gen(function* () {
+        const svc = yield* MultiplayerServiceImpl(makeClient([], {
+          inbound: [containerUpdateMessage('nether')],
+        }))
+        yield* svc.connect('ws://test', playerName('cal'))
+        yield* Effect.sleep(10)
+        return yield* svc.drainContainerUpdates
+      }),
+    )
+    expect(drained).toEqual([])
+  })
+})
+
 describe('MultiplayerService identity binding (same-name safety)', () => {
   const selfEchoJoin = (id: string, name: string): NetworkMessage => ({
     ...joinMessage(id, name, 0, 64, 0),

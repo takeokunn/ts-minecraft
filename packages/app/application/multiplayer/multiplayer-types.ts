@@ -28,6 +28,22 @@ export type RemoteBlockEdit =
   | { readonly kind: 'place'; readonly x: number; readonly y: number; readonly z: number; readonly blockType: string }
   | { readonly kind: 'break'; readonly x: number; readonly y: number; readonly z: number }
 
+// One chest slot on the wire: item id kept as a plain string; the apply site
+// validates against the canonical item union before touching local state.
+export type RemoteContainerSlot = {
+  readonly itemType: string
+  readonly count: number
+  readonly durability: number | null
+}
+
+// A full-chest snapshot from a remote closer (last-writer-wins per position).
+export type RemoteContainerUpdate = {
+  readonly x: number
+  readonly y: number
+  readonly z: number
+  readonly slots: ReadonlyArray<RemoteContainerSlot | null>
+}
+
 export type LocalEntitySnapshot = {
   readonly entityId: string
   readonly entityType: string

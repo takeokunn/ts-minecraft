@@ -1,7 +1,7 @@
 import { Effect, Ref } from 'effect'
 import { NetworkError } from '../domain/errors'
 import { MessageType, PlayerId, WorldId } from '../domain/schemas'
-import type { BlockBreakMessage, BlockPlaceMessage, ChatMessage, EntityDamageMessage, EntitySnapshotMessage, NetworkMessage, PlayerJoinMessage, PlayerMoveMessage } from '../domain/schemas'
+import type { BlockBreakMessage, BlockPlaceMessage, ChatMessage, ContainerUpdateMessage, EntityDamageMessage, EntitySnapshotMessage, NetworkMessage, PlayerJoinMessage, PlayerMoveMessage } from '../domain/schemas'
 import type { WebSocketConnection } from '../domain/websocket-ports'
 import { decodeNetworkMessage, sendEncodedToConnection } from './codec'
 import type { ConnectedPlayer, GameServer, ServerServiceShape } from './server-service'
@@ -111,6 +111,12 @@ export const handlePlayerJoin = (
     const editLog = yield* Ref.get(services.gameServer.blockEdits)
     for (const edit of editLog.values()) {
       yield* sendEncodedToConnection(connection, { ...edit, playerId: REPLAY_PLAYER_ID, timestamp: Date.now() })
+    }
+    // Same replay contract for container contents — a late joiner sees the
+    // session's chests as their last closer left them.
+    const containerLog = yield* Ref.get(services.gameServer.containerUpdates)
+    for (const update of containerLog.values()) {
+      yield* sendEncodedToConnection(connection, { ...update, playerId: REPLAY_PLAYER_ID, timestamp: Date.now() })
     }
     for (const existingPlayer of currentPlayers.values()) {
       yield* sendEncodedToConnection(connection, {
@@ -224,8 +230,13 @@ export const handleEntityDamage = (
     )
   })
 
-const blockEditKey = (position: { readonly x: number; readonly y: number; readonly z: number }): string =>
-  `${position.x},${position.y},${position.z}`
+// Keyed per dimension: a nether edit and an overworld edit at the same
+// coordinates are distinct voxels and must not evict each other from the log.
+const blockEditKey = (
+  worldId: string,
+  position: { readonly x: number; readonly y: number; readonly z: number },
+): string =>
+  `${worldId}|${position.x},${position.y},${position.z}`
 
 const recordBlockEdit = (
   services: ServerHandlerServices,
@@ -233,7 +244,7 @@ const recordBlockEdit = (
 ): Effect.Effect<void, never> =>
   Ref.update(services.gameServer.blockEdits, (edits) => {
     const next = new Map(edits)
-    next.set(blockEditKey(message.position), message)
+    next.set(blockEditKey(String(message.worldId), message.position), message)
     return next
   })
 
@@ -250,6 +261,20 @@ export const handleBlockBreak = (
   message: BlockBreakMessage,
 ): Effect.Effect<void, NetworkError> =>
   recordBlockEdit(services, message).pipe(
+    Effect.flatMap(() => services.serverService.broadcast(message, message.playerId)),
+  )
+
+// Container sync: record the latest full chest state per (dimension, position)
+// for late-joiner replay, then relay to everyone else (last-writer-wins).
+export const handleContainerUpdate = (
+  services: ServerHandlerServices,
+  message: ContainerUpdateMessage,
+): Effect.Effect<void, NetworkError> =>
+  Ref.update(services.gameServer.containerUpdates, (updates) => {
+    const next = new Map(updates)
+    next.set(blockEditKey(String(message.worldId), message.position), message)
+    return next
+  }).pipe(
     Effect.flatMap(() => services.serverService.broadcast(message, message.playerId)),
   )
 
@@ -299,6 +324,10 @@ export const dispatchMessage = (
       case MessageType.BlockBreak:
         yield* verifyPlayerOwnership(services, connection.id, message.playerId)
         yield* handleBlockBreak(services, message)
+        return
+      case MessageType.ContainerUpdate:
+        yield* verifyPlayerOwnership(services, connection.id, message.playerId)
+        yield* handleContainerUpdate(services, message)
         return
       case MessageType.Chat:
         yield* verifyPlayerOwnership(services, connection.id, message.playerId)

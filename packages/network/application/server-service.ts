@@ -1,6 +1,6 @@
 import { Context, Effect, Fiber, Layer, Option, Ref, Stream } from 'effect'
 import { NetworkError } from '../domain/errors'
-import { MessageType, PlayerId, type BlockBreakMessage, type BlockPlaceMessage, type NetworkMessage, type NetworkRotation, type PlayerName, type Vec3, type WorldId } from '../domain/schemas'
+import { MessageType, PlayerId, type BlockBreakMessage, type BlockPlaceMessage, type ContainerUpdateMessage, type NetworkMessage, type NetworkRotation, type PlayerName, type Vec3, type WorldId } from '../domain/schemas'
 import type { WebSocketConnection, WebSocketServerHandle, WebSocketServerPort } from '../domain/websocket-ports'
 import { sendEncodedToConnection } from './codec'
 import { dispatchMessage, handlePlayerLeave } from './server-handlers'
@@ -34,6 +34,9 @@ export type GameServer = {
   // Last block edit per voxel (last-write-wins), replayed to late joiners so
   // their world converges with everyone else's edits.
   readonly blockEdits: Ref.Ref<Map<string, BlockPlaceMessage | BlockBreakMessage>>
+  // Last full container state per (dimension, position), replayed to late
+  // joiners so chest contents converge the same way block edits do.
+  readonly containerUpdates: Ref.Ref<Map<string, ContainerUpdateMessage>>
   readonly maxPlayers: number
 }
 
@@ -62,7 +65,8 @@ export const makeGameServer = (maxPlayers = 20): Effect.Effect<GameServer, never
     const dayLengthSeconds = yield* Ref.make<number | null>(null)
     const entityHost = yield* Ref.make<PlayerId | null>(null)
     const blockEdits = yield* Ref.make(new Map<string, BlockPlaceMessage | BlockBreakMessage>())
-    return { connectedPlayers, connectionsByPlayerId, playerIdByConnectionId, worldSeed, timeOfDay, timeCapturedAtMs, dayLengthSeconds, entityHost, blockEdits, maxPlayers }
+    const containerUpdates = yield* Ref.make(new Map<string, ContainerUpdateMessage>())
+    return { connectedPlayers, connectionsByPlayerId, playerIdByConnectionId, worldSeed, timeOfDay, timeCapturedAtMs, dayLengthSeconds, entityHost, blockEdits, containerUpdates, maxPlayers }
   })
 
 const wireConnection = (

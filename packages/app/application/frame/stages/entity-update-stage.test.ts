@@ -247,6 +247,8 @@ describe('step 2.85 — entity renderer wiring', () => {
       sendEntitySnapshot,
       isEntityAuthority: vi.fn(() => Effect.succeed(true)),
       drainBlockEdits: Effect.succeed([]),
+      drainContainerUpdates: Effect.succeed([]),
+      sendContainerUpdate: vi.fn(() => Effect.void),
       drainEntitySnapshots: Effect.succeed([]),
       drainEntityDamages: Effect.succeed([]),
       getRemotePlayers: vi.fn(() => Effect.succeed(new Map())),

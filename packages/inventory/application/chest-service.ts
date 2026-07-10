@@ -202,6 +202,21 @@ export class ChestService extends Effect.Service<ChestService>()(
             })
           }),
 
+        // Read one chest's normalized state by position (multiplayer close-broadcast).
+        getChestStateAt: (
+          position: { readonly x: number; readonly y: number; readonly z: number },
+        ): Effect.Effect<Option.Option<ChestBlockState>, never> =>
+          Effect.gen(function* () {
+            const state = yield* Ref.get(stateRef)
+            return Option.map(HashMap.get(state.chests, chestKey(position)), normalizeChest)
+          }),
+
+        // Overwrite one chest's contents wholesale with a remote peer's state
+        // (last-writer-wins container sync). No merging: the closer's view is
+        // authoritative for the whole chest.
+        applyRemoteChestState: (chest: ChestBlockState): Effect.Effect<void, never> =>
+          Ref.update(stateRef, (state) => setChestState(state, normalizeChest(chest))),
+
         clearChest: (position: { readonly x: number; readonly y: number; readonly z: number }): Effect.Effect<ReadonlyArray<ChestItemStack>, never> =>
           Ref.modify(stateRef, (state) => removeChestAtPosition(state, position)),
 

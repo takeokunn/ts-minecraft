@@ -25,6 +25,8 @@ import { lightingStage } from '@ts-minecraft/app/frame/stages/lighting-stage'
 import {
   multiplayerStage,
   applyInboundBlockEdits,
+  applyInboundContainerUpdates,
+  broadcastChestOnClose,
   applyInboundEntitySnapshots,
   applyInboundEntityDamages,
 } from '@ts-minecraft/app/frame/stages/multiplayer-stage'
@@ -184,6 +186,8 @@ export const runPresentationFrameStages = (
             multiplayerStage(mp, services, refs, inputs.playerPos, rotation.yaw, rotation.pitch, inputs.entitySnapshots),
           ),
           Effect.flatMap(() => applyInboundBlockEdits(mp, services, refs.dirtyChunksRef)),
+          Effect.flatMap(() => broadcastChestOnClose(mp, services)),
+          Effect.flatMap(() => applyInboundContainerUpdates(mp, services)),
           Effect.flatMap(() => applyInboundEntitySnapshots(mp, services)),
           Effect.flatMap(() => applyInboundEntityDamages(mp, services)),
           Effect.flatMap(() => syncRemotePlayersForFrame(mp, services, refs, inputs.totalTimeSecs)),

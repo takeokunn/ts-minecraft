@@ -1,7 +1,7 @@
 // Frame stage: syncs local state to the multiplayer server and applies remote
 // world/entity deltas without letting network faults abort rendering.
 import { Effect, HashMap, MutableRef, Option, Schema } from 'effect'
-import { BlockTypeSchema, CHUNK_SIZE, type Position } from '@ts-minecraft/core'
+import { BlockTypeSchema, CHUNK_SIZE, InventoryItemSchema, StackCountSchema, type InventoryItem, type Position, type StackCount } from '@ts-minecraft/core'
 import { EntityId, EntityType, type EntityType as EntityTypeValue } from '@ts-minecraft/entity/domain/mob/entity'
 import { aabbFromVoxel } from '@ts-minecraft/world'
 import type {
@@ -157,6 +157,80 @@ export const applyInboundBlockEdits = (
               }),
             ),
           ).pipe(Effect.catchAll(() => Effect.void))
+        }
+      }),
+    ),
+  )
+
+// Chest-close edge detector: while the inventory UI is open on a chest we
+// remember its position; the frame the UI closes we broadcast that chest's
+// full slot array (last-writer-wins). Module scratch keyed to the frame loop —
+// the broadcast re-reads local state, so a stale remembered position after a
+// session swap resolves to None and sends nothing.
+let openChestPosition: { readonly x: number; readonly y: number; readonly z: number } | null = null
+export const resetChestSyncStateForTest = (): void => { openChestPosition = null }
+
+const toWireSlots = (
+  slots: ReadonlyArray<Option.Option<{ readonly itemType: string; readonly count: number; readonly durability: number | null }>>,
+): ReadonlyArray<{ readonly itemType: string; readonly count: number; readonly durability: number | null } | null> =>
+  slots.map((slot) =>
+    Option.match(slot, {
+      onNone: () => null,
+      onSome: (stack) => ({ itemType: String(stack.itemType), count: Number(stack.count), durability: stack.durability }),
+    }),
+  )
+
+export const broadcastChestOnClose = (
+  multiplayer: MultiplayerService,
+  services: Pick<FrameHandlerServices, 'chestService' | 'inventoryRenderer'>,
+): Effect.Effect<void, never> =>
+  Effect.gen(function* () {
+    const uiOpen = yield* services.inventoryRenderer.isOpen()
+    if (uiOpen) {
+      const state = yield* services.chestService.getState()
+      const selected = Option.getOrNull(state.selectedChestPosition)
+      if (selected !== null) openChestPosition = selected
+      return
+    }
+    if (openChestPosition === null) return
+    const position = openChestPosition
+    openChestPosition = null
+    const chestOpt = yield* services.chestService.getChestStateAt(position)
+    const chest = Option.getOrNull(chestOpt)
+    if (chest === null) return
+    yield* multiplayer
+      .sendContainerUpdate(position, toWireSlots(chest.slots))
+      .pipe(Effect.catchAll(() => Effect.void))
+  })
+
+// Applies remote chest snapshots. Slots are validated against the canonical
+// item union and stack bounds; a chest carrying any invalid slot is skipped
+// whole (a partial chest would silently delete another player's items).
+export const applyInboundContainerUpdates = (
+  multiplayer: MultiplayerService,
+  services: Pick<FrameHandlerServices, 'chestService'>,
+): Effect.Effect<void, never> =>
+  multiplayer.drainContainerUpdates.pipe(
+    Effect.flatMap((updates) =>
+      Effect.gen(function* () {
+        for (const update of updates) {
+          const slots: Array<Option.Option<{ itemType: InventoryItem; count: StackCount; durability: number | null }>> = []
+          let valid = true
+          for (const slot of update.slots) {
+            if (slot === null) {
+              slots.push(Option.none())
+              continue
+            }
+            if (!Schema.is(InventoryItemSchema)(slot.itemType) || !Schema.is(StackCountSchema)(slot.count)) {
+              valid = false
+              break
+            }
+            slots.push(Option.some({ itemType: slot.itemType, count: slot.count, durability: slot.durability }))
+          }
+          if (!valid) continue
+          yield* services.chestService
+            .applyRemoteChestState({ position: { x: update.x, y: update.y, z: update.z }, slots })
+            .pipe(Effect.catchAll(() => Effect.void))
         }
       }),
     ),

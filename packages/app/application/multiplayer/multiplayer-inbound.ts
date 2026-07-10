@@ -9,6 +9,7 @@ import type {
   ChatEntry,
   LocalPlayerIdentity,
   RemoteBlockEdit,
+  RemoteContainerUpdate,
   RemoteEntityDamage,
   RemoteEntitySnapshot,
   RemotePlayerSnapshot,
@@ -21,6 +22,7 @@ export const processInbound = (
   remotePlayersRef: Ref.Ref<Map<string, RemotePlayerSnapshot>>,
   chatMessagesRef: Ref.Ref<ReadonlyArray<ChatEntry>>,
   inboundBlockEditsRef: Ref.Ref<ReadonlyArray<RemoteBlockEdit>>,
+  inboundContainerUpdatesRef: Ref.Ref<ReadonlyArray<RemoteContainerUpdate>>,
   inboundEntitySnapshotsRef: Ref.Ref<ReadonlyArray<RemoteEntitySnapshot>>,
   inboundEntityDamagesRef: Ref.Ref<ReadonlyArray<RemoteEntityDamage>>,
   playerNameRef: Ref.Ref<Option.Option<PlayerName>>,
@@ -95,6 +97,26 @@ export const processInbound = (
           { kind: 'break' as const, x: msg.position.x, y: msg.position.y, z: msg.position.z },
         ]
         yield* Ref.set(inboundBlockEditsRef, next)
+      })
+    case MessageType.ContainerUpdate:
+      return Effect.gen(function* () {
+        const localPlayer = yield* Ref.get(localPlayerRef)
+        if (Option.isSome(localPlayer) && localPlayer.value.playerId === msg.playerId) return
+        // Same dimension guard as block edits: a nether chest state must not
+        // overwrite an overworld chest at the same coordinates.
+        if (String(msg.worldId) !== getMultiplayerEditDimension()) return
+        const updates = yield* Ref.get(inboundContainerUpdatesRef)
+        yield* Ref.set(inboundContainerUpdatesRef, [
+          ...updates,
+          {
+            x: msg.position.x,
+            y: msg.position.y,
+            z: msg.position.z,
+            slots: msg.slots.map((slot) =>
+              slot === null ? null : { itemType: slot.itemType, count: slot.count, durability: slot.durability },
+            ),
+          },
+        ])
       })
     case MessageType.PlayerJoin:
       return Effect.gen(function* () {

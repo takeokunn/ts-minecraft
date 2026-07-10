@@ -4,14 +4,18 @@ import { aabbFromVoxel } from '@ts-minecraft/world'
 import { EntityId, EntityType } from '@ts-minecraft/entity/domain/mob/entity'
 import {
   applyInboundBlockEdits,
+  applyInboundContainerUpdates,
   applyInboundEntityDamages,
   applyInboundEntitySnapshots,
+  broadcastChestOnClose,
   multiplayerStage,
+  resetChestSyncStateForTest,
 } from '@ts-minecraft/app/frame/stages/multiplayer-stage'
 import type {
   LocalEntitySnapshot,
   MultiplayerService,
   RemoteBlockEdit,
+  RemoteContainerUpdate,
   RemoteEntitySnapshot,
 } from '@ts-minecraft/app/application/multiplayer/multiplayer-service'
 import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
@@ -271,5 +275,107 @@ describe('applyInboundBlockEdits (T15c)', () => {
 
     expect(forceSetBlock).toHaveBeenCalledTimes(2)
     expect(dirtySize).toBe(1)
+  })
+})
+
+describe('broadcastChestOnClose', () => {
+  const makeChestHarness = (options: {
+    readonly isOpen: boolean
+    readonly selected: Option.Option<{ x: number; y: number; z: number }>
+    readonly chestAt?: Option.Option<{ position: { x: number; y: number; z: number }; slots: ReadonlyArray<Option.Option<{ itemType: string; count: number; durability: number | null }>> }>
+  }) => {
+    const sendContainerUpdate = vi.fn(() => Effect.void)
+    const mp = { sendContainerUpdate } as unknown as MultiplayerService
+    const services = {
+      inventoryRenderer: { isOpen: () => Effect.succeed(options.isOpen) },
+      chestService: {
+        getState: () => Effect.succeed({ chests: HashMap.empty(), selectedChestPosition: options.selected }),
+        getChestStateAt: vi.fn(() => Effect.succeed(options.chestAt ?? Option.none())),
+      },
+    } as unknown as Pick<FrameHandlerServices, 'chestService' | 'inventoryRenderer'>
+    return { mp, services, sendContainerUpdate }
+  }
+
+  it('broadcasts the chest state on the frame the UI closes', async () => {
+    resetChestSyncStateForTest()
+    const pos = { x: 3, y: 64, z: 5 }
+    const open = makeChestHarness({ isOpen: true, selected: Option.some(pos) })
+    const closed = makeChestHarness({
+      isOpen: false,
+      selected: Option.none(),
+      chestAt: Option.some({
+        position: pos,
+        slots: [Option.some({ itemType: 'DIAMOND', count: 2, durability: null }), Option.none()],
+      }),
+    })
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        yield* broadcastChestOnClose(open.mp, open.services)          // remembers the open chest
+        yield* broadcastChestOnClose(closed.mp, closed.services)      // close edge → broadcast
+        yield* broadcastChestOnClose(closed.mp, closed.services)      // no re-broadcast
+      }),
+    )
+    expect(open.sendContainerUpdate).not.toHaveBeenCalled()
+    expect(closed.sendContainerUpdate).toHaveBeenCalledTimes(1)
+    expect(closed.sendContainerUpdate).toHaveBeenCalledWith(pos, [
+      { itemType: 'DIAMOND', count: 2, durability: null },
+      null,
+    ])
+  })
+
+  it('sends nothing when the closed chest no longer exists locally', async () => {
+    resetChestSyncStateForTest()
+    const pos = { x: 1, y: 60, z: 1 }
+    const open = makeChestHarness({ isOpen: true, selected: Option.some(pos) })
+    const closed = makeChestHarness({ isOpen: false, selected: Option.none(), chestAt: Option.none() })
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        yield* broadcastChestOnClose(open.mp, open.services)
+        yield* broadcastChestOnClose(closed.mp, closed.services)
+      }),
+    )
+    expect(closed.sendContainerUpdate).not.toHaveBeenCalled()
+  })
+
+  it('does nothing when the UI was never open on a chest', async () => {
+    resetChestSyncStateForTest()
+    const closed = makeChestHarness({ isOpen: false, selected: Option.none() })
+    await Effect.runPromise(broadcastChestOnClose(closed.mp, closed.services))
+    expect(closed.sendContainerUpdate).not.toHaveBeenCalled()
+  })
+})
+
+describe('applyInboundContainerUpdates', () => {
+  const run = (updates: ReadonlyArray<RemoteContainerUpdate>) =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        const applyRemoteChestState = vi.fn(() => Effect.void)
+        const mp = { drainContainerUpdates: Effect.succeed(updates) } as unknown as MultiplayerService
+        const services = { chestService: { applyRemoteChestState } } as unknown as Pick<FrameHandlerServices, 'chestService'>
+        yield* applyInboundContainerUpdates(mp, services)
+        return applyRemoteChestState
+      }),
+    )
+
+  it('applies a valid remote chest snapshot wholesale', async () => {
+    const apply = await run([
+      { x: 3, y: 64, z: 5, slots: [{ itemType: 'DIAMOND', count: 2, durability: null }, null] },
+    ])
+    expect(apply).toHaveBeenCalledTimes(1)
+    expect(apply).toHaveBeenCalledWith({
+      position: { x: 3, y: 64, z: 5 },
+      slots: [Option.some({ itemType: 'DIAMOND', count: 2, durability: null }), Option.none()],
+    })
+  })
+
+  it('skips the whole chest when any slot carries an unknown item or invalid count', async () => {
+    const applyBadItem = await run([
+      { x: 0, y: 0, z: 0, slots: [{ itemType: 'NOT_AN_ITEM', count: 1, durability: null }] },
+    ])
+    expect(applyBadItem).not.toHaveBeenCalled()
+    const applyBadCount = await run([
+      { x: 0, y: 0, z: 0, slots: [{ itemType: 'DIAMOND', count: 999, durability: null }] },
+    ])
+    expect(applyBadCount).not.toHaveBeenCalled()
   })
 })

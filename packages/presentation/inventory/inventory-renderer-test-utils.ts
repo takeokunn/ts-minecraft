@@ -201,7 +201,7 @@ export const createMockFurnaceLayer = (overrides: Partial<Pick<FurnaceService,
 }
 
 export const createMockChestLayer = (overrides: Partial<Pick<ChestService,
-  'getState' | 'getNearestChestState' | 'hasNearbyChest' | 'setSelectedChest' | 'moveInventoryStackToChestSlot' | 'moveChestStackToInventorySlot' | 'moveChestStackToChestSlot' | 'quickMoveInventoryToChest' | 'quickMoveChestToInventory' | 'clearChest' | 'dismantleChest' | 'depositIntoChestAt' | 'withdrawOneFromChestAt' | 'serialize' | 'deserialize'
+  'getState' | 'getNearestChestState' | 'hasNearbyChest' | 'setSelectedChest' | 'moveInventoryStackToChestSlot' | 'moveChestStackToInventorySlot' | 'moveChestStackToChestSlot' | 'quickMoveInventoryToChest' | 'quickMoveChestToInventory' | 'clearChest' | 'dismantleChest' | 'getChestStateAt' | 'applyRemoteChestState' | 'depositIntoChestAt' | 'withdrawOneFromChestAt' | 'serialize' | 'deserialize'
 >> = {}) => {
   const MockChestLayer = Layer.succeed(ChestService, ChestService.of({
     _tag: '@minecraft/application/ChestService' as const,
@@ -215,6 +215,8 @@ export const createMockChestLayer = (overrides: Partial<Pick<ChestService,
     quickMoveInventoryToChest: () => Effect.void,
     quickMoveChestToInventory: () => Effect.void,
     clearChest: () => Effect.succeed([]),
+    getChestStateAt: () => Effect.succeed(Option.none()),
+    applyRemoteChestState: () => Effect.void,
   depositIntoChestAt: () => Effect.succeed(0),
   withdrawOneFromChestAt: () => Effect.succeed(Option.none()),
     dismantleChest: () => Effect.succeed(true),

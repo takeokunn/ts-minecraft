@@ -11,6 +11,8 @@ import type {
   LocalPlayerIdentity,
   MultiplayerSessionState,
   RemoteBlockEdit,
+  RemoteContainerSlot,
+  RemoteContainerUpdate,
   RemoteEntityDamage,
   RemoteEntitySnapshot,
   RemotePlayerSnapshot,
@@ -22,6 +24,8 @@ export type {
   LocalEntitySnapshot,
   MultiplayerSessionState,
   RemoteBlockEdit,
+  RemoteContainerSlot,
+  RemoteContainerUpdate,
   RemoteEntityDamage,
   RemoteEntitySnapshot,
   RemotePlayerSnapshot,
@@ -70,6 +74,12 @@ export type MultiplayerService = {
     pos: { readonly x: number; readonly y: number; readonly z: number },
   ) => Effect.Effect<void, never>
   readonly sendEntitySnapshot: (snapshot: LocalEntitySnapshot) => Effect.Effect<void, never>
+  // Container sync: broadcast a chest's full slot array on close
+  // (last-writer-wins per chest position within a dimension).
+  readonly sendContainerUpdate: (
+    pos: { readonly x: number; readonly y: number; readonly z: number },
+    slots: ReadonlyArray<RemoteContainerSlot | null>,
+  ) => Effect.Effect<void, never>
   // Entity host authority: true when this client should simulate & broadcast
   // mobs — i.e. offline, on a pre-host-authority server (none announced), or
   // announced as the session's entity host via WorldInfo.
@@ -82,6 +92,7 @@ export type MultiplayerService = {
   ) => Effect.Effect<void, never>
   // FR-3 block sync: drain and clear the queue of remote edits to apply locally.
   readonly drainBlockEdits: Effect.Effect<ReadonlyArray<RemoteBlockEdit>, never>
+  readonly drainContainerUpdates: Effect.Effect<ReadonlyArray<RemoteContainerUpdate>, never>
   readonly drainEntitySnapshots: Effect.Effect<ReadonlyArray<RemoteEntitySnapshot>, never>
   readonly drainEntityDamages: Effect.Effect<ReadonlyArray<RemoteEntityDamage>, never>
   readonly drainInbound: Effect.Effect<void, never>
@@ -102,6 +113,7 @@ export const MultiplayerServiceImpl = (
     )
     const chatMessagesRef = yield* Ref.make<ReadonlyArray<ChatEntry>>([])
     const inboundBlockEditsRef = yield* Ref.make<ReadonlyArray<RemoteBlockEdit>>([])
+    const inboundContainerUpdatesRef = yield* Ref.make<ReadonlyArray<RemoteContainerUpdate>>([])
     const inboundEntitySnapshotsRef = yield* Ref.make<ReadonlyArray<RemoteEntitySnapshot>>([])
     const inboundEntityDamagesRef = yield* Ref.make<ReadonlyArray<RemoteEntityDamage>>([])
     const playerNameRef = yield* Ref.make<Option.Option<PlayerName>>(Option.none())
@@ -119,6 +131,7 @@ export const MultiplayerServiceImpl = (
       yield* Ref.set(remotePlayersRef, new Map<string, RemotePlayerSnapshot>())
       yield* Ref.set(chatMessagesRef, [])
       yield* Ref.set(inboundBlockEditsRef, [])
+      yield* Ref.set(inboundContainerUpdatesRef, [])
       yield* Ref.set(inboundEntitySnapshotsRef, [])
       yield* Ref.set(inboundEntityDamagesRef, [])
       yield* Ref.set(localPlayerRef, Option.none())
@@ -165,6 +178,7 @@ export const MultiplayerServiceImpl = (
               remotePlayersRef,
               chatMessagesRef,
               inboundBlockEditsRef,
+              inboundContainerUpdatesRef,
               inboundEntitySnapshotsRef,
               inboundEntityDamagesRef,
               playerNameRef,
@@ -308,6 +322,16 @@ export const MultiplayerServiceImpl = (
           timestamp: Date.now(),
         } as NetworkMessage)),
 
+      sendContainerUpdate: (pos, slots) =>
+        sendIfConnected((identity) => ({
+          type: MessageType.ContainerUpdate,
+          playerId: identity.playerId,
+          worldId: WorldId.make(activeEditDimension),
+          position: floorPos(pos),
+          slots,
+          timestamp: Date.now(),
+        } as NetworkMessage)),
+
       sendEntitySnapshot: (snapshot) =>
         sendIfConnected((identity) => ({
           type: MessageType.EntitySnapshot,
@@ -345,6 +369,8 @@ export const MultiplayerServiceImpl = (
         } as NetworkMessage)),
 
       drainBlockEdits: Ref.getAndSet(inboundBlockEditsRef, []),
+
+      drainContainerUpdates: Ref.getAndSet(inboundContainerUpdatesRef, []),
 
       drainEntitySnapshots: Ref.getAndSet(inboundEntitySnapshotsRef, []),
 

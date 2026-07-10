@@ -48,6 +48,7 @@ export const MessageType = {
   EntityDamage: 'EntityDamage',
   BlockPlace: 'BlockPlace',
   BlockBreak: 'BlockBreak',
+  ContainerUpdate: 'ContainerUpdate',
   Chat: 'Chat',
   WorldInfo: 'WorldInfo',
   Ping: 'Ping',
@@ -63,6 +64,7 @@ export const MessageTypeSchema = Schema.Literal(
   MessageType.EntityDamage,
   MessageType.BlockPlace,
   MessageType.BlockBreak,
+  MessageType.ContainerUpdate,
   MessageType.Chat,
   MessageType.WorldInfo,
   MessageType.Ping,
@@ -171,6 +173,27 @@ export const BlockBreakMessageSchema = Schema.Struct({
 })
 export type BlockBreakMessage = Schema.Schema.Type<typeof BlockBreakMessageSchema>
 
+// Full-state container sync: the closing player broadcasts the chest's entire
+// slot array (last-writer-wins per chest). Item types are validated against
+// the canonical item union at the APPLY site, not here — the wire format stays
+// a plain string so a client with a newer item set doesn't wedge older peers.
+export const ContainerSlotSchema = Schema.Struct({
+  itemType: Schema.String,
+  count: Schema.Number.pipe(Schema.int(), Schema.positive()),
+  durability: Schema.NullOr(Schema.Number),
+})
+export type ContainerSlot = Schema.Schema.Type<typeof ContainerSlotSchema>
+
+export const ContainerUpdateMessageSchema = Schema.Struct({
+  type: Schema.Literal(MessageType.ContainerUpdate),
+  playerId: PlayerIdSchema,
+  worldId: WorldIdSchema,
+  position: BlockPosSchema,
+  slots: Schema.Array(Schema.NullOr(ContainerSlotSchema)),
+  timestamp: TimestampSchema,
+})
+export type ContainerUpdateMessage = Schema.Schema.Type<typeof ContainerUpdateMessageSchema>
+
 export const ChatMessageSchema = Schema.Struct({
   type: Schema.Literal(MessageType.Chat),
   playerId: PlayerIdSchema,
@@ -226,6 +249,7 @@ export const NetworkMessageSchema = Schema.Union(
   EntityDamageMessageSchema,
   BlockPlaceMessageSchema,
   BlockBreakMessageSchema,
+  ContainerUpdateMessageSchema,
   ChatMessageSchema,
   WorldInfoMessageSchema,
   PingMessageSchema,

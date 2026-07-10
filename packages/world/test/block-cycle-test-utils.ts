@@ -130,6 +130,8 @@ export const buildIntegrationLayer = (playerPos: Position = { x: 100, y: 0, z: 1
     quickMoveInventoryToChest: () => Effect.void,
     quickMoveChestToInventory: () => Effect.void,
     clearChest: () => Effect.succeed([]),
+    getChestStateAt: () => Effect.succeed(Option.none()),
+    applyRemoteChestState: () => Effect.void,
     depositIntoChestAt: () => Effect.succeed(0),
     withdrawOneFromChestAt: () => Effect.succeed(Option.none()),
     dismantleChest: () => Effect.succeed(true),
