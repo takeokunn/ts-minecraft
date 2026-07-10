@@ -1,6 +1,7 @@
 import { Deferred, Effect, Option, Ref } from 'effect'
 import { PlayerHealth } from '../domain/player-health'
 import {
+  absorptionCapacity,
   advanceStatusEffectsOneTick,
   makeStatusEffect,
   upsertStatusEffect,
@@ -8,7 +9,7 @@ import {
   type StatusEffectType,
 } from '../domain/status-effect'
 import {
-  applyDamageToHealth,
+  applyDamageWithAbsorption,
   computeFallDamage,
   healHealth,
   tickInvincibility,
@@ -29,6 +30,9 @@ type HealthState = {
   readonly fallState: FallState
   readonly lastDeathCause: Option.Option<PlayerDamageCause>
   readonly statusEffects: ReadonlyArray<ActiveStatusEffect>
+  // Absorption shield HP (golden hearts): soaks damage before health, never
+  // regenerates, and is zeroed the moment the ABSORPTION effect expires.
+  readonly absorptionHealth: number
 }
 
 const DEFAULT_DAMAGE_CAUSE: PlayerDamageCause = { kind: 'generic' }
@@ -41,6 +45,7 @@ const INITIAL_STATE: HealthState = {
   fallState: { prevY: Option.none(), fallDistance: 0 },
   lastDeathCause: Option.none(),
   statusEffects: [],
+  absorptionHealth: 0,
 }
 
 // ─── Service ─────────────────────────────────────────────────────────────────
@@ -66,13 +71,14 @@ export class HealthService extends Effect.Service<HealthService>()(
       ): Effect.Effect<boolean, never> =>
         Ref.modify(stateRef, (s) => {
           const wasAlive = s.health.current > 0
-          const next = applyDamageToHealth(s.health, amount)
-          const justDied = wasAlive && next.current <= 0
+          const resolved = applyDamageWithAbsorption(s.health, s.absorptionHealth, amount)
+          const justDied = wasAlive && resolved.health.current <= 0
           return [
             justDied,
             {
               ...s,
-              health: next,
+              health: resolved.health,
+              absorptionHealth: resolved.absorption,
               lastDeathCause: justDied ? Option.some(cause) : s.lastDeathCause,
             },
           ] as const
@@ -130,17 +136,28 @@ export class HealthService extends Effect.Service<HealthService>()(
           Ref.update(stateRef, (s) => {
             const ticked = advanceStatusEffectsOneTick(s.statusEffects)
             let health = tickInvincibility(s.health)
+            // Absorption hearts vanish with their effect (vanilla — the pool is
+            // effect-bound, not a resource that outlives it).
+            let absorptionHealth = ticked.effects.some((e) => e.type === 'ABSORPTION')
+              ? s.absorptionHealth
+              : 0
             if (ticked.healAmount > 0) {
               health = healHealth(health, ticked.healAmount)
             }
-            if (ticked.poisonDamage > 0 && health.current > 1) {
-              health = new PlayerHealth({
-                current: Math.max(1, health.current - ticked.poisonDamage),
-                max: health.max,
-                invincibilityTicks: health.invincibilityTicks,
-              })
+            if (ticked.poisonDamage > 0) {
+              // Poison eats absorption first; the health portion floors at 1 HP.
+              const absorbed = Math.min(absorptionHealth, ticked.poisonDamage)
+              absorptionHealth -= absorbed
+              const remainder = ticked.poisonDamage - absorbed
+              if (remainder > 0 && health.current > 1) {
+                health = new PlayerHealth({
+                  current: Math.max(1, health.current - remainder),
+                  max: health.max,
+                  invincibilityTicks: health.invincibilityTicks,
+                })
+              }
             }
-            return { ...s, health, statusEffects: ticked.effects }
+            return { ...s, health, statusEffects: ticked.effects, absorptionHealth }
           }),
 
         addStatusEffect: (
@@ -148,15 +165,32 @@ export class HealthService extends Effect.Service<HealthService>()(
           amplifier: number,
           durationSecs: number,
         ): Effect.Effect<void, never> =>
-          Ref.update(stateRef, (s) => ({
-            ...s,
-            statusEffects: upsertStatusEffect(s.statusEffects, makeStatusEffect(type, amplifier, durationSecs)),
-          })),
+          Ref.update(stateRef, (s) => {
+            const statusEffects = upsertStatusEffect(s.statusEffects, makeStatusEffect(type, amplifier, durationSecs))
+            // Re-applying Absorption refills the shield pool (vanilla), but a
+            // weaker application rejected by upsert must not touch it.
+            const absorptionAccepted =
+              type === 'ABSORPTION'
+              && statusEffects.some((e) => e.type === 'ABSORPTION' && e.amplifier >= amplifier)
+            return {
+              ...s,
+              statusEffects,
+              absorptionHealth: absorptionAccepted
+                ? Math.max(s.absorptionHealth, absorptionCapacity(amplifier))
+                : s.absorptionHealth,
+            }
+          }),
 
         getStatusEffects: (): Effect.Effect<ReadonlyArray<ActiveStatusEffect>, never> =>
           Effect.gen(function* () {
             const s = yield* Ref.get(stateRef)
             return s.statusEffects
+          }),
+
+        getAbsorption: (): Effect.Effect<number, never> =>
+          Effect.gen(function* () {
+            const s = yield* Ref.get(stateRef)
+            return s.absorptionHealth
           }),
 
         processFallDamage: (currentY: number, isGrounded: boolean): Effect.Effect<number, never> =>

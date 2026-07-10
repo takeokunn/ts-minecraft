@@ -16,6 +16,28 @@ export const applyDamageToHealth = (health: PlayerHealth, amount: number): Playe
 }
 
 /**
+ * Apply damage with an Absorption shield pool in front of regular health
+ * (vanilla: absorption hearts soak damage first and never regenerate). A hit
+ * fully soaked by absorption still grants invincibility frames. The same
+ * no-op guards as applyDamageToHealth apply.
+ */
+export const applyDamageWithAbsorption = (
+  health: PlayerHealth,
+  absorption: number,
+  amount: number,
+): { readonly health: PlayerHealth; readonly absorption: number } => {
+  if (amount <= 0 || health.current <= 0 || health.invincibilityTicks > 0) {
+    return { health, absorption }
+  }
+  const absorbed = Math.min(Math.max(0, absorption), amount)
+  const remainder = amount - absorbed
+  const next = remainder > 0
+    ? applyDamageToHealth(health, remainder)
+    : new PlayerHealth({ current: health.current, max: health.max, invincibilityTicks: INVINCIBILITY_TICKS_ON_HIT })
+  return { health: next, absorption: absorption - absorbed }
+}
+
+/**
  * Heal player health. Returns a new PlayerHealth instance.
  * Zero/negative amount is a no-op. Clamped to max health.
  */

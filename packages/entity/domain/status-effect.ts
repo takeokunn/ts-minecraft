@@ -9,6 +9,7 @@ export const StatusEffectTypeSchema = Schema.Literal(
   'SPEED',
   'SLOWNESS',
   'HUNGER',
+  'ABSORPTION',
 )
 export type StatusEffectType = Schema.Schema.Type<typeof StatusEffectTypeSchema>
 
@@ -48,6 +49,12 @@ export const makeStatusEffect = (
   remainingTicks: Math.max(0, Math.round(durationSecs * TICKS_PER_SECOND)),
   elapsedTicks: 0,
 })
+
+// Vanilla: Absorption grants 4 shield HP (2 hearts) per level. The pool
+// absorbs damage before regular health, never regenerates, and vanishes
+// with the effect; re-applying refills it.
+export const absorptionCapacity = (amplifier: number): number =>
+  4 * (Math.max(0, Math.floor(amplifier)) + 1)
 
 // Vanilla stacking: a stronger effect replaces a weaker one; an equal-strength
 // effect keeps the LONGER remaining duration; a weaker application is ignored
@@ -116,6 +123,7 @@ const STATUS_EFFECT_LABELS: Record<StatusEffectType, string> = {
   SPEED: 'Speed',
   SLOWNESS: 'Slowness',
   HUNGER: 'Hunger',
+  ABSORPTION: 'Absorption',
 }
 
 const ROMAN_LEVELS = ['I', 'II', 'III', 'IV', 'V'] as const

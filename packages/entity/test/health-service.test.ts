@@ -334,3 +334,88 @@ describe('HealthService status effects', () => {
     }).pipe(Effect.provide(HealthService.Default)),
   )
 })
+
+describe('HealthService absorption (golden hearts)', () => {
+  it.effect('applying ABSORPTION fills the pool to 4 HP per level', () =>
+    Effect.gen(function* () {
+      const health = yield* HealthService
+      yield* health.addStatusEffect('ABSORPTION', 0, 120)
+      expect(yield* health.getAbsorption()).toBe(4)
+      yield* health.addStatusEffect('ABSORPTION', 3, 120)
+      expect(yield* health.getAbsorption()).toBe(16)
+    }).pipe(Effect.provide(HealthService.Default)),
+  )
+
+  it.effect('absorption soaks damage before health and grants i-frames on a fully soaked hit', () =>
+    Effect.gen(function* () {
+      const health = yield* HealthService
+      yield* health.addStatusEffect('ABSORPTION', 0, 120)
+      yield* health.applyDamage(3)
+      expect(yield* health.getAbsorption()).toBe(1)
+      const after = yield* health.getHealth()
+      expect(after.current).toBe(20)
+      expect(after.invincibilityTicks).toBeGreaterThan(0)
+    }).pipe(Effect.provide(HealthService.Default)),
+  )
+
+  it.effect('overflow damage past the pool reaches health', () =>
+    Effect.gen(function* () {
+      const health = yield* HealthService
+      yield* health.addStatusEffect('ABSORPTION', 0, 120)
+      yield* health.applyDamage(10)
+      expect(yield* health.getAbsorption()).toBe(0)
+      expect((yield* health.getHealth()).current).toBe(14) // 20 - (10 - 4)
+    }).pipe(Effect.provide(HealthService.Default)),
+  )
+
+  it.effect('the pool never regenerates and vanishes when the effect expires', () =>
+    Effect.gen(function* () {
+      const health = yield* HealthService
+      yield* health.addStatusEffect('ABSORPTION', 0, 0.15) // 3 ticks
+      yield* health.applyDamage(1)
+      expect(yield* health.getAbsorption()).toBe(3)
+      yield* health.tick()
+      expect(yield* health.getAbsorption()).toBe(3) // still active: no regen, no wipe
+      yield* health.tick()
+      yield* health.tick()
+      expect(yield* health.getAbsorption()).toBe(0) // effect expired → pool gone
+      expect((yield* health.getHealth()).current).toBe(20)
+    }).pipe(Effect.provide(HealthService.Default)),
+  )
+
+  it.effect('a weaker re-application does not shrink the pool; equal-strength refills it', () =>
+    Effect.gen(function* () {
+      const health = yield* HealthService
+      yield* health.addStatusEffect('ABSORPTION', 1, 120) // 8 HP
+      yield* health.applyDamage(3)
+      expect(yield* health.getAbsorption()).toBe(5)
+      yield* health.addStatusEffect('ABSORPTION', 0, 120) // weaker: ignored by upsert
+      expect(yield* health.getAbsorption()).toBe(5)
+      yield* health.addStatusEffect('ABSORPTION', 1, 120) // equal strength: refill
+      expect(yield* health.getAbsorption()).toBe(8)
+    }).pipe(Effect.provide(HealthService.Default)),
+  )
+
+  it.effect('poison consumes absorption before gnawing health', () =>
+    Effect.gen(function* () {
+      const health = yield* HealthService
+      yield* health.addStatusEffect('ABSORPTION', 0, 120)
+      yield* health.addStatusEffect('POISON', 0, 10) // fires every 25 ticks
+      for (let i = 0; i < 100; i++) {
+        yield* health.tick()
+      }
+      // 4 poison fires: all soaked by the 4-HP pool, health untouched.
+      expect(yield* health.getAbsorption()).toBe(0)
+      expect((yield* health.getHealth()).current).toBe(20)
+    }).pipe(Effect.provide(HealthService.Default)),
+  )
+
+  it.effect('reset clears the pool', () =>
+    Effect.gen(function* () {
+      const health = yield* HealthService
+      yield* health.addStatusEffect('ABSORPTION', 0, 120)
+      yield* health.reset()
+      expect(yield* health.getAbsorption()).toBe(0)
+    }).pipe(Effect.provide(HealthService.Default)),
+  )
+})
