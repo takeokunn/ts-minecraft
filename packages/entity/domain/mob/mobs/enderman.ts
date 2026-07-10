@@ -8,7 +8,7 @@ export const EndermanDefinition: MobDefinition = {
   behavior: 'hostile',
   maxHealth: 40,
   attackDamage: 7,
-  speed: 1.15,
+  speed: 2.9, // vanilla-scale chase speed (player walk 4.317, sprint 5.612)
   detectionRange: 24,
   attackRange: 2.0,
   fleeHealthThreshold: 0.1,

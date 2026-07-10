@@ -10,7 +10,7 @@ export const BlazeDefinition: MobDefinition = {
   behavior: 'hostile',
   maxHealth: 20,
   attackDamage: 3,
-  speed: 0.8,
+  speed: 1.5, // vanilla-scale chase speed (player walk 4.317, sprint 5.612)
   detectionRange: 24,
   attackRange: 12,
   fleeHealthThreshold: 0,

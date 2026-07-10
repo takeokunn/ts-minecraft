@@ -10,6 +10,8 @@ export const canHostileContactDamagePlayer = (
   if (entity.behavior !== 'hostile' || entity.attackDamage <= 0) return false
   // Ranged-only mobs never deal contact damage (see resolvePlayerRangedDamage).
   if (entity.type === EntityType.Skeleton || entity.type === EntityType.Blaze) return false
+  // Vanilla creepers have no melee attack — their only damage is the explosion.
+  if (entity.type === EntityType.Creeper) return false
   if (entity.type === EntityType.Enderman && !entity.isProvoked) return false
   if (entity.attackCooldownRemaining > 0) return false
 

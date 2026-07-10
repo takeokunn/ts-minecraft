@@ -9,7 +9,7 @@ export const CreeperDefinition: MobDefinition = {
   behavior: 'hostile',
   maxHealth: 20,
   attackDamage: 7,
-  speed: 1.3,
+  speed: 2.5, // vanilla-scale chase speed (player walk 4.317, sprint 5.612)
   detectionRange: 16,
   attackRange: 1.5,
   fleeHealthThreshold: 0,

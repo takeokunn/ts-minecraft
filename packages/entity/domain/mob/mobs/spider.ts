@@ -8,7 +8,7 @@ export const SpiderDefinition: MobDefinition = {
   behavior: 'hostile',
   maxHealth: 16,
   attackDamage: 2,
-  speed: 1.45,
+  speed: 2.7, // vanilla-scale chase speed (player walk 4.317, sprint 5.612)
   detectionRange: 16,
   attackRange: 1.4,
   fleeHealthThreshold: 0,

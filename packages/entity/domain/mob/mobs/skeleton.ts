@@ -7,8 +7,8 @@ export const SkeletonDefinition: MobDefinition = {
   type: EntityType.Skeleton,
   behavior: 'hostile',
   maxHealth: 20,
-  attackDamage: 2,
-  speed: 1.0,
+  attackDamage: 4, // vanilla arrow damage (normal difficulty)
+  speed: 2.4, // vanilla-scale chase speed (player walk 4.317, sprint 5.612)
   detectionRange: 20,
   attackRange: 12,
   fleeHealthThreshold: 0,

@@ -6,7 +6,7 @@ export const DrownedDefinition: MobDefinition = {
   behavior: 'hostile',
   maxHealth: 20,
   attackDamage: 3,
-  speed: 1.1,
+  speed: 2.4, // vanilla-scale chase speed (player walk 4.317, sprint 5.612)
   detectionRange: 16,
   attackRange: 1.6,
   fleeHealthThreshold: 0,

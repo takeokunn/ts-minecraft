@@ -11,7 +11,7 @@ export const ZOMBIE_BASE_DROPS: MobDefinition['drops'] = [
 export const ZOMBIE_BASE_STATS = {
   maxHealth: 20,
   attackDamage: 3,
-  speed: 1.25,
+  speed: 2.4, // vanilla-scale chase speed (player walk 4.317, sprint 5.612)
   detectionRange: 16,
   attackRange: 1.6,
   fleeHealthThreshold: 0.1,
