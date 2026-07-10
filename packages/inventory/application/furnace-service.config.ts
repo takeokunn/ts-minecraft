@@ -14,7 +14,7 @@ export const FURNACE_FUEL_ITEMS = [
   'FISHING_ROD',
   'PLANKS',
   'WOOD',
-] as const satisfies ReadonlyArray<InventoryItem>
+ 'LAVA_BUCKET', 'BLAZE_ROD',] as const satisfies ReadonlyArray<InventoryItem>
 
 export type FurnaceFuelItem = typeof FURNACE_FUEL_ITEMS[number]
 
@@ -30,6 +30,8 @@ export const FURNACE_FUEL_BURN_DURATION_SECS: Record<FurnaceFuelItem, number> = 
   FISHING_ROD: 15,
   PLANKS: 15,
   WOOD: 15,
+  LAVA_BUCKET: 1000, // vanilla: longest fuel in the game
+  BLAZE_ROD: 120,
 }
 
 export const SMELTING_XP_ITEMS = [
