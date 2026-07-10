@@ -23,6 +23,8 @@ export type PlayerShotOrigin = Readonly<{
   readonly z: number
   // Fire shots (Blaze/Ghast fireballs) trace in lava tint; arrows in white.
   readonly fire: boolean
+  // Guardian beams trace as a dense prismarine-tinted line (solid beam look).
+  readonly laser: boolean
 }>
 
 type PlayerRangedDamageResolution = Readonly<{
@@ -86,16 +88,17 @@ export const resolvePlayerRangedDamage = (
   let anyEntityModified = false
 
   HashMap.forEach(entities, (entity) => {
-    if (entity.type !== EntityType.Skeleton && entity.type !== EntityType.Blaze && entity.type !== EntityType.Ghast) return
+    if (entity.type !== EntityType.Skeleton && entity.type !== EntityType.Blaze && entity.type !== EntityType.Ghast && entity.type !== EntityType.Guardian) return
     if (entity.behavior !== 'hostile' || entity.attackDamage <= 0) return
     if (entity.attackCooldownRemaining > 0) return
     if (!canSkeletonShootPlayer(entity, playerPosition, isProjectileBlocked)) return
 
     totalDamage += entity.attackDamage
     const isFireShot = entity.type === EntityType.Blaze || entity.type === EntityType.Ghast
+    const isLaserShot = entity.type === EntityType.Guardian
     // Tracer origin for the frame layer: shots are instant-hit, the visual
     // streak from shooter to player is drawn by the app.
-    shotOrigins.push({ x: entity.position.x, y: entity.position.y + 0.5, z: entity.position.z, fire: isFireShot })
+    shotOrigins.push({ x: entity.position.x, y: entity.position.y + 0.5, z: entity.position.z, fire: isFireShot, laser: isLaserShot })
     // Fire-based shooters: a landed fireball also sets the player burning.
     if (isFireShot) {
       igniteSecs = Math.max(igniteSecs, BLAZE_IGNITE_SECS)

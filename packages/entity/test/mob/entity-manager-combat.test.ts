@@ -170,3 +170,48 @@ describe('entity/entityManagerCombat integration', () => {
       expect(entity.velocity.x).toBeCloseTo(5)
     }))
 })
+
+describe('guardian laser', () => {
+  plainIt('a guardian in range fires an instant-hit laser shot with the laser tracer flag', () => {
+    const guardian = makeTestManagedEntity({
+      entityId: EntityId.make('entity-guardian-laser'),
+      type: EntityType.Guardian,
+      position: { x: 0, y: 60, z: 0 },
+    })
+    const entities = HashMap.set(HashMap.empty(), guardian.entityId, guardian)
+
+    const [resolution, updatedEntities] = resolvePlayerRangedDamage(entities, { x: 8, y: 60, z: 0 })
+
+    expect(resolution.damage).toBe(guardian.attackDamage)
+    expect(resolution.igniteSecs).toBe(0) // lasers never set the player on fire
+    expect(resolution.shotOrigins).toEqual([
+      { x: 0, y: 60.5, z: 0, fire: false, laser: true },
+    ])
+    const updated = Option.getOrThrow(HashMap.get(updatedEntities, guardian.entityId))
+    expect(updated.attackCooldownRemaining).toBeGreaterThan(0)
+  })
+
+  plainIt('skeleton arrows and blaze fireballs keep their non-laser tracer flags', () => {
+    const skeleton = makeTestManagedEntity({
+      entityId: EntityId.make('entity-skeleton-flag'),
+      type: EntityType.Skeleton,
+      position: { x: 0, y: 64, z: 0 },
+    })
+    const blaze = makeTestManagedEntity({
+      entityId: EntityId.make('entity-blaze-flag'),
+      type: EntityType.Blaze,
+      position: { x: 2, y: 64, z: 0 },
+    })
+    const entities = HashMap.set(
+      HashMap.set(HashMap.empty(), skeleton.entityId, skeleton),
+      blaze.entityId,
+      blaze,
+    )
+
+    const [resolution] = resolvePlayerRangedDamage(entities, { x: 8, y: 64, z: 0 })
+
+    const flags = resolution.shotOrigins.map((shot) => ({ fire: shot.fire, laser: shot.laser }))
+    expect(flags).toContainEqual({ fire: false, laser: false })
+    expect(flags).toContainEqual({ fire: true, laser: false })
+  })
+})

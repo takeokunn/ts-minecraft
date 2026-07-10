@@ -145,8 +145,10 @@ const getHostileDamage = (
           const rightness = dx * Math.cos(yaw) - dz * Math.sin(yaw)
           yield* services.damageOverlay.flashDirectional(Math.atan2(rightness, forwardness))
         }
-        const uv = getParticleUvOffset(blockTypeToIndex(shot.fire ? 'LAVA' : 'SNOW'))
-        const TRACER_POINTS = 5
+        const uv = getParticleUvOffset(blockTypeToIndex(shot.laser ? 'PRISMARINE' : shot.fire ? 'LAVA' : 'SNOW'))
+        // Lasers draw dense enough to read as a solid beam; projectiles stay
+        // a sparse streak.
+        const TRACER_POINTS = shot.laser ? 12 : 5
         for (let i = 1; i <= TRACER_POINTS; i++) {
           const t = i / (TRACER_POINTS + 1)
           yield* services.particleSystem.spawnBurst(
