@@ -135,11 +135,14 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
             // A best-effort quit stop() can be cut off by its timeout, so rather
             // than fail "already running", tear down any lingering processing
             // fiber and start fresh — a new world always gets a clean loop.
+            // interruptFork (not interrupt): a previous session's fiber can be
+            // slow to wind down after its scope closed — awaiting its exit here
+            // deadlocked the next world's startup behind the loading screen.
             if (MutableRef.get(isRunningRef)) {
               MutableRef.set(isRunningRef, false)
               cancelScheduledFrame()
               const previous = yield* takeOption(processingFiberRef)
-              if (Option.isSome(previous)) yield* Fiber.interrupt(previous.value)
+              if (Option.isSome(previous)) yield* Fiber.interruptFork(previous.value)
             }
 
             yield* Ref.set(frameHandlerRef, Option.some(frameHandler))
@@ -152,7 +155,9 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
             MutableRef.set(isRunningRef, false)
             cancelScheduledFrame()
             const processingFiber = Option.getOrNull(yield* takeOption(processingFiberRef))
-            if (processingFiber !== null) yield* Fiber.interrupt(processingFiber)
+            // interruptFork: pause runs from the page-visibility handler; a fiber
+            // that is slow to acknowledge interruption must not hang it.
+            if (processingFiber !== null) yield* Fiber.interruptFork(processingFiber)
             yield* Effect.log('Game loop paused')
           }),
 
@@ -178,8 +183,12 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
             // timeout after clearing isRunningRef but before reaching the
             // maintenance teardown — leaving a stale ref that would otherwise
             // fail the next world with "Maintenance loop is already running".
+            // interruptFork (not interrupt): a torn-down session's maintenance
+            // fiber can take arbitrarily long to acknowledge interruption, and
+            // awaiting it here left the second world stuck on the loading screen
+            // forever (save & quit → load hang).
             const existing = yield* takeOption(maintenanceFiberRef)
-            if (Option.isSome(existing)) yield* Fiber.interrupt(existing.value)
+            if (Option.isSome(existing)) yield* Fiber.interruptFork(existing.value)
 
             const maintenanceLoop = Effect.gen(function* () {
               const wasBusy = yield* maintenanceHandler().pipe(
@@ -204,13 +213,18 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
           Effect.gen(function* () {
             MutableRef.set(isRunningRef, false)
             cancelScheduledFrame()
+            // Detach ALL refs before any interruption so a stop() cut short by
+            // its best-effort quit timeout never leaves half the state behind
+            // for the next session to trip over.
             const processingFiber = Option.getOrNull(yield* takeOption(processingFiberRef))
-            if (processingFiber !== null) yield* Fiber.interrupt(processingFiber)
             const frameQueue = Option.getOrNull(yield* takeOption(frameQueueRef))
-            if (frameQueue !== null) yield* Queue.shutdown(frameQueue)
-            yield* Ref.set(frameHandlerRef, Option.none())
             const maintenanceFiber = Option.getOrNull(yield* takeOption(maintenanceFiberRef))
-            if (maintenanceFiber !== null) yield* Fiber.interrupt(maintenanceFiber)
+            yield* Ref.set(frameHandlerRef, Option.none())
+            // interruptFork: never block quit-to-title on a fiber that is slow
+            // to acknowledge interruption — it dies in the background.
+            if (processingFiber !== null) yield* Fiber.interruptFork(processingFiber)
+            if (frameQueue !== null) yield* Queue.shutdown(frameQueue)
+            if (maintenanceFiber !== null) yield* Fiber.interruptFork(maintenanceFiber)
             yield* Effect.log('Game loop stopped')
           }),
 
