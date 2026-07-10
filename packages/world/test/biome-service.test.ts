@@ -96,7 +96,9 @@ describe('buildSampledBiomeData', () => {
       continentalness: 0.3,
       erosion: 0.4,
       weirdness: 0.2,
-      riverNoise: 1,
+      // Outside the river band (0.5±width) AND below the flower-forest
+      // promotion threshold (0.8) so plain FOREST classification is exercised.
+      riverNoise: 0.65,
     })
 
     expect(result).toEqual({

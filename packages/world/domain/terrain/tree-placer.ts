@@ -147,6 +147,7 @@ export const selectTreeArchetype = (
     case 'BEACH':
       return roll < 0.1 ? 'ROUND_OAK' : 'TALL_BIRCH'
     case 'FOREST':
+    case 'FLOWER_FOREST':
       if (highland && roll > 0.72) return 'SPRUCE'
       return roll < 0.42 ? 'TALL_BIRCH' : 'ROUND_OAK'
     case 'PLAINS':

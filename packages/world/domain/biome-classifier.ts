@@ -133,6 +133,13 @@ export const classifyBiomeFromClimate = ({
     return 'TAIGA'
   }
 
+  // Flower forest: a rare FOREST variant. Reuses the river-noise channel far
+  // outside the river band (RIVER_CENTER±HALF_WIDTH) as a cheap independent
+  // patchiness signal — no extra noise sample per column.
+  if (baseBiome === 'FOREST' && riverNoise > 0.8) {
+    return 'FLOWER_FOREST'
+  }
+
   return baseBiome
 }
 

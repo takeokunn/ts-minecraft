@@ -4,6 +4,8 @@ export const BIOME_PROPERTIES: Readonly<Record<BiomeType, BiomeProperties>> = {
   PLAINS: { surfaceBlock: 'GRASS', subSurfaceBlock: 'DIRT', treeDensity: 0.01, temperature: 0.50, humidity: 0.30 },
   DESERT: { surfaceBlock: 'SAND', subSurfaceBlock: 'SAND', treeDensity: 0.00, temperature: 0.90, humidity: 0.10 },
   FOREST: { surfaceBlock: 'GRASS', subSurfaceBlock: 'DIRT', treeDensity: 0.30, temperature: 0.50, humidity: 0.60 },
+  // Rare FOREST variant: sparse trees, dense flower carpet (vanilla Flower Forest).
+  FLOWER_FOREST: { surfaceBlock: 'GRASS', subSurfaceBlock: 'DIRT', treeDensity: 0.05, temperature: 0.55, humidity: 0.62 },
   OCEAN: { surfaceBlock: 'SAND', subSurfaceBlock: 'SAND', treeDensity: 0.00, temperature: 0.50, humidity: 0.90 },
   MOUNTAINS: { surfaceBlock: 'STONE', subSurfaceBlock: 'STONE', treeDensity: 0.02, temperature: 0.30, humidity: 0.40 },
   SNOW: { surfaceBlock: 'SNOW', subSurfaceBlock: 'DIRT', treeDensity: 0.05, temperature: 0.10, humidity: 0.50 },

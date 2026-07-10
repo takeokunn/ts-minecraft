@@ -1,7 +1,7 @@
 import { Schema } from 'effect'
 import { BlockTypeSchema } from '@ts-minecraft/core'
 
-export const BiomeTypeSchema = Schema.Literal('PLAINS', 'DESERT', 'FOREST', 'OCEAN', 'MOUNTAINS', 'SNOW', 'SWAMP', 'JUNGLE', 'BEACH', 'RIVER', 'TAIGA', 'SAVANNA')
+export const BiomeTypeSchema = Schema.Literal('PLAINS', 'DESERT', 'FOREST', 'FLOWER_FOREST', 'OCEAN', 'MOUNTAINS', 'SNOW', 'SWAMP', 'JUNGLE', 'BEACH', 'RIVER', 'TAIGA', 'SAVANNA')
 export type BiomeType = Schema.Schema.Type<typeof BiomeTypeSchema>
 
 // baseHeight/heightModifier removed in Phase 2.1 — height derives from continentalness/erosion/pv noise now.

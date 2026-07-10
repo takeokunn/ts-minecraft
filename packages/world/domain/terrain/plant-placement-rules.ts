@@ -99,6 +99,12 @@ export const selectGroundPlantBlockIndex = (biome: BiomeType, wx: number, wz: nu
     if (variant < 0.2) return POPPY_BLOCK_INDEX
     return variant < 0.55 ? FERN_BLOCK_INDEX : TALL_GRASS_BLOCK_INDEX
   }
+  if (biome === 'FLOWER_FOREST') {
+    // Flower-dominated ground cover (vanilla flower forests are mostly blooms).
+    if (variant < 0.4) return DANDELION_BLOCK_INDEX
+    if (variant < 0.75) return POPPY_BLOCK_INDEX
+    return TALL_GRASS_BLOCK_INDEX
+  }
   if (biome === 'PLAINS' || biome === 'SAVANNA') {
     if (variant < 0.12) return DANDELION_BLOCK_INDEX
     if (variant < 0.22) return POPPY_BLOCK_INDEX

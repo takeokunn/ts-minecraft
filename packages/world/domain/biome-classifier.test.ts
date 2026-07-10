@@ -127,3 +127,27 @@ describe('refineBeachBiome', () => {
     expect(refineBeachBiome(biome, neighboringBiomes, continentalness)).toBe(expected)
   })
 })
+
+describe('flower forest promotion', () => {
+  const forestClimate = {
+    temperature: 0.5,
+    humidity: 0.75,
+    continentalness: 0.1,
+    erosion: 0.5,
+    pv: 0,
+    riverNoise: 0.5,
+  }
+
+  it('promotes a FOREST column to FLOWER_FOREST in the high river-noise band', () => {
+    expect(classifyBiomeFromClimate({ ...forestClimate, riverNoise: 0.9 })).toBe('FLOWER_FOREST')
+  })
+
+  it('keeps plain FOREST outside the band', () => {
+    // riverNoise 0.6 is outside the river band (0.5±width) AND below the flower threshold.
+    expect(classifyBiomeFromClimate({ ...forestClimate, riverNoise: 0.6 })).toBe('FOREST')
+  })
+
+  it('never promotes non-forest biomes', () => {
+    expect(classifyBiomeFromClimate({ ...forestClimate, humidity: 0.1, riverNoise: 0.9 })).not.toBe('FLOWER_FOREST')
+  })
+})

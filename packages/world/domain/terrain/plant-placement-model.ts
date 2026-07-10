@@ -50,6 +50,7 @@ export const CACTUS_DENSITY_BY_BIOME: Partial<Record<BiomeType, number>> = {
 export const GROUND_PLANT_DENSITY_BY_BIOME: Partial<Record<BiomeType, number>> = {
   PLAINS: 0.22,
   FOREST: 0.14,
+  FLOWER_FOREST: 0.42,
   SWAMP: 0.1,
   JUNGLE: 0.18,
   TAIGA: 0.12,
