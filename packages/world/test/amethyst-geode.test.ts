@@ -6,7 +6,6 @@ import {
   GEODE_MIN_RADIUS,
   GEODE_CENTER_MAX_Y,
   GEODE_CENTER_MIN_Y,
-  GEODE_REGION_SIZE,
   geodeSiteForRegion,
   writeAmethystGeodeForChunk,
 } from '../domain/terrain/amethyst-geode'
