@@ -96,16 +96,45 @@ export const propagatePower = (
     const torchAttachmentKey = currentComponent !== null && currentComponent.type === RedstoneComponentType.Torch
       ? positionKey(torchAttachmentPosition(currentComponent))
       : null
+    // Diodes emit at their FRONT cell only — power never leaves a repeater/
+    // comparator sideways or backwards.
+    const isDiode = currentComponent !== null
+      && (currentComponent.type === RedstoneComponentType.Repeater
+        || currentComponent.type === RedstoneComponentType.Comparator)
+    const diodeFrontKey = isDiode
+      ? (() => {
+          const facing = currentComponent.state.pistonFacing ?? 'east'
+          const offset = REPEATER_FACING_OFFSETS[facing]
+          const base = toBlockPosition(currentComponent.position)
+          return positionKey({ x: base.x + offset.x, y: base.y + offset.y, z: base.z + offset.z })
+        })()
+      : null
     for (const neighborPosition of neighborsOf(position)) {
       const neighborKey = positionKey(neighborPosition)
       // Torches never power their own attachment cell (vanilla; also the
       // stability condition for NOT-gate inversion).
       if (torchAttachmentKey !== null && neighborKey === torchAttachmentKey) continue
+      if (diodeFrontKey !== null && neighborKey !== diodeFrontKey) continue
       const neighborOpt = HashMap.get(components, neighborKey)
       const neighborComponent = Option.getOrNull(neighborOpt)
-      if (neighborComponent !== null && canConduct(neighborComponent.type)) {
-        queue.push({ key: neighborKey, power: current.power - 1 })
+      if (neighborComponent === null || !canConduct(neighborComponent.type)) continue
+      // Diodes accept power at their REAR cell only (directional input).
+      if (neighborComponent.type === RedstoneComponentType.Repeater
+        || neighborComponent.type === RedstoneComponentType.Comparator) {
+        const nFacing = neighborComponent.state.pistonFacing ?? 'east'
+        const nOffset = REPEATER_FACING_OFFSETS[nFacing]
+        const nBase = toBlockPosition(neighborComponent.position)
+        const rearKey = positionKey({ x: nBase.x - nOffset.x, y: nBase.y - nOffset.y, z: nBase.z - nOffset.z })
+        if (current.key !== rearKey) continue
       }
+      // Vanilla wire never conducts straight up/down between stacked wires.
+      if (currentComponent !== null
+        && currentComponent.type === RedstoneComponentType.Wire
+        && neighborComponent.type === RedstoneComponentType.Wire
+        && neighborPosition.x === position.x && neighborPosition.z === position.z) {
+        continue
+      }
+      queue.push({ key: neighborKey, power: current.power - 1 })
     }
   }
 

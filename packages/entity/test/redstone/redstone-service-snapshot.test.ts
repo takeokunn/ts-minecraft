@@ -179,4 +179,29 @@ describe('redstone/redstone-service', () => {
       expect(Option.getOrNull(repeaterAfter)?.state.active).toBe(true)
     }).pipe(Effect.provide(RedstoneService.Default))
   )
+
+  it.effect('diode directionality: side input never passes a repeater; stacked wires never conduct vertically', () =>
+    Effect.gen(function* () {
+      const redstone = yield* RedstoneService
+
+      // Lever feeds the SIDE of an east-facing repeater — no output may appear.
+      yield* redstone.setComponent({ x: 1, y: 64, z: 1 }, RedstoneComponentType.Lever)
+      yield* redstone.setComponent({ x: 1, y: 64, z: 0 }, RedstoneComponentType.Repeater, { pistonFacing: 'east' })
+      yield* redstone.setComponent({ x: 2, y: 64, z: 0 }, RedstoneComponentType.Wire)
+      // Stacked wires: powered lower wire must not light the wire directly above.
+      yield* redstone.setComponent({ x: 5, y: 64, z: 0 }, RedstoneComponentType.Lever)
+      yield* redstone.setComponent({ x: 6, y: 64, z: 0 }, RedstoneComponentType.Wire)
+      yield* redstone.setComponent({ x: 6, y: 65, z: 0 }, RedstoneComponentType.Wire)
+
+      yield* redstone.toggleLever({ x: 1, y: 64, z: 1 })
+      yield* redstone.toggleLever({ x: 5, y: 64, z: 0 })
+      yield* redstone.tick()
+      yield* redstone.tick()
+      yield* redstone.tick()
+
+      expect(yield* redstone.getPowerAt({ x: 2, y: 64, z: 0 })).toBe(0) // side-fed diode emits nothing
+      expect(yield* redstone.getPowerAt({ x: 6, y: 64, z: 0 })).toBe(14) // lower wire lit
+      expect(yield* redstone.getPowerAt({ x: 6, y: 65, z: 0 })).toBe(0) // no vertical leak
+    }).pipe(Effect.provide(RedstoneService.Default))
+  )
 })
