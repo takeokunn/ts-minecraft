@@ -22,6 +22,7 @@ const DEFAULT_SETTINGS: Settings = {
   reducedMotion: false,
   uiScale: 1,
   colorVisionMode: 'off',
+  audioCaptionsEnabled: false,
   keyBindings: {},
   fov: 75,
   // 'low' renders at HALF resolution (pixelRatioCap 0.5) with no sky and no

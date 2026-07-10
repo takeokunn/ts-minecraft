@@ -14,6 +14,7 @@ export type SettingsOverlayDom = {
   readonly fovInput: Option.Option<HTMLInputElement>
   readonly dayLengthInput: Option.Option<HTMLInputElement>
   readonly audioEnabledInput: Option.Option<HTMLInputElement>
+  readonly audioCaptionsInput: Option.Option<HTMLInputElement>
   readonly masterVolumeInput: Option.Option<HTMLInputElement>
   readonly sfxVolumeInput: Option.Option<HTMLInputElement>
   readonly musicVolumeInput: Option.Option<HTMLInputElement>
@@ -97,6 +98,7 @@ export const buildSettingsOverlayDom = (dom: DomOperationsService): SettingsOver
       fovInput: Option.none<HTMLInputElement>(),
       dayLengthInput: Option.none<HTMLInputElement>(),
       audioEnabledInput: Option.none<HTMLInputElement>(),
+      audioCaptionsInput: Option.none<HTMLInputElement>(),
       masterVolumeInput: Option.none<HTMLInputElement>(),
       sfxVolumeInput: Option.none<HTMLInputElement>(),
       musicVolumeInput: Option.none<HTMLInputElement>(),
@@ -188,6 +190,10 @@ export const buildSettingsOverlayDom = (dom: DomOperationsService): SettingsOver
       <input id="audio-enabled-input" type="checkbox" style="margin:0">
       <span>Audio Enabled</span>
     </label>
+    <label style="${labelRowCss};margin-bottom:8px">
+      <input id="audio-captions-input" type="checkbox" style="margin:0">
+      <span>Show sound captions</span>
+    </label>
     <label style="${labelBlockCss};margin-bottom:8px">
       Master Volume: <span id="mv-val">100%</span>
       <input id="mv-input" type="range" min="0" max="1" step="0.05" value="1"
@@ -249,6 +255,7 @@ export const buildSettingsOverlayDom = (dom: DomOperationsService): SettingsOver
     fovInput: dom.querySelector<HTMLInputElement>(el, '#fov-input'),
     dayLengthInput: dom.querySelector<HTMLInputElement>(el, '#dl-input'),
     audioEnabledInput: dom.querySelector<HTMLInputElement>(el, '#audio-enabled-input'),
+    audioCaptionsInput: dom.querySelector<HTMLInputElement>(el, '#audio-captions-input'),
     masterVolumeInput: dom.querySelector<HTMLInputElement>(el, '#mv-input'),
     sfxVolumeInput: dom.querySelector<HTMLInputElement>(el, '#sv-input'),
     musicVolumeInput: dom.querySelector<HTMLInputElement>(el, '#muv-input'),

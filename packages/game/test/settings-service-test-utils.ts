@@ -28,6 +28,7 @@ export const DEFAULT_SETTINGS = {
   reducedMotion: false,
   uiScale: 1,
   colorVisionMode: 'off',
+  audioCaptionsEnabled: false,
   keyBindings: {},
   graphicsQuality: 'medium', // balanced default — must match settings-service.ts DEFAULT_SETTINGS
   adaptivePerformanceMode: true,

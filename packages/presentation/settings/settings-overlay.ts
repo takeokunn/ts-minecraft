@@ -21,6 +21,7 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
         fovInput,
         dayLengthInput,
         audioEnabledInput,
+        audioCaptionsInput,
         masterVolumeInput,
         sfxVolumeInput,
         musicVolumeInput,
@@ -86,6 +87,7 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
           fov: parseFloat(Option.getOrNull(fovInput)?.value ?? '75'),
           dayLengthSeconds: parseInt(Option.getOrNull(dayLengthInput)?.value ?? '400', 10),
           audioEnabled: Option.getOrNull(audioEnabledInput)?.checked ?? false,
+          audioCaptionsEnabled: Option.getOrNull(audioCaptionsInput)?.checked ?? false,
           masterVolume: parseFloat(Option.getOrNull(masterVolumeInput)?.value ?? '0.8'),
           sfxVolume: parseFloat(Option.getOrNull(sfxVolumeInput)?.value ?? '1'),
           musicVolume: parseFloat(Option.getOrNull(musicVolumeInput)?.value ?? '0.55'),
@@ -199,6 +201,8 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
             syncInputAndLabel(dayLengthInput, '#dl-val', String(settings.dayLengthSeconds))
             const aeInput = Option.getOrNull(audioEnabledInput)
             if (aeInput !== null) aeInput.checked = settings.audioEnabled
+            const acInput = Option.getOrNull(audioCaptionsInput)
+            if (acInput !== null) acInput.checked = settings.audioCaptionsEnabled
             syncInputAndLabel(masterVolumeInput, '#mv-val', String(settings.masterVolume), formatVolumePercent)
             syncInputAndLabel(sfxVolumeInput, '#sv-val', String(settings.sfxVolume), formatVolumePercent)
             syncInputAndLabel(musicVolumeInput, '#muv-val', String(settings.musicVolume), formatVolumePercent)
@@ -407,6 +411,7 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
         Option.getOrNull(fovInput)?.addEventListener('input', handleFovInput)
         Option.getOrNull(dayLengthInput)?.addEventListener('input', handleDlInput)
         Option.getOrNull(audioEnabledInput)?.addEventListener('change', handleAudioEnabledChange)
+        Option.getOrNull(audioCaptionsInput)?.addEventListener('change', handleAdaptivePerformanceChange)
         Option.getOrNull(masterVolumeInput)?.addEventListener('input', handleMasterVolumeInput)
         Option.getOrNull(sfxVolumeInput)?.addEventListener('input', handleSfxVolumeInput)
         Option.getOrNull(musicVolumeInput)?.addEventListener('input', handleMusicVolumeInput)
@@ -429,6 +434,7 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
         Option.getOrNull(fovInput)?.removeEventListener('input', handleFovInput)
         Option.getOrNull(dayLengthInput)?.removeEventListener('input', handleDlInput)
         Option.getOrNull(audioEnabledInput)?.removeEventListener('change', handleAudioEnabledChange)
+        Option.getOrNull(audioCaptionsInput)?.removeEventListener('change', handleAdaptivePerformanceChange)
         Option.getOrNull(masterVolumeInput)?.removeEventListener('input', handleMasterVolumeInput)
         Option.getOrNull(sfxVolumeInput)?.removeEventListener('input', handleSfxVolumeInput)
         Option.getOrNull(musicVolumeInput)?.removeEventListener('input', handleMusicVolumeInput)

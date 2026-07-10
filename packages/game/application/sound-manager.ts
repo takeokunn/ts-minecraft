@@ -2,6 +2,7 @@ import { Effect, Ref } from 'effect'
 import * as Option from 'effect/Option'
 import type { Position } from '@ts-minecraft/core'
 import { AudioEnginePort } from '../domain/audio-engine-port'
+import { SoundCaptionPort } from './sound-caption-port'
 import { DEFAULT_LISTENER_POSITION } from './sound-manager.config'
 import { resolveSoundEffectPlaybackRequest } from './sound-manager-playback'
 import type { SoundEffect, SoundSettings } from './sound-manager.types'
@@ -14,6 +15,7 @@ export class SoundManager extends Effect.Service<SoundManager>()(
   {
     effect: Effect.gen(function* () {
       const audioEngine = yield* AudioEnginePort
+      const captions = yield* SoundCaptionPort
       const enabledRef = yield* Ref.make(true)
       const masterVolumeRef = yield* Ref.make(0.8)
       const sfxVolumeRef = yield* Ref.make(1.0)
@@ -39,6 +41,11 @@ export class SoundManager extends Effect.Service<SoundManager>()(
           },
         ): Effect.Effect<void, never> =>
           Effect.gen(function* () {
+            // Captions fire BEFORE the audio-enabled gate on purpose: they exist
+            // for players who play muted or can't hear — gating them on audio
+            // being on would hide them from exactly the users they serve. The
+            // caption HUD itself is opt-in via the audioCaptionsEnabled setting.
+            yield* captions.announce(effect)
             const enabled = yield* Ref.get(enabledRef)
             const listenerPosition = yield* Ref.get(listenerPositionRef)
             const sfxVolume = yield* Ref.get(sfxVolumeRef)

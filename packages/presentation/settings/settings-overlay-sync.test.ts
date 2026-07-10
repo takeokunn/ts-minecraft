@@ -134,6 +134,7 @@ describe('presentation/settings/settings-overlay', () => {
           reducedMotion: false,
           uiScale: 1,
           colorVisionMode: 'off',
+          audioCaptionsEnabled: false,
           keyBindings: {},
         })
       }).pipe(Effect.provide(TestLayer))
@@ -168,6 +169,7 @@ describe('presentation/settings/settings-overlay', () => {
           reducedMotion: false,
           uiScale: 1,
           colorVisionMode: 'off',
+          audioCaptionsEnabled: false,
           keyBindings: {},
         })
       }).pipe(Effect.provide(TestLayer))

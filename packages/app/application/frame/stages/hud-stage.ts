@@ -8,11 +8,12 @@ import type { FrameHudServices } from '@ts-minecraft/app/frame/frame-service-typ
 import type { FrameSettingsServices } from '@ts-minecraft/app/frame/frame-service-types/settings'
 import { decideAdaptiveQuality } from '@ts-minecraft/app/frame/frame-adaptive-quality'
 import type { DeltaTimeSecs } from '@ts-minecraft/core'
-import { applyColorVisionMode, applyHudScale, getAttackSwingOffset, isGameplayHudHidden } from '@ts-minecraft/presentation'
+import { applyColorVisionMode, applyHudScale, getAttackSwingOffset, isGameplayHudHidden, setSoundCaptionsEnabled } from '@ts-minecraft/presentation'
 
 // Change-gates for accessibility DOM writes (visual-only module scratch).
 let lastAppliedUiScale = Number.NaN
 let lastAppliedColorVisionMode: string | null = null
+let lastAppliedAudioCaptionsEnabled: boolean | null = null
 
 export const hudStage = (
   deps: Pick<FrameHandlerDeps, 'renderer'>,
@@ -34,6 +35,10 @@ export const hudStage = (
     if (inputs.currentSettings.colorVisionMode !== lastAppliedColorVisionMode) {
       lastAppliedColorVisionMode = inputs.currentSettings.colorVisionMode
       applyColorVisionMode(inputs.currentSettings.colorVisionMode)
+    }
+    if (inputs.currentSettings.audioCaptionsEnabled !== lastAppliedAudioCaptionsEnabled) {
+      lastAppliedAudioCaptionsEnabled = inputs.currentSettings.audioCaptionsEnabled
+      setSoundCaptionsEnabled(inputs.currentSettings.audioCaptionsEnabled)
     }
     const debugFlags = inputs.debugFlags
 

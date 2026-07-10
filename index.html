@@ -121,8 +121,30 @@
       body.hud-hidden #xp-display,
       body.hud-hidden #survival-hud,
       body.hud-hidden #crosshair,
+      body.hud-hidden #sound-captions,
       body.hud-hidden #debug-overlay {
         display: none !important;
+      }
+
+      #sound-captions {
+        position: fixed;
+        right: 12px;
+        bottom: 96px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        align-items: flex-end;
+        pointer-events: none;
+        z-index: 10;
+      }
+
+      .sound-caption-row {
+        background: rgba(0, 0, 0, 0.6);
+        color: #f0f0f0;
+        font: 12px/1.4 monospace;
+        padding: 3px 8px;
+        border-left: 3px solid #e8c040;
+        text-shadow: 1px 1px 0 #000;
       }
 
       #autosave-status {
@@ -418,6 +440,7 @@
       FPS: <span id="fps-value">0</span>
     </div>
     <div id="autosave-status" role="status" aria-live="polite" aria-atomic="true"></div>
+    <div id="sound-captions" role="log" aria-live="polite" aria-label="Sound captions"></div>
     <div id="effects-display" aria-label="Active effects"></div>
     <div id="survival-hud">
       <div id="armor-display" class="hud-meter" aria-label="Armor">

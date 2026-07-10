@@ -61,6 +61,8 @@ export const SettingsSchema = Schema.Struct({
   // Accessibility: colorblind correction filter for the world canvas.
   // optionalWith default keeps previously-saved settings decodable.
   colorVisionMode: Schema.optionalWith(ColorVisionMode, { default: () => 'off' as const }),
+  // Accessibility: on-screen captions for sound cues (works even with audio off).
+  audioCaptionsEnabled: Schema.optionalWith(Schema.Boolean, { default: () => false }),
   // Accessibility: player key rebinds (action name -> KeyboardEvent.code).
   // Partial overrides — unbound actions keep their defaults.
   keyBindings: Schema.optionalWith(Schema.Record({ key: Schema.String, value: Schema.String }), { default: () => ({}) }),

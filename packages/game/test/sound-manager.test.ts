@@ -2,7 +2,7 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Effect, Layer, MutableRef } from 'effect'
 import { AudioEnginePort, type AudioEnginePortShape, type ToneRequest } from '@ts-minecraft/game'
-import { SoundManager } from '@ts-minecraft/game'
+import { SoundCaptionPort, type SoundEffect, SoundManager } from '@ts-minecraft/game'
 import { SOUND_LIBRARY } from '../application/sound-manager.config'
 
 const makeFakeAudioEngine = () => {
@@ -32,9 +32,12 @@ const makeFakeAudioEngine = () => {
   return { engine, playRequests, stoppedToneIds, masterGains }
 }
 
-const makeSoundLayer = (engine: AudioEnginePortShape) =>
+const makeSoundLayer = (engine: AudioEnginePortShape, announced: SoundEffect[] = []) =>
   SoundManager.Default.pipe(
     Layer.provide(Layer.succeed(AudioEnginePort, engine)),
+    Layer.provide(Layer.succeed(SoundCaptionPort, {
+      announce: (effect) => Effect.sync(() => { announced.push(effect) }),
+    })),
   )
 
 describe('audio/sound-manager', () => {
@@ -222,6 +225,19 @@ describe('audio/sound-manager', () => {
       yield* soundManager.playEffect('playerHurt')
       expect(fake.playRequests).toHaveLength(0)
     }).pipe(Effect.provide(makeSoundLayer(fake.engine)))
+  })
+
+  it.effect('announces captions even while audio is disabled (hearing accessibility)', () => {
+    const fake = makeFakeAudioEngine()
+    const announced: SoundEffect[] = []
+    return Effect.gen(function* () {
+      const soundManager = yield* SoundManager
+      yield* soundManager.applySettings({ enabled: false, masterVolume: 1, sfxVolume: 1 })
+      yield* soundManager.playEffect('playerHurt')
+      yield* soundManager.playEffect('thunderClap')
+      expect(fake.playRequests).toHaveLength(0)
+      expect(announced).toEqual(['playerHurt', 'thunderClap'])
+    }).pipe(Effect.provide(makeSoundLayer(fake.engine, announced)))
   })
 
   it.effect('getState returns the current enabled flag, volumes, and listener position', () => {

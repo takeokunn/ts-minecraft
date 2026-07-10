@@ -21,6 +21,7 @@ describe('application/settings/settings-service', () => {
   reducedMotion: false,
   uiScale: 1,
   colorVisionMode: 'off',
+  audioCaptionsEnabled: false,
   keyBindings: {},
       graphicsQuality: 'medium' as const,
       adaptivePerformanceMode: true,
@@ -60,6 +61,7 @@ describe('application/settings/settings-service', () => {
   reducedMotion: false,
   uiScale: 1,
   colorVisionMode: 'off',
+  audioCaptionsEnabled: false,
   keyBindings: {},
         graphicsQuality: 'medium',
         adaptivePerformanceMode: false,
@@ -97,6 +99,7 @@ describe('application/settings/settings-service', () => {
         reducedMotion: false,
         uiScale: 1,
         colorVisionMode: 'off',
+        audioCaptionsEnabled: false,
         keyBindings: {},
       })
     })
