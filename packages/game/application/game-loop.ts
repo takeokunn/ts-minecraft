@@ -76,6 +76,14 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
       // Holds the current processing fiber (None when stopped)
       const processingFiberRef = yield* Ref.make<Option.Option<Fiber.RuntimeFiber<void, never>>>(Option.none())
       const maintenanceFiberRef = yield* Ref.make<Option.Option<Fiber.RuntimeFiber<void, never>>>(Option.none())
+      // Cooperative teardown for maintenance loops: every start/stop bumps the
+      // generation, and each loop only repeats while the generation it was born
+      // with is still current. This BOUNDS a stale loop's lifetime to one
+      // iteration even when Fiber.interrupt is pending on a deep suspension
+      // (a heavy chunk-streaming iteration can hold many seconds of queued
+      // worker awaits — the observed ">15s zombie" was interruption waiting
+      // for that iteration to unwind, not a stuck fiber).
+      const maintenanceGenerationRef = yield* Effect.sync(() => MutableRef.make(0))
       const frameHandlerRef = yield* Ref.make<Option.Option<FrameHandler>>(Option.none())
       const isRunningRef = yield* Effect.sync(() => MutableRef.make(false))
       const animationFrameIdRef = yield* Effect.sync(() => MutableRef.make<Option.Option<number>>(Option.none()))
@@ -154,6 +162,10 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
           Effect.gen(function* () {
             MutableRef.set(isRunningRef, false)
             cancelScheduledFrame()
+            // Invalidate every live maintenance generation FIRST: even if the
+            // interruptFork below lands slowly (deep suspension), the loop
+            // exits cooperatively at its next iteration boundary.
+            yield* Effect.sync(() => MutableRef.update(maintenanceGenerationRef, (generation) => generation + 1))
             const processingFiber = Option.getOrNull(yield* takeOption(processingFiberRef))
             // interruptFork: pause runs from the page-visibility handler; a fiber
             // that is slow to acknowledge interruption must not hang it.
@@ -189,8 +201,11 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
             // forever (save & quit → load hang).
             const existing = yield* takeOption(maintenanceFiberRef)
             if (Option.isSome(existing)) yield* Fiber.interruptFork(existing.value)
+            const myGeneration = yield* Effect.sync(() =>
+              MutableRef.updateAndGet(maintenanceGenerationRef, (generation) => generation + 1),
+            )
 
-            const maintenanceLoop = Effect.gen(function* () {
+            const maintenanceStep = Effect.gen(function* () {
               const wasBusy = yield* maintenanceHandler().pipe(
                 Effect.catchAllCause((cause) =>
                   /* c8 ignore next -- defensive error logger: only fires on unexpected defect */
@@ -202,7 +217,13 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
               )
               /* c8 ignore next */
               yield* Effect.sleep(Duration.millis(wasBusy ? 16 : 48))
-            }).pipe(Effect.forever)
+            })
+            const maintenanceLoop = maintenanceStep.pipe(
+              // Cooperative exit at every iteration boundary — see
+              // maintenanceGenerationRef. Interruption remains the fast path.
+              Effect.repeat({ until: () => MutableRef.get(maintenanceGenerationRef) !== myGeneration }),
+              Effect.asVoid,
+            )
 
             const fiber = yield* Effect.forkDaemon(maintenanceLoop)
             yield* Ref.set(maintenanceFiberRef, Option.some(fiber))
@@ -213,6 +234,10 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
           Effect.gen(function* () {
             MutableRef.set(isRunningRef, false)
             cancelScheduledFrame()
+            // Invalidate every live maintenance generation FIRST: even if the
+            // interruptFork below lands slowly (deep suspension), the loop
+            // exits cooperatively at its next iteration boundary.
+            yield* Effect.sync(() => MutableRef.update(maintenanceGenerationRef, (generation) => generation + 1))
             // Detach ALL refs before any interruption so a stop() cut short by
             // its best-effort quit timeout never leaves half the state behind
             // for the next session to trip over.

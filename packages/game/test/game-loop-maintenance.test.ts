@@ -75,6 +75,38 @@ describe('application/game-loop', () => {
       }).pipe(Effect.provide(TestLayer))
     )
 
+    // The observed ">15s zombie": a stale maintenance loop kept running while
+    // Fiber.interruptFork waited on a deep suspension inside one heavy
+    // iteration. The generation gate bounds a stale loop to ONE iteration —
+    // the loop must stop cooperatively even if interruption never lands.
+    it.live('a superseded maintenance loop exits at its next iteration boundary (generation gate)', () =>
+      Effect.gen(function* () {
+        const service = yield* GameLoopService
+        const firstCalls = yield* Ref.make(0)
+        const secondCalls = yield* Ref.make(0)
+
+        yield* service.startMaintenance(() =>
+          Ref.update(firstCalls, (n) => n + 1).pipe(Effect.as(true)),
+        )
+        yield* Effect.sleep(40)
+        // Restart (new world): the OLD loop must stop within one iteration.
+        yield* service.startMaintenance(() =>
+          Ref.update(secondCalls, (n) => n + 1).pipe(Effect.as(true)),
+        )
+        yield* Effect.sleep(50)
+        const firstAfterRestart = yield* Ref.get(firstCalls)
+        yield* Effect.sleep(60)
+        expect(yield* Ref.get(firstCalls)).toBe(firstAfterRestart) // old loop is dead
+        expect(yield* Ref.get(secondCalls)).toBeGreaterThan(0) // new loop lives
+
+        yield* service.stop()
+        yield* Effect.sleep(50)
+        const secondAfterStop = yield* Ref.get(secondCalls)
+        yield* Effect.sleep(60)
+        expect(yield* Ref.get(secondCalls)).toBe(secondAfterStop) // stop() gates too
+      }).pipe(Effect.provide(TestLayer))
+    )
+
     // Re-entrant by design: the service is an app-scoped singleton reused across
     // worlds, its maintenance fiber is a daemon that survives session teardown,
     // and a best-effort quit stop() can be interrupted by its timeout before it
