@@ -61,7 +61,7 @@ describe('Phase 13 entity-system acceptance guard', () => {
       const dropsOption = yield* entityManager.applyDamage(zombieId, 20)
 
       const drops = expectSome(dropsOption)
-      expect(drops).toContainEqual({ blockType: 'ROTTEN_FLESH', count: 1 })
+      expect(drops).toContainEqual({ blockType: 'ROTTEN_FLESH', count: 1, maxCount: 2 })
       expect(yield* entityManager.getCount()).toBe(0)
     }))
   })

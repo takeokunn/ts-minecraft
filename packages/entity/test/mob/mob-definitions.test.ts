@@ -217,7 +217,7 @@ describe('mob definitions', () => {
     const def = getMobDefinition(EntityType.Zombie)
 
     it('drops vanilla-style zombie rare loot that exists in core', () => {
-      expectDrop(def, { blockType: 'ROTTEN_FLESH', count: 1 })
+      expectDrop(def, { blockType: 'ROTTEN_FLESH', count: 1, maxCount: 2 })
       expectDrop(def, { blockType: 'CARROT', count: 1, chance: 0.025 })
       expectDrop(def, { blockType: 'IRON_INGOT', count: 1, chance: 0.025 })
     })
@@ -257,7 +257,7 @@ describe('mob definitions', () => {
     })
 
     it('drops vanilla-style zombie villager rare loot that exists in core', () => {
-      expectDrop(def, { blockType: 'ROTTEN_FLESH', count: 1 })
+      expectDrop(def, { blockType: 'ROTTEN_FLESH', count: 1, maxCount: 2 })
       expectDrop(def, { blockType: 'CARROT', count: 1, chance: 0.025 })
       expectDrop(def, { blockType: 'IRON_INGOT', count: 1, chance: 0.025 })
     })
