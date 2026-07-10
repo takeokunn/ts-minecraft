@@ -21,6 +21,7 @@ import {
   updateComparators,
   updatePistons,
   updateRepeaters,
+  updateTorches,
 } from '../../domain/redstone/redstone-simulation'
 import {
   DEFAULT_BUTTON_TICKS,
@@ -55,10 +56,11 @@ const computeNextRedstoneState = (
   // Repeaters sample the PREVIOUS tick's power at their rear cell — the
   // one-tick delay falls out of the ordering. A state flip forces a
   // re-propagation so the refreshed signal spreads this tick.
-  const [componentsWithRepeaters, repeaterChanged] = updateRepeaters(state.components, state.powerByPosition)
+  const [componentsWithTorches, torchChanged] = updateTorches(state.components, state.powerByPosition)
+  const [componentsWithRepeaters, repeaterChanged] = updateRepeaters(componentsWithTorches, state.powerByPosition)
   const [componentsWithComparators, comparatorChanged] = updateComparators(componentsWithRepeaters, state.powerByPosition)
 
-  const needsPropagation = repeaterChanged || comparatorChanged || computeNeedsPropagation(
+  const needsPropagation = torchChanged || repeaterChanged || comparatorChanged || computeNeedsPropagation(
     componentsWithComparators,
     state.powerByPosition,
     state.buttonKeys,

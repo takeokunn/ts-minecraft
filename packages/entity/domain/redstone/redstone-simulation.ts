@@ -54,6 +54,17 @@ export const neighborsOf = (position: Position): ReadonlyArray<Position> => [
   { x: position.x, y: position.y, z: position.z - 1 },
 ]
 
+// A torch attaches to the cell opposite its facing (floor torches attach below).
+// It NEVER powers that cell — in vanilla a torch does not power its own support,
+// which is exactly what prevents an isolated torch from self-oscillating once
+// inversion (updateTorches) reads the support cell's power.
+export const torchAttachmentPosition = (component: RedstoneComponent): Position => {
+  const base = toBlockPosition(component.position)
+  const facing = component.state.pistonFacing
+  const offset = facing !== undefined ? REPEATER_FACING_OFFSETS[facing] : { x: 0, y: 1, z: 0 }
+  return { x: base.x - offset.x, y: base.y - offset.y, z: base.z - offset.z }
+}
+
 export const propagatePower = (
   components: HashMap.HashMap<PositionKey, RedstoneComponent>,
 ): HashMap.HashMap<PositionKey, number> => {
@@ -81,8 +92,15 @@ export const propagatePower = (
     if (current.power <= 1) continue
 
     const position = positionFromKey(current.key)
+    const currentComponent = Option.getOrNull(HashMap.get(components, current.key))
+    const torchAttachmentKey = currentComponent !== null && currentComponent.type === RedstoneComponentType.Torch
+      ? positionKey(torchAttachmentPosition(currentComponent))
+      : null
     for (const neighborPosition of neighborsOf(position)) {
       const neighborKey = positionKey(neighborPosition)
+      // Torches never power their own attachment cell (vanilla; also the
+      // stability condition for NOT-gate inversion).
+      if (torchAttachmentKey !== null && neighborKey === torchAttachmentKey) continue
       const neighborOpt = HashMap.get(components, neighborKey)
       const neighborComponent = Option.getOrNull(neighborOpt)
       if (neighborComponent !== null && canConduct(neighborComponent.type)) {
@@ -114,7 +132,7 @@ export const updatePistons = (
   return nextComponents
 }
 
-const REPEATER_FACING_OFFSETS = {
+export const REPEATER_FACING_OFFSETS = {
   east: { x: 1, y: 0, z: 0 },
   west: { x: -1, y: 0, z: 0 },
   south: { x: 0, y: 0, z: 1 },
@@ -144,6 +162,33 @@ export const updateRepeaters = (
     }
     const rearPower = Option.getOrElse(HashMap.get(powered, positionKey(rear)), () => 0)
     const nextActive = rearPower > 0
+    if (nextActive !== component.state.active) {
+      changed = true
+      nextComponents = HashMap.set(nextComponents, key, {
+        ...component,
+        state: { ...component.state, active: nextActive },
+      })
+    }
+  })
+  return [nextComponents, changed]
+}
+
+// Torch inversion (the NOT gate): a torch reads the PREVIOUS tick's power at
+// its attachment cell and is lit exactly when that cell is unpowered. The
+// one-tick delay matches vanilla torch response.
+export const updateTorches = (
+  components: HashMap.HashMap<PositionKey, RedstoneComponent>,
+  powered: HashMap.HashMap<PositionKey, number>,
+): [HashMap.HashMap<PositionKey, RedstoneComponent>, boolean] => {
+  let nextComponents = components
+  let changed = false
+  HashMap.forEach(components, (component, key) => {
+    if (component.type !== RedstoneComponentType.Torch) return
+    const attachmentPower = Option.getOrElse(
+      HashMap.get(powered, positionKey(torchAttachmentPosition(component))),
+      () => 0,
+    )
+    const nextActive = attachmentPower === 0
     if (nextActive !== component.state.active) {
       changed = true
       nextComponents = HashMap.set(nextComponents, key, {
