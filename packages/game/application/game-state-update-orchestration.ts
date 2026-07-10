@@ -1,4 +1,5 @@
 import { Clock, Effect, Option, Ref } from 'effect'
+import { isAscendingAhead, projectMinecartVelocity, resolveRailShape, RAIL_CLIMB_SPEED, type IsRailAt } from '../domain/rail-shape'
 import { DeltaTimeSecs, PhysicsBodyId, PLAYER_HALF_HEIGHT, PlayerId, Position } from '@ts-minecraft/core'
 import { ChunkManagerService } from '@ts-minecraft/world/application/chunk-manager-service'
 import { PlayerCameraStateService } from '@ts-minecraft/entity/application/camera-state'
@@ -263,8 +264,12 @@ export const runGameStateUpdate = (
       // Sample the rail cell at mid-body (physPos.y is the body center): see
       // VEHICLE_SURFACE_SAMPLE_OFFSET — true feet sit on the cell boundary and
       // jitter out on downward noise, so we sample the cell interior instead.
-      const onRail = isOnRail(physPos.x, physPos.y - VEHICLE_SURFACE_SAMPLE_OFFSET, physPos.z, chunkCache, playerCx, playerCz)
-      if (frameContext.frameMotionState.sneaking || !onRail) {
+      const railSampleY = physPos.y - VEHICLE_SURFACE_SAMPLE_OFFSET
+      const onRail = isOnRail(physPos.x, railSampleY, physPos.z, chunkCache, playerCx, playerCz)
+      // Slope tolerance: while climbing onto an ascending rail the cart
+      // briefly hovers a block above the LOWER rail — that must not dismount.
+      const onRailBelow = !onRail && isOnRail(physPos.x, railSampleY - 1, physPos.z, chunkCache, playerCx, playerCz)
+      if (frameContext.frameMotionState.sneaking || (!onRail && !onRailBelow)) {
         // Dismount parks the minecart on (or beside) its rail as a world object.
         const dismountYaw = (yield* deps.cameraState.getRotation()).yaw
         yield* deps.parkedVehicleService.park(
@@ -274,11 +279,26 @@ export const runGameStateUpdate = (
         )
         yield* Ref.set(deps.minecartingRef, false)
       } else {
-        const onPoweredRail = isOnPoweredRail(physPos.x, physPos.y - VEHICLE_SURFACE_SAMPLE_OFFSET, physPos.z, chunkCache, playerCx, playerCz)
+        const onPoweredRail = isOnPoweredRail(physPos.x, railSampleY, physPos.z, chunkCache, playerCx, playerCz)
         const boostActive = yield* Ref.get(deps.poweredRailBoostRef)
         const boost = resolveMinecartMultiplier(onPoweredRail, boostActive)
         physVel.x *= boost
         physVel.z *= boost
+        // Rail-following: constrain the boosted velocity to the rail's shape
+        // (straights lock the axis, curves redirect the turn) and climb onto
+        // an ascending rail ahead. The shape probe reuses the physics chunk
+        // cache — no service round trip on the frame hot path.
+        const railCellX = Math.floor(physPos.x)
+        const railCellY = Math.floor(onRail ? railSampleY : railSampleY - 1)
+        const railCellZ = Math.floor(physPos.z)
+        const isRailAtCell: IsRailAt = (wx, wy, wz) => isOnRail(wx + 0.5, wy + 0.5, wz + 0.5, chunkCache, playerCx, playerCz)
+        const shape = resolveRailShape(isRailAtCell, railCellX, railCellY, railCellZ)
+        const projected = projectMinecartVelocity(shape, physVel.x, physVel.z)
+        physVel.x = projected.vx
+        physVel.z = projected.vz
+        if (isAscendingAhead(isRailAtCell, railCellX, railCellY, railCellZ, physVel.x, physVel.z)) {
+          physVel.y = Math.max(physVel.y, RAIL_CLIMB_SPEED)
+        }
         yield* deps.physicsService.setVelocity(playerBodyId, physVel).pipe(Effect.catchTag('PhysicsServiceError', () => Effect.void))
       }
     }
