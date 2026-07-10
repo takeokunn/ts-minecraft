@@ -77,6 +77,7 @@ export const makeHealthService = () => ({
   tick: () => Effect.void,
   addStatusEffect: (_type: unknown, _amplifier: unknown, _durationSecs: unknown) => Effect.void,
   getStatusEffects: () => Effect.succeed([]),
+  getAbsorption: () => Effect.succeed(0),
   processFallDamage: (_y: unknown, _grounded: unknown) => Effect.succeed(0),
   reset: () => Effect.void,
 }) as unknown as InstanceType<typeof import('@ts-minecraft/entity').HealthService>

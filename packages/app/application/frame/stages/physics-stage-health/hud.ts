@@ -55,6 +55,40 @@ export const updateXpBar = (
   fillElement.style.width = `${Math.round(ratio * 1000) / 10}%`
 }
 
+// Golden absorption hearts (2 HP each) rendered above the health row; the
+// row hides entirely at 0 so the HUD carries no dead chrome without the effect.
+export const renderAbsorptionHearts = (container: HTMLElement | null, absorption: number): void => {
+  if (container === null || !('replaceChildren' in container)) return
+  const hearts = Math.max(0, Math.ceil(absorption / 2))
+  if (hearts === 0) {
+    container.replaceChildren()
+    container.setAttribute('hidden', '')
+    return
+  }
+  const doc = container.ownerDocument
+  container.removeAttribute('hidden')
+  container.replaceChildren(
+    ...Array.from({ length: hearts }, (_, i) => {
+      const icon = doc.createElement('span')
+      icon.className = 'hud-meter-icon'
+      icon.setAttribute('data-hud-icon', '')
+      // Odd pools show their trailing 1 HP as a half heart (vanilla).
+      icon.setAttribute('data-fill', absorption - i * 2 >= 2 ? 'full' : 'half')
+      return icon
+    }),
+  )
+}
+
+// The absorption row is a sibling of #health-display, not an ancestor of the
+// health value element — resolve it through the document instead of closest().
+const getAbsorptionContainer = (healthValueElement: HTMLElement | null): HTMLElement | null => {
+  if (healthValueElement === null || !('ownerDocument' in healthValueElement)) return null
+  const doc = healthValueElement.ownerDocument
+  /* c8 ignore next */
+  if (doc === null || typeof doc.getElementById !== 'function') return null
+  return doc.getElementById('absorption-display')
+}
+
 const syncHealthHud = (
   services: PhysicsStageServices,
   refs: PhysicsStageRefs,
@@ -62,14 +96,21 @@ const syncHealthHud = (
 ): Effect.Effect<void, PhysicsColumnReadError> =>
   Effect.gen(function* () {
     const health = yield* services.healthService.getHealth()
+    const absorption = yield* services.healthService.getAbsorption()
     const lastHealth = MutableRef.get(refs.lastHealthRef)
-    if (lastHealth.current !== health.current || lastHealth.max !== health.max) {
+    if (
+      lastHealth.current !== health.current
+      || lastHealth.max !== health.max
+      || lastHealth.absorption !== absorption
+    ) {
       lastHealth.current = health.current
       lastHealth.max = health.max
+      lastHealth.absorption = absorption
       yield* Effect.sync(() => {
         writeHudText(inputs.healthValueElementOrNull, health.current)
         writeHudText(inputs.healthMaxElementOrNull, health.max)
         updateIconMeter(inputs.healthValueElementOrNull, '#health-display', health.current, health.max)
+        renderAbsorptionHearts(getAbsorptionContainer(inputs.healthValueElementOrNull), absorption)
       })
     }
   })

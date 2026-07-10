@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { clamp, getHudContainer, renderStatusEffectChips, statusEffectsSignature, updateIconMeter, updateXpBar, writeHudText } from './hud'
+import { clamp, getHudContainer, renderAbsorptionHearts, renderStatusEffectChips, statusEffectsSignature, updateIconMeter, updateXpBar, writeHudText } from './hud'
 
 const makeEl = (textContent = '') => ({ textContent, style: { display: '' } } as unknown as HTMLElement)
 const makeIcon = () => ({ setAttribute: vi.fn() } as unknown as HTMLElement)
@@ -297,5 +297,62 @@ describe('renderStatusEffectChips', () => {
     renderStatusEffectChips(container, [])
     expect(created).toHaveLength(0)
     expect(replaceChildren).toHaveBeenCalledWith()
+  })
+})
+
+describe('renderAbsorptionHearts', () => {
+  type MockIcon = {
+    className: string
+    setAttribute: ReturnType<typeof vi.fn>
+  }
+
+  const makeContainer = () => {
+    const created: MockIcon[] = []
+    const replaceChildren = vi.fn()
+    const setAttribute = vi.fn()
+    const removeAttribute = vi.fn()
+    const container = {
+      replaceChildren,
+      setAttribute,
+      removeAttribute,
+      ownerDocument: {
+        createElement: vi.fn(() => {
+          const icon: MockIcon = { className: '', setAttribute: vi.fn() }
+          created.push(icon)
+          return icon
+        }),
+      },
+    } as unknown as HTMLElement
+    return { container, created, replaceChildren, setAttribute, removeAttribute }
+  }
+
+  it('does nothing when container is null', () => {
+    expect(() => renderAbsorptionHearts(null, 4)).not.toThrow()
+  })
+
+  it('hides and empties the row at zero absorption', () => {
+    const { container, created, replaceChildren, setAttribute } = makeContainer()
+    renderAbsorptionHearts(container, 0)
+    expect(created).toHaveLength(0)
+    expect(replaceChildren).toHaveBeenCalledWith()
+    expect(setAttribute).toHaveBeenCalledWith('hidden', '')
+  })
+
+  it('renders full golden hearts at 2 HP each and unhides the row', () => {
+    const { container, created, removeAttribute } = makeContainer()
+    renderAbsorptionHearts(container, 4)
+    expect(created).toHaveLength(2)
+    expect(created[0]!.className).toBe('hud-meter-icon')
+    expect(created[0]!.setAttribute).toHaveBeenCalledWith('data-fill', 'full')
+    expect(created[1]!.setAttribute).toHaveBeenCalledWith('data-fill', 'full')
+    expect(removeAttribute).toHaveBeenCalledWith('hidden')
+  })
+
+  it('shows a trailing half heart for odd pools', () => {
+    const { container, created } = makeContainer()
+    renderAbsorptionHearts(container, 3)
+    expect(created).toHaveLength(2)
+    expect(created[0]!.setAttribute).toHaveBeenCalledWith('data-fill', 'full')
+    expect(created[1]!.setAttribute).toHaveBeenCalledWith('data-fill', 'half')
   })
 })

@@ -112,6 +112,7 @@
 
       body.hud-hidden #fps-counter,
       body.hud-hidden #health-display,
+      body.hud-hidden #absorption-display,
       body.hud-hidden #hunger-display,
       body.hud-hidden #armor-display,
       body.hud-hidden #air-display,
@@ -274,12 +275,23 @@
       }
 
       #health-display .hud-meter-icon::before,
-      #health-display .hud-meter-icon::after {
+      #health-display .hud-meter-icon::after,
+      #absorption-display .hud-meter-icon::before,
+      #absorption-display .hud-meter-icon::after {
         clip-path: polygon(12.5% 0, 37.5% 0, 37.5% 12.5%, 50% 12.5%, 62.5% 0, 87.5% 0, 87.5% 12.5%, 100% 12.5%, 100% 50%, 87.5% 50%, 87.5% 62.5%, 75% 62.5%, 75% 75%, 62.5% 75%, 62.5% 87.5%, 50% 87.5%, 50% 100%, 37.5% 100%, 37.5% 87.5%, 25% 87.5%, 25% 75%, 12.5% 75%, 12.5% 62.5%, 0 62.5%, 0 12.5%, 12.5% 12.5%);
       }
 
       #health-display .hud-meter-icon {
         --icon-fill: #c81919;
+      }
+
+      /* Absorption shield hearts (golden apple): golden row above health. */
+      #absorption-display .hud-meter-icon {
+        --icon-fill: #e8c53a;
+      }
+
+      #absorption-display[hidden] {
+        display: none;
       }
 
       #health-display[data-state="warning"] .hud-meter-icon {
@@ -448,6 +460,7 @@
         <span id="armor-value" class="hud-numeric">0</span>
       </div>
       <div class="hud-row">
+        <div id="absorption-display" class="hud-meter" aria-label="Absorption hearts" hidden></div>
         <div id="health-display" class="hud-meter" data-state="normal" aria-label="Health">
           <span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span>
           <span id="health-value" class="hud-numeric">20</span><span id="health-max" class="hud-numeric">20</span>

@@ -16,7 +16,7 @@ export type FrameStageRefs = {
   readonly refractionFrameCounterRef: MutableRef.MutableRef<number>
   readonly refractionValidRef: MutableRef.MutableRef<boolean>
   readonly lastFpsTenthsRef: MutableRef.MutableRef<number>
-  readonly lastHealthRef: MutableRef.MutableRef<{ current: number; max: number }>
+  readonly lastHealthRef: MutableRef.MutableRef<{ current: number; max: number; absorption: number }>
   readonly lastHungerRef: MutableRef.MutableRef<{ foodLevel: number; max: number }>
   readonly lastXPRef: MutableRef.MutableRef<{ level: number; xpIntoLevel: number; xpRequiredForNext: number }>
   readonly lastArmorRef: MutableRef.MutableRef<{ armorPoints: number }>
