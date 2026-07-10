@@ -10,6 +10,13 @@ import type { Recipe } from '@ts-minecraft/inventory/domain/crafting'
 
 export const CRAFTING_GRID_CELLS = 9
 
+// Vanilla hand crafting is a 2×2 grid; only the top-left 2×2 of the 3×3 layout
+// (indices 0,1,3,4) accepts items without a nearby crafting table.
+export const HAND_CRAFTING_CELLS: ReadonlySet<number> = new Set([0, 1, 3, 4])
+
+export const isCraftCellUsable = (cellIndex: number, hasTableAccess: boolean): boolean =>
+  hasTableAccess || HAND_CRAFTING_CELLS.has(cellIndex)
+
 export const emptyCraftingGridCells = (): ReadonlyArray<InventorySlot> =>
   Array.from({ length: CRAFTING_GRID_CELLS }, () => Option.none())
 

@@ -76,8 +76,14 @@ export const MAX_STACK_SIZE = 64
 // unacceptable for hot-path stacking lookups (intentional perf-boundary exception).
 const NON_STACKABLE_DURABLE_ITEMS = new Set<string>(DURABLE_ITEMS)
 
+// Vanilla 16-stack tier: throwables and eggs cap at 16, not 64.
+export const SIXTEEN_STACK_SIZE = 16
+const SIXTEEN_STACK_ITEMS = new Set<string>(['SNOWBALL', 'ENDER_PEARL', 'EGG'])
+
 export const maxStackFor = (itemType: InventoryItem): number =>
-  NON_STACKABLE_DURABLE_ITEMS.has(itemType) ? 1 : MAX_STACK_SIZE
+  NON_STACKABLE_DURABLE_ITEMS.has(itemType) ? 1
+    : SIXTEEN_STACK_ITEMS.has(itemType) ? SIXTEEN_STACK_SIZE
+    : MAX_STACK_SIZE
 
 export const createStack = (itemType: InventoryItem, count = 1): ItemStack => {
   const max = maxStackFor(itemType)

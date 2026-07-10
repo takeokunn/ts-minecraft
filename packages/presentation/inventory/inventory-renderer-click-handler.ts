@@ -12,7 +12,7 @@ import {
 import { removeFromStack } from '@ts-minecraft/inventory/domain/item-stack'
 import { RecipeId, SlotIndex } from '@ts-minecraft/core'
 import { applyInventoryCursorClick, describeInventoryCursor, type InventoryCursorClickButton } from './inventory-cursor-click'
-import { consumeCraftingGridCells, findShapedGridMatch } from './crafting-grid'
+import { consumeCraftingGridCells, findShapedGridMatch, isCraftCellUsable } from './crafting-grid'
 
 export type ClickHandlerDeps = {
   readonly hasNearbyCraftingTable: () => Effect.Effect<boolean, never>
@@ -95,6 +95,9 @@ export const buildHandleDelegatedClick = (deps: ClickHandlerDeps) =>
       const button: InventoryCursorClickButton = event.type === 'contextmenu' || event.button === 2 ? 'secondary' : 'primary'
       Effect.runFork(
         Effect.gen(function* () {
+          // Vanilla: without a table only the 2×2 hand-grid cells are usable.
+          const tableAccess = yield* hasNearbyCraftingTable()
+          if (!isCraftCellUsable(cellIndex, tableAccess)) return
           const cells = yield* Ref.get(craftingGridCellsRef)
           const cell = cells[cellIndex] ?? Option.none()
           const cursor = yield* Ref.get(inventoryCursorRef)
