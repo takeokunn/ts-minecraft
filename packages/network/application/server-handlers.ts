@@ -1,7 +1,7 @@
 import { Effect, Ref } from 'effect'
 import { NetworkError } from '../domain/errors'
 import { MessageType, PlayerId, WorldId } from '../domain/schemas'
-import type { BlockBreakMessage, BlockPlaceMessage, ChatMessage, ContainerUpdateMessage, DroppedItemRemoveMessage, DroppedItemSpawnMessage, ParkedVehicleRemoveMessage, ParkedVehicleUpdateMessage, EntityDamageMessage, EntitySnapshotMessage, NetworkMessage, PlayerJoinMessage, PlayerMoveMessage } from '../domain/schemas'
+import type { BlockBreakMessage, BlockPlaceMessage, ChatMessage, ContainerUpdateMessage, DroppedItemRemoveMessage, DroppedItemSpawnMessage, ParkedVehicleRemoveMessage, ParkedVehicleUpdateMessage, ClaimDeniedMessage, EntityDamageMessage, EntitySnapshotMessage, NetworkMessage, PlayerJoinMessage, PlayerMoveMessage } from '../domain/schemas'
 import type { WebSocketConnection } from '../domain/websocket-ports'
 import { decodeNetworkMessage, sendEncodedToConnection } from './codec'
 import type { ConnectedPlayer, GameServer, ServerServiceShape } from './server-service'
@@ -285,12 +285,63 @@ export const handleContainerUpdate = (
     Effect.flatMap(() => services.serverService.broadcast(message, message.playerId)),
   )
 
-// Dropped items are transient (5-minute lifetime, constant churn): relay only,
-// no join-replay log — a late joiner misses items already on the ground.
+const claimDenied = (
+  target: ClaimDeniedMessage['target'],
+  worldId: DroppedItemRemoveMessage['worldId'],
+  ownerId: string,
+  itemId: string,
+): ClaimDeniedMessage => ({
+  type: MessageType.ClaimDenied,
+  target,
+  worldId,
+  ownerId,
+  itemId,
+  timestamp: Date.now(),
+})
+
+// Dropped items are transient (5-minute lifetime, constant churn): spawns
+// relay blindly, but removals are ARBITRATED — the first Remove for an id
+// wins, later claimers get a ClaimDenied and undo their local pickup. The
+// removed-set is pruned by insertion order so it cannot grow unbounded.
+const MAX_REMOVED_ITEM_RECORDS = 4096
+
 export const handleDroppedItemMessage = (
   services: ServerHandlerServices,
   message: DroppedItemSpawnMessage | DroppedItemRemoveMessage,
-): Effect.Effect<void, NetworkError> => services.serverService.broadcast(message, message.playerId)
+): Effect.Effect<void, NetworkError> =>
+  Effect.gen(function* () {
+    if (message.type === MessageType.DroppedItemSpawn) {
+      // A live upsert re-legitimizes the id (count-merge updates).
+      const spawnKey = `${String(message.worldId)}|${String(message.playerId)}|${message.itemId}`
+      yield* Ref.update(services.gameServer.removedDroppedItems, (removed) => {
+        if (!removed.has(spawnKey)) return removed
+        const next = new Set(removed)
+        next.delete(spawnKey)
+        return next
+      })
+      yield* services.serverService.broadcast(message, message.playerId)
+      return
+    }
+    const key = `${String(message.worldId)}|${message.ownerId}|${message.itemId}`
+    const removed = yield* Ref.get(services.gameServer.removedDroppedItems)
+    if (removed.has(key)) {
+      // Second claimer: deny, do not rebroadcast.
+      yield* services.serverService
+        .sendToPlayer(message.playerId, claimDenied('droppedItem', message.worldId, message.ownerId, message.itemId))
+        .pipe(Effect.catchAll(() => Effect.void))
+      return
+    }
+    yield* Ref.update(services.gameServer.removedDroppedItems, (current) => {
+      const next = new Set(current)
+      next.add(key)
+      if (next.size > MAX_REMOVED_ITEM_RECORDS) {
+        const first = next.values().next().value
+        if (first !== undefined) next.delete(first)
+      }
+      return next
+    })
+    yield* services.serverService.broadcast(message, message.playerId)
+  })
 
 const parkedVehicleKey = (worldId: string, ownerId: string, vehicleId: string): string =>
   `${worldId}|${ownerId}|${vehicleId}`
@@ -307,17 +358,28 @@ export const handleParkedVehicleUpdate = (
     Effect.flatMap(() => services.serverService.broadcast(message, message.playerId)),
   )
 
+// Vehicle removals are arbitrated by the live log itself: a Remove that
+// finds no entry means another claim was processed first — deny it.
 export const handleParkedVehicleRemove = (
   services: ServerHandlerServices,
   message: ParkedVehicleRemoveMessage,
 ): Effect.Effect<void, NetworkError> =>
-  Ref.update(services.gameServer.parkedVehicles, (vehicles) => {
-    const next = new Map(vehicles)
-    next.delete(parkedVehicleKey(String(message.worldId), message.ownerId, message.vehicleId))
-    return next
-  }).pipe(
-    Effect.flatMap(() => services.serverService.broadcast(message, message.playerId)),
-  )
+  Effect.gen(function* () {
+    const key = parkedVehicleKey(String(message.worldId), message.ownerId, message.vehicleId)
+    const vehicles = yield* Ref.get(services.gameServer.parkedVehicles)
+    if (!vehicles.has(key)) {
+      yield* services.serverService
+        .sendToPlayer(message.playerId, claimDenied('parkedVehicle', message.worldId, message.ownerId, message.vehicleId))
+        .pipe(Effect.catchAll(() => Effect.void))
+      return
+    }
+    yield* Ref.update(services.gameServer.parkedVehicles, (current) => {
+      const next = new Map(current)
+      next.delete(key)
+      return next
+    })
+    yield* services.serverService.broadcast(message, message.playerId)
+  })
 
 export const handleChat = (
   services: ServerHandlerServices,
@@ -390,6 +452,7 @@ export const dispatchMessage = (
       case MessageType.Ping:
         yield* handlePing(connection, message)
         return
+      case MessageType.ClaimDenied: // server -> client only; ignore if echoed
       case MessageType.Pong:
       case MessageType.Error:
         return

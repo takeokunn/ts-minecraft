@@ -36,6 +36,7 @@ import { applyHopperWorldEffects } from '@ts-minecraft/app/application/frame/sta
 import { applyDispenserWorldEffects } from '@ts-minecraft/app/application/frame/stages/redstone-dispenser-world-effects'
 import { REDSTONE_TICK_INTERVAL_SECS, FLUID_TICK_INTERVAL_SECS } from '@ts-minecraft/app/frame-handler.config'
 import { CHUNK_SIZE, type DeltaTimeSecs, type Position } from '@ts-minecraft/core'
+import { parseMirrorId, recordLocalClaim } from '@ts-minecraft/app/frame/stages/multiplayer-stage'
 
 const RENDER_DISABLED_STRUCTURE_VERSION = Number.NEGATIVE_INFINITY
 const REMOTE_ENTITY_ID_PREFIX = 'remote:'
@@ -225,7 +226,27 @@ export const entityUpdateStage = (
       Effect.gen(function* () {
         yield* services.droppedItemService.tick(1, isBlockSolid)
         const collectedItems = yield* services.droppedItemService.collectWithin(inputs.playerPos)
+        // Claim tracking: remember what we just picked up so a server
+        // ClaimDenied (a peer grabbed the same item within one round trip)
+        // can undo exactly this pickup.
+        const mpForClaims = EffectOption.getOrNull(services.multiplayer)
+        const localIdForClaims = collectedItems.length > 0 && mpForClaims !== null
+          ? yield* mpForClaims.getLocalPlayerId().pipe(Effect.catchAll(() => Effect.succeed(null)))
+          : null
         for (const item of collectedItems) {
+          if (mpForClaims !== null) {
+            const parsed = parseMirrorId(item.id)
+            const ownerId = parsed !== null ? parsed.ownerId : localIdForClaims
+            if (ownerId !== null) {
+              recordLocalClaim({
+                target: 'droppedItem',
+                ownerId,
+                itemId: parsed !== null ? parsed.itemId : item.id,
+                itemType: String(item.itemType),
+                count: item.count,
+              })
+            }
+          }
           yield* addCollectedDroppedItem(services, item)
         }
         // Pickup feedback: one bright pop + a small sparkle at the item's

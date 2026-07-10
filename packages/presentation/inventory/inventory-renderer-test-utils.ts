@@ -307,6 +307,7 @@ export const createMockGameStateLayer = () => {
     getCameraRotation: () => Effect.succeed({ yaw: 0, pitch: 0 }),
     isPlayerGrounded: () => Effect.succeed(true),
     enterBoat: () => Effect.void,
+  exitVehicle: () => Effect.void,
     isBoating: () => Effect.succeed(false),
     enterMinecart: () => Effect.void,
     isMinecarting: () => Effect.succeed(false),

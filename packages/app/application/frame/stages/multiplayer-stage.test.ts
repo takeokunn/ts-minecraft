@@ -4,6 +4,9 @@ import { aabbFromVoxel } from '@ts-minecraft/world'
 import { EntityId, EntityType } from '@ts-minecraft/entity/domain/mob/entity'
 import {
   applyInboundBlockEdits,
+  applyInboundClaimDenials,
+  recordLocalClaim,
+  resetClaimTrackingForTest,
   applyInboundContainerUpdates,
   applyInboundDroppedItems,
   applyInboundEntityDamages,
@@ -579,5 +582,55 @@ describe('parked-vehicle sync', () => {
     })
     expect(removeById).toHaveBeenCalledWith('parked-vehicle-9')
     expect(removeById).toHaveBeenCalledWith('remote:alice:parked-vehicle-3')
+  })
+})
+
+describe('claim-denied corrections', () => {
+  const denialMp = (denials: ReadonlyArray<{ target: 'droppedItem' | 'parkedVehicle'; ownerId: string; itemId: string }>) =>
+    ({ drainClaimDenials: Effect.succeed(denials) }) as unknown as MultiplayerService
+
+  it('a denied dropped-item claim removes exactly the granted pickup from the inventory', async () => {
+    resetClaimTrackingForTest()
+    recordLocalClaim({ target: 'droppedItem', ownerId: 'alice', itemId: 'dropped-item-3', itemType: 'DIAMOND', count: 2 })
+    const removeBlock = vi.fn(() => Effect.void)
+    const services = {
+      inventoryService: { removeBlock },
+      gameState: { exitVehicle: vi.fn(() => Effect.void) },
+    } as unknown as Pick<FrameHandlerServices, 'inventoryService' | 'gameState'>
+    await Effect.runPromise(applyInboundClaimDenials(denialMp([
+      { target: 'droppedItem', ownerId: 'alice', itemId: 'dropped-item-3' },
+    ]), services))
+    expect(removeBlock).toHaveBeenCalledWith('DIAMOND', 2)
+  })
+
+  it('a denied vehicle MOUNT dismounts without parking; a denied PICKUP removes the item', async () => {
+    resetClaimTrackingForTest()
+    recordLocalClaim({ target: 'parkedVehicle', ownerId: 'alice', itemId: 'parked-vehicle-1', kind: 'boat', mode: 'mount' })
+    recordLocalClaim({ target: 'parkedVehicle', ownerId: 'bob', itemId: 'parked-vehicle-2', kind: 'minecart', mode: 'pickup' })
+    const removeBlock = vi.fn(() => Effect.void)
+    const exitVehicle = vi.fn(() => Effect.void)
+    const services = {
+      inventoryService: { removeBlock },
+      gameState: { exitVehicle },
+    } as unknown as Pick<FrameHandlerServices, 'inventoryService' | 'gameState'>
+    await Effect.runPromise(applyInboundClaimDenials(denialMp([
+      { target: 'parkedVehicle', ownerId: 'alice', itemId: 'parked-vehicle-1' },
+      { target: 'parkedVehicle', ownerId: 'bob', itemId: 'parked-vehicle-2' },
+    ]), services))
+    expect(exitVehicle).toHaveBeenCalledOnce()
+    expect(removeBlock).toHaveBeenCalledWith('MINECART', 1)
+  })
+
+  it('a denial with no matching recorded claim is a no-op (stale or duplicate)', async () => {
+    resetClaimTrackingForTest()
+    const removeBlock = vi.fn(() => Effect.void)
+    const services = {
+      inventoryService: { removeBlock },
+      gameState: { exitVehicle: vi.fn(() => Effect.void) },
+    } as unknown as Pick<FrameHandlerServices, 'inventoryService' | 'gameState'>
+    await Effect.runPromise(applyInboundClaimDenials(denialMp([
+      { target: 'droppedItem', ownerId: 'nobody', itemId: 'dropped-item-99' },
+    ]), services))
+    expect(removeBlock).not.toHaveBeenCalled()
   })
 })

@@ -148,6 +148,10 @@ export class GameStateService extends Effect.Service<GameStateService>()(
         // item. Dismount happens inside the update loop (sneak or leaving
         // water) which refunds the item.
         enterBoat: (): Effect.Effect<void, never> => Ref.set(boatingRef, true),
+        // Claim-denied correction: clear the riding modality WITHOUT parking —
+        // the vehicle belongs to the winning claimer on another client.
+        exitVehicle: (): Effect.Effect<void, never> =>
+          Effect.all([Ref.set(boatingRef, false), Ref.set(minecartingRef, false)]).pipe(Effect.asVoid),
         isBoating: (): Effect.Effect<boolean, never> => Ref.get(boatingRef),
 
         // Mount: called by the right-click handler after consuming the MINECART

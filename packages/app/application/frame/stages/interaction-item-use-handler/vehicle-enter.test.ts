@@ -35,6 +35,7 @@ const makeHarness = (overrides: Overrides = {}) => {
     blockService: { getBlock: () => Effect.succeed(overrides.standingBlock ?? null) },
     soundManager: { playEffect: vi.fn(() => Effect.void) },
     inputService: { isKeyPressed: () => Effect.succeed(overrides.sneaking ?? false) },
+    multiplayer: Option.none(),
   } as unknown as VehicleEnterServices
   return { services, enterBoat, enterMinecart, park, addBlock }
 }

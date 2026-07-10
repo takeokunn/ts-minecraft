@@ -2,12 +2,33 @@ import { Effect, Option } from 'effect'
 import { DEFAULT_PLAYER_ID } from '@ts-minecraft/core'
 import { KeyMappings } from '@ts-minecraft/entity/domain/key-mappings'
 import { VEHICLE_SURFACE_SAMPLE_OFFSET } from '@ts-minecraft/game/application/game-state-update-orchestration'
+import { Option as EffectOption } from 'effect'
+import { parseMirrorId, recordLocalClaim } from '@ts-minecraft/app/frame/stages/multiplayer-stage'
 import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
 
 export type VehicleEnterServices = Pick<
   FrameHandlerServices,
-  'gameState' | 'parkedVehicleService' | 'inventoryService' | 'blockService' | 'soundManager' | 'inputService'
+  'gameState' | 'parkedVehicleService' | 'inventoryService' | 'blockService' | 'soundManager' | 'inputService' | 'multiplayer'
 >
+
+// Remember the claim so a server ClaimDenied (another player claimed the same
+// vehicle within one round trip) can undo exactly this mount/pickup.
+const trackVehicleClaim = (
+  services: Pick<VehicleEnterServices, 'multiplayer'>,
+  vehicleId: string,
+  kind: 'boat' | 'minecart',
+  mode: 'mount' | 'pickup',
+): Effect.Effect<void, never> =>
+  Effect.gen(function* () {
+    const mp = EffectOption.getOrNull(services.multiplayer)
+    if (mp === null) return
+    const parsed = parseMirrorId(vehicleId)
+    const ownerId = parsed !== null
+      ? parsed.ownerId
+      : yield* mp.getLocalPlayerId().pipe(Effect.catchAll(() => Effect.succeed(null)))
+    if (ownerId === null) return
+    recordLocalClaim({ target: 'parkedVehicle', ownerId, itemId: parsed !== null ? parsed.itemId : vehicleId, kind, mode })
+  })
 
 // How close the player must stand to a parked vehicle to interact with it.
 export const VEHICLE_INTERACT_DISTANCE = 2.5
@@ -40,6 +61,7 @@ export const handleParkedVehicleEnter = (
       const claimed = Option.getOrNull(yield* services.parkedVehicleService.claimNearest(playerPos, VEHICLE_INTERACT_DISTANCE))
       if (claimed === null) return false
       const item = claimed.kind === 'boat' ? 'BOAT' as const : 'MINECART' as const
+      yield* trackVehicleClaim(services, claimed.id, claimed.kind, 'pickup')
       const added = yield* services.inventoryService.addBlock(item, 1).pipe(
         Effect.as(true),
         Effect.catchAll(() => Effect.succeed(false)),
@@ -76,6 +98,7 @@ export const handleParkedVehicleEnter = (
       return false
     }
 
+    yield* trackVehicleClaim(services, claimed.id, claimed.kind, 'mount')
     if (claimed.kind === 'boat') yield* services.gameState.enterBoat()
     else yield* services.gameState.enterMinecart()
     yield* services.soundManager.playEffect('blockPlace', { position: claimed.position }).pipe(Effect.catchAll(() => Effect.void))

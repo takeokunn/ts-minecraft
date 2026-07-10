@@ -253,7 +253,7 @@ const mirrorDroppedItemId = (ownerId: string, itemId: string): string =>
 
 // itemId never contains ':' (locally generated `dropped-item-N`), so the last
 // colon splits owner from item even if owner ids ever contain colons.
-const parseMirrorDroppedItemId = (id: string): { readonly ownerId: string; readonly itemId: string } | null => {
+export const parseMirrorId = (id: string): { readonly ownerId: string; readonly itemId: string } | null => {
   if (!id.startsWith(MIRROR_ID_PREFIX)) return null
   const rest = id.slice(MIRROR_ID_PREFIX.length)
   const splitAt = rest.lastIndexOf(':')
@@ -305,7 +305,7 @@ export const syncDroppedItems = (
     // owner — and everyone else — to remove the original.
     for (const id of lastMirrorDroppedItemIds) {
       if (currentMirrors.has(id)) continue
-      const parsed = parseMirrorDroppedItemId(id)
+      const parsed = parseMirrorId(id)
       if (parsed === null) continue
       yield* multiplayer.sendDroppedItemRemove(parsed.ownerId, parsed.itemId).pipe(Effect.catchAll(() => Effect.void))
     }
@@ -363,7 +363,7 @@ export const applyInboundDroppedItems = (
 const parkedMirrorId = (ownerId: string, vehicleId: string): string =>
   `${MIRROR_ID_PREFIX}${ownerId}:${vehicleId}`
 
-const parseParkedMirrorId = parseMirrorDroppedItemId
+const parseParkedMirrorId = parseMirrorId
 
 let lastLocalParkedVehicles: ReadonlyMap<string, string> = new Map() // id -> position signature
 let lastMirrorParkedVehicleIds: ReadonlySet<string> = new Set()
@@ -431,6 +431,59 @@ export const applyInboundParkedVehicles = (
         lastLocalParkedVehicles = new Map([...lastLocalParkedVehicles].filter(([key]) => key !== id))
       } else {
         lastMirrorParkedVehicleIds = new Set([...lastMirrorParkedVehicleIds].filter((key) => key !== id))
+      }
+    }
+  })
+
+// ─── Claim-denied corrections ────────────────────────────────────────────────
+// The server arbitrates claims first-wins; a losing claimer receives
+// ClaimDenied and undoes its local prediction here. Claims are remembered
+// briefly (module scratch) so a denial arriving one RTT later can identify
+// exactly what to undo.
+export type PendingClaim =
+  | { readonly target: 'droppedItem'; readonly ownerId: string; readonly itemId: string; readonly itemType: string; readonly count: number }
+  | { readonly target: 'parkedVehicle'; readonly ownerId: string; readonly itemId: string; readonly kind: 'boat' | 'minecart'; readonly mode: 'mount' | 'pickup' }
+
+const MAX_PENDING_CLAIMS = 64
+let pendingClaims: ReadonlyArray<PendingClaim> = []
+export const resetClaimTrackingForTest = (): void => {
+  pendingClaims = []
+}
+
+export const recordLocalClaim = (claim: PendingClaim): void => {
+  const next = [...pendingClaims, claim]
+  pendingClaims = next.length > MAX_PENDING_CLAIMS ? next.slice(next.length - MAX_PENDING_CLAIMS) : next
+}
+
+export const applyInboundClaimDenials = (
+  multiplayer: MultiplayerService,
+  services: Pick<FrameHandlerServices, 'inventoryService' | 'gameState'>,
+): Effect.Effect<void, never> =>
+  Effect.gen(function* () {
+    const denials = yield* multiplayer.drainClaimDenials
+    for (const denial of denials) {
+      const index = pendingClaims.findIndex(
+        (claim) => claim.target === denial.target && claim.ownerId === denial.ownerId && claim.itemId === denial.itemId,
+      )
+      if (index === -1) continue // stale or already corrected
+      const claim = pendingClaims[index]!
+      pendingClaims = pendingClaims.filter((_, i) => i !== index)
+      if (claim.target === 'droppedItem') {
+        // Undo the granted pickup (best effort — consumed-within-RTT residue
+        // is accepted; the window is a single round trip).
+        if (Schema.is(InventoryItemSchema)(claim.itemType)) {
+          yield* services.inventoryService
+            .removeBlock(claim.itemType, claim.count)
+            .pipe(Effect.asVoid, Effect.catchAll(() => Effect.void))
+        }
+        continue
+      }
+      if (claim.mode === 'pickup') {
+        const item = claim.kind === 'boat' ? 'BOAT' as const : 'MINECART' as const
+        yield* services.inventoryService.removeBlock(item, 1).pipe(Effect.asVoid, Effect.catchAll(() => Effect.void))
+      } else {
+        // The winner rode away with it: dismount without parking.
+        yield* services.gameState.exitVehicle().pipe(Effect.catchAll(() => Effect.void))
       }
     }
   })

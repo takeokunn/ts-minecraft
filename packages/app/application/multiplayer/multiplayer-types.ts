@@ -74,6 +74,14 @@ export type RemoteParkedVehicleRemove = {
   readonly vehicleId: string
 }
 
+// Server verdict: our claim on someone's dropped item / parked vehicle lost
+// the race — undo the local prediction.
+export type RemoteClaimDenied = {
+  readonly target: 'droppedItem' | 'parkedVehicle'
+  readonly ownerId: string
+  readonly itemId: string
+}
+
 export type LocalEntitySnapshot = {
   readonly entityId: string
   readonly entityType: string

@@ -15,6 +15,7 @@ import type {
   RemoteContainerUpdate,
   RemoteDroppedItemRemove,
   RemoteDroppedItemSpawn,
+  RemoteClaimDenied,
   RemoteParkedVehicleRemove,
   RemoteParkedVehicleUpdate,
   RemoteEntityDamage,
@@ -32,6 +33,7 @@ export type {
   RemoteContainerUpdate,
   RemoteDroppedItemRemove,
   RemoteDroppedItemSpawn,
+  RemoteClaimDenied,
   RemoteParkedVehicleRemove,
   RemoteParkedVehicleUpdate,
   RemoteEntityDamage,
@@ -122,6 +124,7 @@ export type MultiplayerService = {
   readonly sendParkedVehicleRemove: (ownerId: string, vehicleId: string) => Effect.Effect<void, never>
   readonly drainParkedVehicleUpdates: Effect.Effect<ReadonlyArray<RemoteParkedVehicleUpdate>, never>
   readonly drainParkedVehicleRemoves: Effect.Effect<ReadonlyArray<RemoteParkedVehicleRemove>, never>
+  readonly drainClaimDenials: Effect.Effect<ReadonlyArray<RemoteClaimDenied>, never>
   readonly drainEntitySnapshots: Effect.Effect<ReadonlyArray<RemoteEntitySnapshot>, never>
   readonly drainEntityDamages: Effect.Effect<ReadonlyArray<RemoteEntityDamage>, never>
   readonly drainInbound: Effect.Effect<void, never>
@@ -147,6 +150,7 @@ export const MultiplayerServiceImpl = (
     const inboundDroppedItemRemovesRef = yield* Ref.make<ReadonlyArray<RemoteDroppedItemRemove>>([])
     const inboundParkedVehicleUpdatesRef = yield* Ref.make<ReadonlyArray<RemoteParkedVehicleUpdate>>([])
     const inboundParkedVehicleRemovesRef = yield* Ref.make<ReadonlyArray<RemoteParkedVehicleRemove>>([])
+    const inboundClaimDenialsRef = yield* Ref.make<ReadonlyArray<RemoteClaimDenied>>([])
     const inboundEntitySnapshotsRef = yield* Ref.make<ReadonlyArray<RemoteEntitySnapshot>>([])
     const inboundEntityDamagesRef = yield* Ref.make<ReadonlyArray<RemoteEntityDamage>>([])
     const playerNameRef = yield* Ref.make<Option.Option<PlayerName>>(Option.none())
@@ -169,6 +173,7 @@ export const MultiplayerServiceImpl = (
       yield* Ref.set(inboundDroppedItemRemovesRef, [])
       yield* Ref.set(inboundParkedVehicleUpdatesRef, [])
       yield* Ref.set(inboundParkedVehicleRemovesRef, [])
+      yield* Ref.set(inboundClaimDenialsRef, [])
       yield* Ref.set(inboundEntitySnapshotsRef, [])
       yield* Ref.set(inboundEntityDamagesRef, [])
       yield* Ref.set(localPlayerRef, Option.none())
@@ -220,6 +225,7 @@ export const MultiplayerServiceImpl = (
               inboundDroppedItemRemovesRef,
               inboundParkedVehicleUpdatesRef,
               inboundParkedVehicleRemovesRef,
+              inboundClaimDenialsRef,
               inboundEntitySnapshotsRef,
               inboundEntityDamagesRef,
               playerNameRef,
@@ -470,6 +476,8 @@ export const MultiplayerServiceImpl = (
       drainParkedVehicleUpdates: Ref.getAndSet(inboundParkedVehicleUpdatesRef, []),
 
       drainParkedVehicleRemoves: Ref.getAndSet(inboundParkedVehicleRemovesRef, []),
+
+      drainClaimDenials: Ref.getAndSet(inboundClaimDenialsRef, []),
 
       drainEntitySnapshots: Ref.getAndSet(inboundEntitySnapshotsRef, []),
 

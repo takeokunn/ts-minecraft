@@ -258,6 +258,7 @@ describe('step 2.85 — entity renderer wiring', () => {
       drainParkedVehicleRemoves: Effect.succeed([]),
       sendParkedVehicleUpdate: vi.fn(() => Effect.void),
       sendParkedVehicleRemove: vi.fn(() => Effect.void),
+      drainClaimDenials: Effect.succeed([]),
       drainEntitySnapshots: Effect.succeed([]),
       drainEntityDamages: Effect.succeed([]),
       getRemotePlayers: vi.fn(() => Effect.succeed(new Map())),

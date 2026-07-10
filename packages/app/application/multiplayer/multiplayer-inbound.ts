@@ -12,6 +12,7 @@ import type {
   RemoteContainerUpdate,
   RemoteDroppedItemRemove,
   RemoteDroppedItemSpawn,
+  RemoteClaimDenied,
   RemoteParkedVehicleRemove,
   RemoteParkedVehicleUpdate,
   RemoteEntityDamage,
@@ -31,6 +32,7 @@ export const processInbound = (
   inboundDroppedItemRemovesRef: Ref.Ref<ReadonlyArray<RemoteDroppedItemRemove>>,
   inboundParkedVehicleUpdatesRef: Ref.Ref<ReadonlyArray<RemoteParkedVehicleUpdate>>,
   inboundParkedVehicleRemovesRef: Ref.Ref<ReadonlyArray<RemoteParkedVehicleRemove>>,
+  inboundClaimDenialsRef: Ref.Ref<ReadonlyArray<RemoteClaimDenied>>,
   inboundEntitySnapshotsRef: Ref.Ref<ReadonlyArray<RemoteEntitySnapshot>>,
   inboundEntityDamagesRef: Ref.Ref<ReadonlyArray<RemoteEntityDamage>>,
   playerNameRef: Ref.Ref<Option.Option<PlayerName>>,
@@ -175,6 +177,18 @@ export const processInbound = (
         yield* Ref.set(inboundParkedVehicleRemovesRef, [
           ...removes,
           { ownerId: msg.ownerId, vehicleId: msg.vehicleId },
+        ])
+      })
+    case MessageType.ClaimDenied:
+      return Effect.gen(function* () {
+        // Addressed to us directly by the server (no self-echo to skip); the
+        // dimension guard still applies — a denial for another dimension's
+        // claim is stale by definition.
+        if (String(msg.worldId) !== getMultiplayerEditDimension()) return
+        const denials = yield* Ref.get(inboundClaimDenialsRef)
+        yield* Ref.set(inboundClaimDenialsRef, [
+          ...denials,
+          { target: msg.target, ownerId: msg.ownerId, itemId: msg.itemId },
         ])
       })
     case MessageType.PlayerJoin:

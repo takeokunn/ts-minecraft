@@ -53,6 +53,7 @@ export const MessageType = {
   DroppedItemRemove: 'DroppedItemRemove',
   ParkedVehicleUpdate: 'ParkedVehicleUpdate',
   ParkedVehicleRemove: 'ParkedVehicleRemove',
+  ClaimDenied: 'ClaimDenied',
   Chat: 'Chat',
   WorldInfo: 'WorldInfo',
   Ping: 'Ping',
@@ -73,6 +74,7 @@ export const MessageTypeSchema = Schema.Literal(
   MessageType.DroppedItemRemove,
   MessageType.ParkedVehicleUpdate,
   MessageType.ParkedVehicleRemove,
+  MessageType.ClaimDenied,
   MessageType.Chat,
   MessageType.WorldInfo,
   MessageType.Ping,
@@ -253,6 +255,19 @@ export const ParkedVehicleRemoveMessageSchema = Schema.Struct({
 })
 export type ParkedVehicleRemoveMessage = Schema.Schema.Type<typeof ParkedVehicleRemoveMessageSchema>
 
+// Server -> losing claimer: someone else's claim on this dropped item /
+// parked vehicle was processed first. The recipient undoes its local
+// prediction (removes the granted item / clears the riding modality).
+export const ClaimDeniedMessageSchema = Schema.Struct({
+  type: Schema.Literal(MessageType.ClaimDenied),
+  target: Schema.Literal('droppedItem', 'parkedVehicle'),
+  worldId: WorldIdSchema,
+  ownerId: Schema.String,
+  itemId: Schema.String,
+  timestamp: TimestampSchema,
+})
+export type ClaimDeniedMessage = Schema.Schema.Type<typeof ClaimDeniedMessageSchema>
+
 export const ChatMessageSchema = Schema.Struct({
   type: Schema.Literal(MessageType.Chat),
   playerId: PlayerIdSchema,
@@ -313,6 +328,7 @@ export const NetworkMessageSchema = Schema.Union(
   DroppedItemRemoveMessageSchema,
   ParkedVehicleUpdateMessageSchema,
   ParkedVehicleRemoveMessageSchema,
+  ClaimDeniedMessageSchema,
   ChatMessageSchema,
   WorldInfoMessageSchema,
   PingMessageSchema,

@@ -40,6 +40,9 @@ export type GameServer = {
   // Live parked vehicles per (dimension, owner, vehicleId): replayed to late
   // joiners; entries removed when the vehicle is claimed or picked up.
   readonly parkedVehicles: Ref.Ref<Map<string, ParkedVehicleUpdateMessage>>
+  // Recently removed dropped-item ids (claim arbitration): first Remove wins,
+  // later claimers are denied. Insertion-order pruned (see handler).
+  readonly removedDroppedItems: Ref.Ref<Set<string>>
   readonly maxPlayers: number
 }
 
@@ -70,7 +73,8 @@ export const makeGameServer = (maxPlayers = 20): Effect.Effect<GameServer, never
     const blockEdits = yield* Ref.make(new Map<string, BlockPlaceMessage | BlockBreakMessage>())
     const containerUpdates = yield* Ref.make(new Map<string, ContainerUpdateMessage>())
     const parkedVehicles = yield* Ref.make(new Map<string, ParkedVehicleUpdateMessage>())
-    return { connectedPlayers, connectionsByPlayerId, playerIdByConnectionId, worldSeed, timeOfDay, timeCapturedAtMs, dayLengthSeconds, entityHost, blockEdits, containerUpdates, parkedVehicles, maxPlayers }
+    const removedDroppedItems = yield* Ref.make(new Set<string>())
+    return { connectedPlayers, connectionsByPlayerId, playerIdByConnectionId, worldSeed, timeOfDay, timeCapturedAtMs, dayLengthSeconds, entityHost, blockEdits, containerUpdates, parkedVehicles, removedDroppedItems, maxPlayers }
   })
 
 const wireConnection = (
