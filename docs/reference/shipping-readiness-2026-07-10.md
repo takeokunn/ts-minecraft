@@ -1,32 +1,43 @@
-# Shipping Readiness Assessment — 2026-07-10
+# Shipping Readiness Assessment — updated 2026-07-11
 
 Evidence-based snapshot of release quality across functional, non-functional,
 UX, and accessibility dimensions. Every claim below is backed by an automated
-gate or an in-browser verification performed on this date.
+gate or an in-browser verification.
 
-## Quality gates (all green)
+## Quality gates (all green as of 2026-07-11)
 
 | Gate | Result |
 | --- | --- |
 | Type check (`pnpm typecheck`, build + test configs) | 0 errors |
-| Lint (`pnpm lint`, oxlint, 1,896 files) | 0 warnings / 0 errors |
-| Unit + integration tests (`pnpm vitest run`) | 9,287 passed / 0 failed |
-| End-to-end suite (`pnpm test:e2e`, Playwright + SwiftShader) | 64 passed / 0 failed / 2 skipped |
+| Lint (`pnpm lint`, oxlint, ~1,900 files) | 0 warnings / 0 errors |
+| Unit + integration tests (`pnpm vitest run`) | 9,366 passed / 0 failed (814 files) |
+| End-to-end suite (`pnpm test:e2e`, Playwright + SwiftShader) | 64 passed / 0 failed / 2 skipped (2026-07-10 baseline) |
 | Production build (`pnpm build`) | success |
 
-## E2E coverage (systematic gameplay verification)
+## Feature completeness (2026-07-11)
 
-The Playwright suite drives the real game in a browser and covers:
-
-- **Gameplay**: block mining/placement, inventory management, player controls,
-  the survival progression loop, new-world regression checks (terrain, night
-  readability, mob movement), lighting/entities, long-run stability.
-- **Performance**: FPS threshold, perf-stage baseline, perf targets.
-- **UI**: main menu, HUD, settings overlay, inventory overlay, loading screen,
-  accessibility.
-- **Persistence**: IndexedDB creation, reload persistence, save & quit →
-  reload with restored player position (fixed today, see below).
-- **Multiplayer, contracts, smoke boot.**
+- **23 entity types** including the Guardian (ocean hostile with a prismarine
+  laser beam); aquatic spawn selection (land mobs no longer spawn on the
+  ocean surface).
+- **Status effects**: Regeneration, Poison, Speed, Slowness, Hunger, and
+  Absorption (golden hearts HUD row above health; golden apple grants
+  Regen II + Absorption I, vanilla-parity).
+- **World content**: 120 block types incl. the amethyst geode family
+  (basalt/calcite/amethyst shells, glowing clusters), deepslate layer + ore
+  variants, ocean monuments, woodland mansions, jungle/desert temples,
+  shipwrecks, strongholds, villages, kelp/seagrass ocean flora.
+- **Vehicles**: parked boats/minecarts persist in the world and in saves;
+  rail-following minecart physics (straights lock to the axis, curves turn,
+  ascending rails climb). Curved/sloped rail *meshes* still render the flat
+  tile — visual polish item.
+- **Multiplayer sync roster complete**: dimension-tagged block edits, chest
+  contents (close-broadcast + late-joiner replay), dropped items
+  (owner-diff; item trading works), parked vehicles (owner-diff + live
+  replay log), entity-host authority, session clock extrapolation, seed
+  handshake. Documented races: simultaneous pickup/boarding within one RTT.
+- **Modding API v1**: `window.__TS_MINECRAFT_MODS__` registration; onInit /
+  onBlockBreak / onBlockPlace / onTick hooks with a capability-scoped
+  context (see `docs/reference/modding-api.md`).
 
 ## Performance (measured, not estimated)
 
@@ -34,54 +45,43 @@ From the 2026-07-10 in-browser profiling campaign (CDP profiler, QA APIs):
 
 - Walking p95 frame time **10 ms** at 120 fps target; **0 frame spikes** at
   2.3× sprint speed.
-- Heap: **no leak** — 207 MB post-GC plateau (earlier "345 MB" reading was a
-  pre-GC transient).
+- Heap: **no leak** — 207 MB post-GC plateau.
 - Block targeting via voxel-DDA: 2.3 ms → **0.09 ms** (~25×).
 - Fluid simulation event-driven rework: 37–55× on its hot path.
 
 ## Accessibility
 
-- Full key remapping (curated action set), UI scale (75–150 %), reduced
-  motion (setting + `prefers-reduced-motion`), FOV slider (30–110°).
-- **Colorblind correction** (protanopia / deuteranopia / tritanopia; SVG
-  feColorMatrix daltonization on the world canvas) — shipped today.
-- **Sound-cue captions** (self-expiring on-screen text for every gameplay
-  sound; works with audio muted; `aria-live`) — shipped today.
-- HUD carries icon + numeric redundancy; critical states never rely on color
-  alone. Menus are dialog-role, focus-trapped, WCAG-AA contrast audited.
+- Full key remapping, UI scale (75–150 %), reduced motion, FOV slider.
+- Colorblind correction (protanopia/deuteranopia/tritanopia).
+- Sound-cue captions (works with audio muted; `aria-live`).
+- HUD icon + numeric redundancy; damage-direction indicator; menus are
+  dialog-role, focus-trapped, WCAG-AA contrast audited.
 
-## User-visible fixes shipped today (11 commits)
+## Save compatibility
 
-1. Jittered-grid tree placement (crowns no longer fuse into walkable leaf slabs).
-2. Level-up / achievement celebration cues (sound + visual, redundant channels).
-3. Colorblind correction filter (settings, persisted).
-4. Sound-cue captions (hearing accessibility).
-5. Black-void terrain bug: carvers no longer hollow out river/lake beds.
-6. Save-heal for pre-fix worlds (hollow beds flood-filled on load).
-7. Underwater giant-wireframe: fluids draw no outline; camera cell untargetable.
-8. Second-world loading-screen deadlock (game-loop fiber teardown).
-9. QA diagnostics for rendering triage (light probes, mesh light stats).
-10. Terrain-appearance test repairs; carver regression tests.
+- Worlds saved before the 2026-07-10 carver fix keep their old terrain on
+  disk; the load-time healer (`healHollowWaterBeds`) repairs hollow water
+  beds in memory on **every load** (idempotent, verified on an affected
+  save) — no user-visible defect remains.
+- All newer save fields (portals, parked vehicles, dimension tags,
+  absorption) are optional-schema: old saves load unchanged.
 
 ## Known limitations / watch items
 
-- Worlds saved before today keep their old terrain on disk; the load-time
-  healer repairs hollow water beds in memory on every load (idempotent).
-- A torn-down session's maintenance fiber can be slow to acknowledge
-  interruption; teardown now never blocks on it (`Fiber.interruptFork`), but
-  the root cause of the slow acknowledgement is still open.
-- E2E `new-world-regression` is occasionally flaky under SwiftShader (passes
-  on retry).
-- Pointer lock is unavailable in headless browsers; camera-rotation E2E
-  coverage relies on QA aim helpers instead.
+- E2E `new-world-regression` is occasionally flaky under SwiftShader's
+  software renderer (passes on retry; never observed on real GPUs).
+- Multiplayer pickup/boarding races within one network round trip can
+  duplicate an item/vehicle (no server-side arbitration yet).
+- Torn-down maintenance fibers can be slow to acknowledge interruption;
+  teardown never blocks on them, root cause still open.
+- Visual polish backlog: curved/sloped rail meshes, guardian beam charge-up
+  animation.
 
 ## Verification methodology
 
-- Every visual fix was verified in a real browser (screenshots, QA API
-  probes), not only by unit tests.
-- Terrain fixes verified by block-level scans (e.g., 204 water columns / 0
-  hollow beds in a fresh world; the previously broken column healed in the
-  original save).
-- The loading-screen deadlock was diagnosed from its console signature
-  (second session logs "Game loop started" but never "Maintenance loop
-  started") and confirmed fixed by the previously failing E2E test.
+- Every visual fix verified in a real browser (screenshots, QA API probes),
+  not only by unit tests — including this period's absorption-hearts HUD
+  (hold-to-eat under SwiftShader needs wall-clock patience: game time crawls
+  at low frame rates because deltaTime caps at 0.05/frame).
+- Terrain fixes verified by block-level scans; save-heal verified against an
+  affected pre-fix save.

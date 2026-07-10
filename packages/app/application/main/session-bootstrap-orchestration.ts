@@ -1,4 +1,5 @@
-import { Cause, Effect, MutableRef, Option } from 'effect'
+import { Cause, Effect, MutableRef, Option, Schema } from 'effect'
+import { loadModsFromWindow } from '@ts-minecraft/app/application/mods/mod-api'
 
 import type { SessionBootstrapDeps } from '@ts-minecraft/app/main/session-bootstrap-types/deps'
 import { buildLighting } from '@ts-minecraft/app/main/session-lighting'
@@ -6,7 +7,7 @@ import { buildSessionRuntimeBundle } from '@ts-minecraft/app/main/session-bootst
 import { buildSessionBootstrapWorldOrchestration } from '@ts-minecraft/app/main/session-bootstrap-world-orchestration'
 import { buildSessionBootstrapScene } from '@ts-minecraft/app/main/session-bootstrap-scene'
 import { buildSpawnSelection } from '@ts-minecraft/app/main/session-world-loader'
-import { WorldId } from '@ts-minecraft/core'
+import { DEFAULT_PLAYER_ID, InventoryItemSchema, WorldId } from '@ts-minecraft/core'
 import { buildSessionBootstrapStartupState } from '@ts-minecraft/app/main/session-bootstrap/startup'
 import { setBedRespawnInvalidator } from '@ts-minecraft/app/application/frame/stages/interaction-break-handler.execute'
 
@@ -120,6 +121,38 @@ export const buildSessionBootstrapOrchestration = (deps: SessionBootstrapDeps) =
     })
     // Villages derive their deterministic region sites from the same seed.
     yield* entity.villageService.setWorldSeed(worldSeed)
+
+    // Modding API v1: load window-registered mods with a capability-scoped
+    // context (reads + give-item only; never raw services). onInit fires here,
+    // event hooks dispatch from the break/place handlers and the 1s cadence.
+    yield* Effect.sync(() => {
+      const loaded = loadModsFromWindow({
+        giveItem: (itemType, count) =>
+          Schema.is(InventoryItemSchema)(itemType) && Number.isInteger(count) && count > 0
+            ? Effect.runPromise(
+                inventoryService.addBlock(itemType, count).pipe(Effect.as(true), Effect.catchAll(() => Effect.succeed(false))),
+              )
+            : Promise.resolve(false),
+        getPlayerPosition: () =>
+          Effect.runPromise(
+            gameState.getPlayerPosition(DEFAULT_PLAYER_ID).pipe(
+              Effect.map((pos) => ({ x: pos.x, y: pos.y, z: pos.z })),
+              Effect.catchAll(() => Effect.succeed(null)),
+            ),
+          ),
+        getBlockAt: (x, y, z) =>
+          Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z)
+            ? Effect.runPromise(
+                world.blockService.getBlock({ x: Math.floor(x), y: Math.floor(y), z: Math.floor(z) }).pipe(
+                  Effect.map((blockType) => String(blockType)),
+                  Effect.catchAll(() => Effect.succeed(null)),
+                ),
+              )
+            : Promise.resolve(null),
+        log: (message) => console.info('[mod]', message),
+      })
+      if (loaded.length > 0) console.info(`[mods] loaded: ${loaded.join(', ')}`)
+    })
 
     // Multiplayer seed adoption: rebuild the session's terrain from the host's
     // seed under a separate world namespace (the local single-player save is

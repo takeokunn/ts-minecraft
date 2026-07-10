@@ -20,6 +20,7 @@ import { adjacentToHit, buildExplosionBreakPositions } from './placement-geometr
 import { resolveRightClickTargetRoute } from './interaction-right-click-target-routing'
 import { selectedHotbarSlotIndex } from './selected-hotbar-slot'
 import { applyExplosionPlayerDamage } from '@ts-minecraft/entity/application/explosion-service'
+import { dispatchModBlockPlace } from '@ts-minecraft/app/application/mods/mod-api'
 
 // Sleep-blocking hostiles (vanilla checks any monster in range).
 const HOSTILE_MOB_TYPES_FOR_SLEEP: ReadonlySet<string> = new Set([
@@ -276,6 +277,8 @@ export const handleRightClick = (
     yield* services.soundManager.playEffect('blockPlace', { position: adjacentPos })
     // FR-3: broadcast the placement to other players (no-op offline).
     yield* (Option.getOrNull(services.multiplayer)?.sendBlockPlace(adjacentPos, item)) ?? Effect.void
+    // Modding hook: fire-and-forget, exception-isolated inside the dispatcher.
+    dispatchModBlockPlace({ x: adjacentPos.x, y: adjacentPos.y, z: adjacentPos.z, blockType: item })
     const updatedChunk = yield* services.chunkManagerService.getChunk(chunkCoord)
     MutableRef.set(
       refs.dirtyChunksRef,

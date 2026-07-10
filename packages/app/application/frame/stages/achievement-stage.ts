@@ -1,4 +1,5 @@
 import { Effect, MutableRef } from 'effect'
+import { dispatchModTick } from '@ts-minecraft/app/application/mods/mod-api'
 import type { DeltaTimeSecs } from '@ts-minecraft/core'
 import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
 
@@ -23,6 +24,8 @@ export const achievementStage = (
       return
     }
     MutableRef.set(accumulatorRef, 0)
+    // Modding onTick rides the same 1s cadence (exception-isolated inside).
+    dispatchModTick()
     const stats = yield* services.statisticsService.getStatistics()
     const newlyUnlocked = yield* services.achievementService.checkUnlocks(stats)
     for (const achievement of newlyUnlocked) {

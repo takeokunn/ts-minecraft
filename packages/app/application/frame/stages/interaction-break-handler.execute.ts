@@ -25,6 +25,7 @@ import {
 } from './interaction-break-handler.shared'
 import { isGrassSeedDropBlock as isGrassSeedDropBlockWorld } from '@ts-minecraft/world'
 import { CROP_DROP_RULES } from './interaction-break-handler.crop-drops.config'
+import { dispatchModBlockBreak } from '@ts-minecraft/app/application/mods/mod-api'
 
 // Bed-respawn invalidation hook, installed by interaction-stage (which owns
 // deps.respawnPositionRef). Breaking a BED whose head/foot cell backs the
@@ -79,6 +80,8 @@ export const executeBlockBreak = (
 
     // Statistics feed the achievement system; creative breaks don't count (vanilla).
     yield* services.statisticsService.recordBlockMined(blockType)
+    // Modding hook: fire-and-forget, exception-isolated inside the dispatcher.
+    dispatchModBlockBreak({ x: pos.x, y: pos.y, z: pos.z, blockType })
 
     const shouldSpawnBaseDrop =
       !isNeverDroppedBlock(blockType) &&
