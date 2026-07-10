@@ -301,6 +301,47 @@ describe('greedyMeshChunk plant model meshing', () => {
   })
 })
 
+describe('greedyMeshChunk rail meshing', () => {
+  it('an isolated RAIL renders as a flat plate (top + bottom quads), never a cube', () => {
+    const chunk = makeChunkWithBlock(ZERO_COORD, 4, 10, 4, 'RAIL')
+    const result = greedyMeshChunk(chunk, ZERO_OFFSET)
+    const meshed = result.toMeshed()
+
+    expect(meshed.opaque.positions.length).toBe(0)
+    expect(meshed.transparentSolid.indices.length / 6).toBe(2) // top + bottom face
+    expectAxisMinMax(meshed.transparentSolid.positions, 1, 10 + 1 / 16, 10 + 1 / 16)
+  })
+
+  it('a curve (perpendicular neighbours) renders as an L of two half plates', () => {
+    const chunk = makeChunkWithBlocks(ZERO_COORD, [
+      { lx: 4, y: 10, lz: 4, blockType: 'RAIL' },
+      { lx: 4, y: 10, lz: 3, blockType: 'RAIL' }, // north neighbour
+      { lx: 5, y: 10, lz: 4, blockType: 'RAIL' }, // east neighbour
+    ])
+    const result = greedyMeshChunk(chunk, ZERO_OFFSET)
+    const meshed = result.toMeshed()
+
+    // corner cell: 2 half plates (2 faces each) + the two straight stubs (2 faces each)
+    expect(meshed.opaque.positions.length).toBe(0)
+    expect(meshed.transparentSolid.indices.length / 6).toBe(8)
+  })
+
+  it('a rail one block up along the run renders a slanted climbing plate', () => {
+    const chunk = makeChunkWithBlocks(ZERO_COORD, [
+      { lx: 4, y: 10, lz: 4, blockType: 'RAIL' },
+      { lx: 4, y: 11, lz: 5, blockType: 'RAIL' }, // ascending to the south
+    ])
+    const result = greedyMeshChunk(chunk, ZERO_OFFSET)
+    const meshed = result.toMeshed()
+
+    // the lower plate slants from its own height up to the raised neighbour's
+    // plate height (the upper rail renders its own flat plate at 11 + 1/16)
+    const ys = axisValues(meshed.transparentSolid.positions, 1)
+    expect(Math.min(...ys)).toBeCloseTo(10 + 1 / 16)
+    expect(Math.max(...ys)).toBeCloseTo(11 + 1 / 16)
+  })
+})
+
 // ─── Transparent solid (GLASS / LEAVES) meshing ─────────────────────────────
 
 describe('greedyMeshChunk transparent solid meshing', () => {
