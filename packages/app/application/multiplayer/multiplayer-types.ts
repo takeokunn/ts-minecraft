@@ -60,6 +60,20 @@ export type RemoteDroppedItemRemove = {
   readonly itemId: string
 }
 
+// Parked-vehicle sync: a peer's park/upsert and a removal by original owner+id.
+export type RemoteParkedVehicleUpdate = {
+  readonly ownerId: string
+  readonly vehicleId: string
+  readonly kind: 'boat' | 'minecart'
+  readonly position: { readonly x: number; readonly y: number; readonly z: number }
+  readonly yaw: number
+}
+
+export type RemoteParkedVehicleRemove = {
+  readonly ownerId: string
+  readonly vehicleId: string
+}
+
 export type LocalEntitySnapshot = {
   readonly entityId: string
   readonly entityType: string

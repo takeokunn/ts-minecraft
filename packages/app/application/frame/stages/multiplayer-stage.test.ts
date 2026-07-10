@@ -7,12 +7,15 @@ import {
   applyInboundContainerUpdates,
   applyInboundDroppedItems,
   applyInboundEntityDamages,
+  applyInboundParkedVehicles,
   applyInboundEntitySnapshots,
   broadcastChestOnClose,
   multiplayerStage,
   resetChestSyncStateForTest,
   resetDroppedItemSyncStateForTest,
+  resetParkedVehicleSyncStateForTest,
   syncDroppedItems,
+  syncParkedVehicles,
 } from '@ts-minecraft/app/frame/stages/multiplayer-stage'
 import type {
   LocalEntitySnapshot,
@@ -502,5 +505,79 @@ describe('dropped-item sync', () => {
     await Effect.runPromise(applyInboundDroppedItems(mp, services))
     expect(removeById).toHaveBeenCalledWith('dropped-item-9')
     expect(removeById).toHaveBeenCalledWith('remote:alice:dropped-item-3')
+  })
+})
+
+describe('parked-vehicle sync', () => {
+  type Vehicle = { id: string; kind: 'boat' | 'minecart'; position: { x: number; y: number; z: number }; yaw: number }
+  const boat = (id: string, x = 0): Vehicle => ({ id, kind: 'boat', position: { x, y: 62, z: 0 }, yaw: 0.5 })
+
+  const makeSyncHarness = (vehicles: ReadonlyArray<Vehicle>, localPlayerId: string | null = 'me') => {
+    const sendParkedVehicleUpdate = vi.fn(() => Effect.void)
+    const sendParkedVehicleRemove = vi.fn(() => Effect.void)
+    const mp = {
+      getLocalPlayerId: () => Effect.succeed(localPlayerId),
+      sendParkedVehicleUpdate,
+      sendParkedVehicleRemove,
+    } as unknown as MultiplayerService
+    const services = {
+      parkedVehicleService: { getAll: () => Effect.succeed(vehicles) },
+    } as unknown as Pick<FrameHandlerServices, 'parkedVehicleService'>
+    return { mp, services, sendParkedVehicleUpdate, sendParkedVehicleRemove }
+  }
+
+  it('broadcasts new local parks once and re-broadcasts on position change', async () => {
+    resetParkedVehicleSyncStateForTest()
+    const first = makeSyncHarness([boat('parked-vehicle-1')])
+    await Effect.runPromise(syncParkedVehicles(first.mp, first.services))
+    expect(first.sendParkedVehicleUpdate).toHaveBeenCalledTimes(1)
+    expect(first.sendParkedVehicleUpdate).toHaveBeenCalledWith({
+      vehicleId: 'parked-vehicle-1',
+      kind: 'boat',
+      position: { x: 0, y: 62, z: 0 },
+      yaw: 0.5,
+    })
+    const unchanged = makeSyncHarness([boat('parked-vehicle-1')])
+    await Effect.runPromise(syncParkedVehicles(unchanged.mp, unchanged.services))
+    expect(unchanged.sendParkedVehicleUpdate).not.toHaveBeenCalled()
+    const moved = makeSyncHarness([boat('parked-vehicle-1', 4)])
+    await Effect.runPromise(syncParkedVehicles(moved.mp, moved.services))
+    expect(moved.sendParkedVehicleUpdate).toHaveBeenCalledTimes(1)
+  })
+
+  it('a claimed mirror emits a removal addressed to the original owner (mount round-trip)', async () => {
+    resetParkedVehicleSyncStateForTest()
+    const withMirror = makeSyncHarness([boat('remote:alice:parked-vehicle-3')])
+    await Effect.runPromise(syncParkedVehicles(withMirror.mp, withMirror.services))
+    expect(withMirror.sendParkedVehicleUpdate).not.toHaveBeenCalled() // mirrors never rebroadcast
+    const claimed = makeSyncHarness([])
+    await Effect.runPromise(syncParkedVehicles(claimed.mp, claimed.services))
+    expect(claimed.sendParkedVehicleRemove).toHaveBeenCalledWith('alice', 'parked-vehicle-3')
+  })
+
+  it('applies inbound updates as mirror upserts and routes removals by ownership', async () => {
+    resetParkedVehicleSyncStateForTest()
+    const parkWithId = vi.fn(() => Effect.void)
+    const removeById = vi.fn(() => Effect.succeed(true))
+    const mp = {
+      getLocalPlayerId: () => Effect.succeed('me'),
+      drainParkedVehicleUpdates: Effect.succeed([
+        { ownerId: 'alice', vehicleId: 'parked-vehicle-3', kind: 'minecart', position: { x: 2, y: 64, z: 2 }, yaw: 1 },
+      ]),
+      drainParkedVehicleRemoves: Effect.succeed([
+        { ownerId: 'me', vehicleId: 'parked-vehicle-9' },
+        { ownerId: 'alice', vehicleId: 'parked-vehicle-3' },
+      ]),
+    } as unknown as MultiplayerService
+    const services = { parkedVehicleService: { parkWithId, removeById } } as unknown as Pick<FrameHandlerServices, 'parkedVehicleService'>
+    await Effect.runPromise(applyInboundParkedVehicles(mp, services))
+    expect(parkWithId).toHaveBeenCalledWith({
+      id: 'remote:alice:parked-vehicle-3',
+      kind: 'minecart',
+      position: { x: 2, y: 64, z: 2 },
+      yaw: 1,
+    })
+    expect(removeById).toHaveBeenCalledWith('parked-vehicle-9')
+    expect(removeById).toHaveBeenCalledWith('remote:alice:parked-vehicle-3')
   })
 })

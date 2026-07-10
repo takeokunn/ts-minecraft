@@ -12,6 +12,8 @@ import type {
   RemoteContainerUpdate,
   RemoteDroppedItemRemove,
   RemoteDroppedItemSpawn,
+  RemoteParkedVehicleRemove,
+  RemoteParkedVehicleUpdate,
   RemoteEntityDamage,
   RemoteEntitySnapshot,
   RemotePlayerSnapshot,
@@ -27,6 +29,8 @@ export const processInbound = (
   inboundContainerUpdatesRef: Ref.Ref<ReadonlyArray<RemoteContainerUpdate>>,
   inboundDroppedItemSpawnsRef: Ref.Ref<ReadonlyArray<RemoteDroppedItemSpawn>>,
   inboundDroppedItemRemovesRef: Ref.Ref<ReadonlyArray<RemoteDroppedItemRemove>>,
+  inboundParkedVehicleUpdatesRef: Ref.Ref<ReadonlyArray<RemoteParkedVehicleUpdate>>,
+  inboundParkedVehicleRemovesRef: Ref.Ref<ReadonlyArray<RemoteParkedVehicleRemove>>,
   inboundEntitySnapshotsRef: Ref.Ref<ReadonlyArray<RemoteEntitySnapshot>>,
   inboundEntityDamagesRef: Ref.Ref<ReadonlyArray<RemoteEntityDamage>>,
   playerNameRef: Ref.Ref<Option.Option<PlayerName>>,
@@ -149,6 +153,28 @@ export const processInbound = (
         yield* Ref.set(inboundDroppedItemRemovesRef, [
           ...removes,
           { ownerId: msg.ownerId, itemId: msg.itemId },
+        ])
+      })
+    case MessageType.ParkedVehicleUpdate:
+      return Effect.gen(function* () {
+        const localPlayer = yield* Ref.get(localPlayerRef)
+        if (Option.isSome(localPlayer) && localPlayer.value.playerId === msg.playerId) return
+        if (String(msg.worldId) !== getMultiplayerEditDimension()) return
+        const updates = yield* Ref.get(inboundParkedVehicleUpdatesRef)
+        yield* Ref.set(inboundParkedVehicleUpdatesRef, [
+          ...updates,
+          { ownerId: String(msg.playerId), vehicleId: msg.vehicleId, kind: msg.kind, position: msg.position, yaw: msg.yaw },
+        ])
+      })
+    case MessageType.ParkedVehicleRemove:
+      return Effect.gen(function* () {
+        const localPlayer = yield* Ref.get(localPlayerRef)
+        if (Option.isSome(localPlayer) && localPlayer.value.playerId === msg.playerId) return
+        if (String(msg.worldId) !== getMultiplayerEditDimension()) return
+        const removes = yield* Ref.get(inboundParkedVehicleRemovesRef)
+        yield* Ref.set(inboundParkedVehicleRemovesRef, [
+          ...removes,
+          { ownerId: msg.ownerId, vehicleId: msg.vehicleId },
         ])
       })
     case MessageType.PlayerJoin:

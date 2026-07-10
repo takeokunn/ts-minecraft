@@ -354,6 +354,87 @@ export const applyInboundDroppedItems = (
     }
   })
 
+// ─── Parked-vehicle sync ──────────────────────────────────────────────────────
+// Same owner-diff contract as dropped items: local (non-mirror) vehicles diff
+// per frame into update/remove broadcasts; peers mirror them under
+// `remote:<owner>:<id>`; claiming a mirror (mount/pickup) vanishes it, which
+// emits a removal addressed to the ORIGINAL owner. Unlike items the server
+// keeps a live log, so late joiners see every parked vehicle.
+const parkedMirrorId = (ownerId: string, vehicleId: string): string =>
+  `${MIRROR_ID_PREFIX}${ownerId}:${vehicleId}`
+
+const parseParkedMirrorId = parseMirrorDroppedItemId
+
+let lastLocalParkedVehicles: ReadonlyMap<string, string> = new Map() // id -> position signature
+let lastMirrorParkedVehicleIds: ReadonlySet<string> = new Set()
+export const resetParkedVehicleSyncStateForTest = (): void => {
+  lastLocalParkedVehicles = new Map()
+  lastMirrorParkedVehicleIds = new Set()
+}
+
+export const syncParkedVehicles = (
+  multiplayer: MultiplayerService,
+  services: Pick<FrameHandlerServices, 'parkedVehicleService'>,
+): Effect.Effect<void, never> =>
+  Effect.gen(function* () {
+    const localPlayerId = yield* multiplayer.getLocalPlayerId().pipe(Effect.catchAll(() => Effect.succeed(null)))
+    if (localPlayerId === null) return
+    const vehicles = yield* services.parkedVehicleService.getAll()
+    const currentLocal = new Map<string, string>()
+    const currentMirrors = new Set<string>()
+    for (const vehicle of vehicles) {
+      if (vehicle.id.startsWith(MIRROR_ID_PREFIX)) currentMirrors.add(vehicle.id)
+      else currentLocal.set(vehicle.id, `${vehicle.position.x},${vehicle.position.y},${vehicle.position.z}`)
+    }
+    for (const vehicle of vehicles) {
+      if (vehicle.id.startsWith(MIRROR_ID_PREFIX)) continue
+      if (lastLocalParkedVehicles.get(vehicle.id) === currentLocal.get(vehicle.id)) continue
+      yield* multiplayer
+        .sendParkedVehicleUpdate({ vehicleId: vehicle.id, kind: vehicle.kind, position: vehicle.position, yaw: vehicle.yaw })
+        .pipe(Effect.catchAll(() => Effect.void))
+    }
+    for (const id of lastLocalParkedVehicles.keys()) {
+      if (currentLocal.has(id)) continue
+      yield* multiplayer.sendParkedVehicleRemove(localPlayerId, id).pipe(Effect.catchAll(() => Effect.void))
+    }
+    for (const id of lastMirrorParkedVehicleIds) {
+      if (currentMirrors.has(id)) continue
+      const parsed = parseParkedMirrorId(id)
+      if (parsed === null) continue
+      yield* multiplayer.sendParkedVehicleRemove(parsed.ownerId, parsed.itemId).pipe(Effect.catchAll(() => Effect.void))
+    }
+    lastLocalParkedVehicles = currentLocal
+    lastMirrorParkedVehicleIds = currentMirrors
+  })
+
+export const applyInboundParkedVehicles = (
+  multiplayer: MultiplayerService,
+  services: Pick<FrameHandlerServices, 'parkedVehicleService'>,
+): Effect.Effect<void, never> =>
+  Effect.gen(function* () {
+    const localPlayerId = yield* multiplayer.getLocalPlayerId().pipe(Effect.catchAll(() => Effect.succeed(null)))
+    const updates = yield* multiplayer.drainParkedVehicleUpdates
+    for (const update of updates) {
+      const id = parkedMirrorId(update.ownerId, update.vehicleId)
+      yield* services.parkedVehicleService
+        .parkWithId({ id, kind: update.kind, position: update.position, yaw: update.yaw })
+        .pipe(Effect.catchAll(() => Effect.void))
+      lastMirrorParkedVehicleIds = new Set([...lastMirrorParkedVehicleIds, id])
+    }
+    const removes = yield* multiplayer.drainParkedVehicleRemoves
+    for (const remove of removes) {
+      const id = remove.ownerId === localPlayerId
+        ? remove.vehicleId
+        : parkedMirrorId(remove.ownerId, remove.vehicleId)
+      yield* services.parkedVehicleService.removeById(id).pipe(Effect.catchAll(() => Effect.void))
+      if (remove.ownerId === localPlayerId) {
+        lastLocalParkedVehicles = new Map([...lastLocalParkedVehicles].filter(([key]) => key !== id))
+      } else {
+        lastMirrorParkedVehicleIds = new Set([...lastMirrorParkedVehicleIds].filter((key) => key !== id))
+      }
+    }
+  })
+
 export const applyInboundEntitySnapshots = (
   multiplayer: MultiplayerService,
   services: Pick<FrameHandlerServices, 'entityManager'>,

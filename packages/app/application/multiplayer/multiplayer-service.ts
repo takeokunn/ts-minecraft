@@ -15,6 +15,8 @@ import type {
   RemoteContainerUpdate,
   RemoteDroppedItemRemove,
   RemoteDroppedItemSpawn,
+  RemoteParkedVehicleRemove,
+  RemoteParkedVehicleUpdate,
   RemoteEntityDamage,
   RemoteEntitySnapshot,
   RemotePlayerSnapshot,
@@ -30,6 +32,8 @@ export type {
   RemoteContainerUpdate,
   RemoteDroppedItemRemove,
   RemoteDroppedItemSpawn,
+  RemoteParkedVehicleRemove,
+  RemoteParkedVehicleUpdate,
   RemoteEntityDamage,
   RemoteEntitySnapshot,
   RemotePlayerSnapshot,
@@ -109,6 +113,15 @@ export type MultiplayerService = {
   readonly getLocalPlayerId: () => Effect.Effect<string | null, never>
   readonly drainDroppedItemSpawns: Effect.Effect<ReadonlyArray<RemoteDroppedItemSpawn>, never>
   readonly drainDroppedItemRemoves: Effect.Effect<ReadonlyArray<RemoteDroppedItemRemove>, never>
+  readonly sendParkedVehicleUpdate: (vehicle: {
+    readonly vehicleId: string
+    readonly kind: 'boat' | 'minecart'
+    readonly position: { readonly x: number; readonly y: number; readonly z: number }
+    readonly yaw: number
+  }) => Effect.Effect<void, never>
+  readonly sendParkedVehicleRemove: (ownerId: string, vehicleId: string) => Effect.Effect<void, never>
+  readonly drainParkedVehicleUpdates: Effect.Effect<ReadonlyArray<RemoteParkedVehicleUpdate>, never>
+  readonly drainParkedVehicleRemoves: Effect.Effect<ReadonlyArray<RemoteParkedVehicleRemove>, never>
   readonly drainEntitySnapshots: Effect.Effect<ReadonlyArray<RemoteEntitySnapshot>, never>
   readonly drainEntityDamages: Effect.Effect<ReadonlyArray<RemoteEntityDamage>, never>
   readonly drainInbound: Effect.Effect<void, never>
@@ -132,6 +145,8 @@ export const MultiplayerServiceImpl = (
     const inboundContainerUpdatesRef = yield* Ref.make<ReadonlyArray<RemoteContainerUpdate>>([])
     const inboundDroppedItemSpawnsRef = yield* Ref.make<ReadonlyArray<RemoteDroppedItemSpawn>>([])
     const inboundDroppedItemRemovesRef = yield* Ref.make<ReadonlyArray<RemoteDroppedItemRemove>>([])
+    const inboundParkedVehicleUpdatesRef = yield* Ref.make<ReadonlyArray<RemoteParkedVehicleUpdate>>([])
+    const inboundParkedVehicleRemovesRef = yield* Ref.make<ReadonlyArray<RemoteParkedVehicleRemove>>([])
     const inboundEntitySnapshotsRef = yield* Ref.make<ReadonlyArray<RemoteEntitySnapshot>>([])
     const inboundEntityDamagesRef = yield* Ref.make<ReadonlyArray<RemoteEntityDamage>>([])
     const playerNameRef = yield* Ref.make<Option.Option<PlayerName>>(Option.none())
@@ -152,6 +167,8 @@ export const MultiplayerServiceImpl = (
       yield* Ref.set(inboundContainerUpdatesRef, [])
       yield* Ref.set(inboundDroppedItemSpawnsRef, [])
       yield* Ref.set(inboundDroppedItemRemovesRef, [])
+      yield* Ref.set(inboundParkedVehicleUpdatesRef, [])
+      yield* Ref.set(inboundParkedVehicleRemovesRef, [])
       yield* Ref.set(inboundEntitySnapshotsRef, [])
       yield* Ref.set(inboundEntityDamagesRef, [])
       yield* Ref.set(localPlayerRef, Option.none())
@@ -201,6 +218,8 @@ export const MultiplayerServiceImpl = (
               inboundContainerUpdatesRef,
               inboundDroppedItemSpawnsRef,
               inboundDroppedItemRemovesRef,
+              inboundParkedVehicleUpdatesRef,
+              inboundParkedVehicleRemovesRef,
               inboundEntitySnapshotsRef,
               inboundEntityDamagesRef,
               playerNameRef,
@@ -377,6 +396,28 @@ export const MultiplayerServiceImpl = (
           timestamp: Date.now(),
         } as NetworkMessage)),
 
+      sendParkedVehicleUpdate: (vehicle) =>
+        sendIfConnected((identity) => ({
+          type: MessageType.ParkedVehicleUpdate,
+          playerId: identity.playerId,
+          worldId: WorldId.make(activeEditDimension),
+          vehicleId: vehicle.vehicleId,
+          kind: vehicle.kind,
+          position: vehicle.position as Vec3,
+          yaw: vehicle.yaw,
+          timestamp: Date.now(),
+        } as NetworkMessage)),
+
+      sendParkedVehicleRemove: (ownerId, vehicleId) =>
+        sendIfConnected((identity) => ({
+          type: MessageType.ParkedVehicleRemove,
+          playerId: identity.playerId,
+          worldId: WorldId.make(activeEditDimension),
+          ownerId,
+          vehicleId,
+          timestamp: Date.now(),
+        } as NetworkMessage)),
+
       sendEntitySnapshot: (snapshot) =>
         sendIfConnected((identity) => ({
           type: MessageType.EntitySnapshot,
@@ -425,6 +466,10 @@ export const MultiplayerServiceImpl = (
       drainDroppedItemSpawns: Ref.getAndSet(inboundDroppedItemSpawnsRef, []),
 
       drainDroppedItemRemoves: Ref.getAndSet(inboundDroppedItemRemovesRef, []),
+
+      drainParkedVehicleUpdates: Ref.getAndSet(inboundParkedVehicleUpdatesRef, []),
+
+      drainParkedVehicleRemoves: Ref.getAndSet(inboundParkedVehicleRemovesRef, []),
 
       drainEntitySnapshots: Ref.getAndSet(inboundEntitySnapshotsRef, []),
 

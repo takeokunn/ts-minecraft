@@ -51,6 +51,8 @@ export const MessageType = {
   ContainerUpdate: 'ContainerUpdate',
   DroppedItemSpawn: 'DroppedItemSpawn',
   DroppedItemRemove: 'DroppedItemRemove',
+  ParkedVehicleUpdate: 'ParkedVehicleUpdate',
+  ParkedVehicleRemove: 'ParkedVehicleRemove',
   Chat: 'Chat',
   WorldInfo: 'WorldInfo',
   Ping: 'Ping',
@@ -69,6 +71,8 @@ export const MessageTypeSchema = Schema.Literal(
   MessageType.ContainerUpdate,
   MessageType.DroppedItemSpawn,
   MessageType.DroppedItemRemove,
+  MessageType.ParkedVehicleUpdate,
+  MessageType.ParkedVehicleRemove,
   MessageType.Chat,
   MessageType.WorldInfo,
   MessageType.Ping,
@@ -225,6 +229,30 @@ export const DroppedItemRemoveMessageSchema = Schema.Struct({
 })
 export type DroppedItemRemoveMessage = Schema.Schema.Type<typeof DroppedItemRemoveMessageSchema>
 
+// Parked-vehicle sync: same owner-diff contract as dropped items, but the
+// server keeps a per-vehicle log for late-joiner replay (vehicles persist).
+export const ParkedVehicleUpdateMessageSchema = Schema.Struct({
+  type: Schema.Literal(MessageType.ParkedVehicleUpdate),
+  playerId: PlayerIdSchema,
+  worldId: WorldIdSchema,
+  vehicleId: Schema.String,
+  kind: Schema.Literal('boat', 'minecart'),
+  position: Vec3Schema,
+  yaw: Schema.Number.pipe(Schema.finite()),
+  timestamp: TimestampSchema,
+})
+export type ParkedVehicleUpdateMessage = Schema.Schema.Type<typeof ParkedVehicleUpdateMessageSchema>
+
+export const ParkedVehicleRemoveMessageSchema = Schema.Struct({
+  type: Schema.Literal(MessageType.ParkedVehicleRemove),
+  playerId: PlayerIdSchema,
+  worldId: WorldIdSchema,
+  ownerId: Schema.String,
+  vehicleId: Schema.String,
+  timestamp: TimestampSchema,
+})
+export type ParkedVehicleRemoveMessage = Schema.Schema.Type<typeof ParkedVehicleRemoveMessageSchema>
+
 export const ChatMessageSchema = Schema.Struct({
   type: Schema.Literal(MessageType.Chat),
   playerId: PlayerIdSchema,
@@ -283,6 +311,8 @@ export const NetworkMessageSchema = Schema.Union(
   ContainerUpdateMessageSchema,
   DroppedItemSpawnMessageSchema,
   DroppedItemRemoveMessageSchema,
+  ParkedVehicleUpdateMessageSchema,
+  ParkedVehicleRemoveMessageSchema,
   ChatMessageSchema,
   WorldInfoMessageSchema,
   PingMessageSchema,

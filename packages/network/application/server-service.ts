@@ -1,6 +1,6 @@
 import { Context, Effect, Fiber, Layer, Option, Ref, Stream } from 'effect'
 import { NetworkError } from '../domain/errors'
-import { MessageType, PlayerId, type BlockBreakMessage, type BlockPlaceMessage, type ContainerUpdateMessage, type NetworkMessage, type NetworkRotation, type PlayerName, type Vec3, type WorldId } from '../domain/schemas'
+import { MessageType, PlayerId, type BlockBreakMessage, type BlockPlaceMessage, type ContainerUpdateMessage, type ParkedVehicleUpdateMessage, type NetworkMessage, type NetworkRotation, type PlayerName, type Vec3, type WorldId } from '../domain/schemas'
 import type { WebSocketConnection, WebSocketServerHandle, WebSocketServerPort } from '../domain/websocket-ports'
 import { sendEncodedToConnection } from './codec'
 import { dispatchMessage, handlePlayerLeave } from './server-handlers'
@@ -37,6 +37,9 @@ export type GameServer = {
   // Last full container state per (dimension, position), replayed to late
   // joiners so chest contents converge the same way block edits do.
   readonly containerUpdates: Ref.Ref<Map<string, ContainerUpdateMessage>>
+  // Live parked vehicles per (dimension, owner, vehicleId): replayed to late
+  // joiners; entries removed when the vehicle is claimed or picked up.
+  readonly parkedVehicles: Ref.Ref<Map<string, ParkedVehicleUpdateMessage>>
   readonly maxPlayers: number
 }
 
@@ -66,7 +69,8 @@ export const makeGameServer = (maxPlayers = 20): Effect.Effect<GameServer, never
     const entityHost = yield* Ref.make<PlayerId | null>(null)
     const blockEdits = yield* Ref.make(new Map<string, BlockPlaceMessage | BlockBreakMessage>())
     const containerUpdates = yield* Ref.make(new Map<string, ContainerUpdateMessage>())
-    return { connectedPlayers, connectionsByPlayerId, playerIdByConnectionId, worldSeed, timeOfDay, timeCapturedAtMs, dayLengthSeconds, entityHost, blockEdits, containerUpdates, maxPlayers }
+    const parkedVehicles = yield* Ref.make(new Map<string, ParkedVehicleUpdateMessage>())
+    return { connectedPlayers, connectionsByPlayerId, playerIdByConnectionId, worldSeed, timeOfDay, timeCapturedAtMs, dayLengthSeconds, entityHost, blockEdits, containerUpdates, parkedVehicles, maxPlayers }
   })
 
 const wireConnection = (

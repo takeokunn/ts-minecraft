@@ -43,6 +43,20 @@ export class ParkedVehicleService extends Effect.Service<ParkedVehicleService>()
             return vehicle
           }),
 
+        // Multiplayer mirror upsert: an explicit-id park replaces any existing
+        // vehicle under that id (a peer moved/re-parked it).
+        parkWithId: (vehicle: ParkedVehicle): Effect.Effect<void, never> =>
+          Ref.update(vehiclesRef, (vehicles) => [
+            ...vehicles.filter((existing) => existing.id !== vehicle.id),
+            vehicle,
+          ]),
+
+        removeById: (id: string): Effect.Effect<boolean, never> =>
+          Ref.modify(vehiclesRef, (vehicles) => {
+            const remaining = vehicles.filter((vehicle) => vehicle.id !== id)
+            return [remaining.length !== vehicles.length, remaining]
+          }),
+
         getAll: (): Effect.Effect<ReadonlyArray<ParkedVehicle>, never> => Ref.get(vehiclesRef),
 
         // Claim (remove and return) the nearest parked vehicle within reach of

@@ -1,7 +1,7 @@
 import { Effect, Ref } from 'effect'
 import { NetworkError } from '../domain/errors'
 import { MessageType, PlayerId, WorldId } from '../domain/schemas'
-import type { BlockBreakMessage, BlockPlaceMessage, ChatMessage, ContainerUpdateMessage, DroppedItemRemoveMessage, DroppedItemSpawnMessage, EntityDamageMessage, EntitySnapshotMessage, NetworkMessage, PlayerJoinMessage, PlayerMoveMessage } from '../domain/schemas'
+import type { BlockBreakMessage, BlockPlaceMessage, ChatMessage, ContainerUpdateMessage, DroppedItemRemoveMessage, DroppedItemSpawnMessage, ParkedVehicleRemoveMessage, ParkedVehicleUpdateMessage, EntityDamageMessage, EntitySnapshotMessage, NetworkMessage, PlayerJoinMessage, PlayerMoveMessage } from '../domain/schemas'
 import type { WebSocketConnection } from '../domain/websocket-ports'
 import { decodeNetworkMessage, sendEncodedToConnection } from './codec'
 import type { ConnectedPlayer, GameServer, ServerServiceShape } from './server-service'
@@ -117,6 +117,13 @@ export const handlePlayerJoin = (
     const containerLog = yield* Ref.get(services.gameServer.containerUpdates)
     for (const update of containerLog.values()) {
       yield* sendEncodedToConnection(connection, { ...update, playerId: REPLAY_PLAYER_ID, timestamp: Date.now() })
+    }
+    // Live parked vehicles: keep the ORIGINAL owner id (mirror ids embed it;
+    // removals must round-trip by owner) — the joiner's self-skip can't match
+    // it anyway since owner ids are never the joiner's fresh id.
+    const parkedLog = yield* Ref.get(services.gameServer.parkedVehicles)
+    for (const vehicle of parkedLog.values()) {
+      yield* sendEncodedToConnection(connection, { ...vehicle, timestamp: Date.now() })
     }
     for (const existingPlayer of currentPlayers.values()) {
       yield* sendEncodedToConnection(connection, {
@@ -285,6 +292,33 @@ export const handleDroppedItemMessage = (
   message: DroppedItemSpawnMessage | DroppedItemRemoveMessage,
 ): Effect.Effect<void, NetworkError> => services.serverService.broadcast(message, message.playerId)
 
+const parkedVehicleKey = (worldId: string, ownerId: string, vehicleId: string): string =>
+  `${worldId}|${ownerId}|${vehicleId}`
+
+export const handleParkedVehicleUpdate = (
+  services: ServerHandlerServices,
+  message: ParkedVehicleUpdateMessage,
+): Effect.Effect<void, NetworkError> =>
+  Ref.update(services.gameServer.parkedVehicles, (vehicles) => {
+    const next = new Map(vehicles)
+    next.set(parkedVehicleKey(String(message.worldId), String(message.playerId), message.vehicleId), message)
+    return next
+  }).pipe(
+    Effect.flatMap(() => services.serverService.broadcast(message, message.playerId)),
+  )
+
+export const handleParkedVehicleRemove = (
+  services: ServerHandlerServices,
+  message: ParkedVehicleRemoveMessage,
+): Effect.Effect<void, NetworkError> =>
+  Ref.update(services.gameServer.parkedVehicles, (vehicles) => {
+    const next = new Map(vehicles)
+    next.delete(parkedVehicleKey(String(message.worldId), message.ownerId, message.vehicleId))
+    return next
+  }).pipe(
+    Effect.flatMap(() => services.serverService.broadcast(message, message.playerId)),
+  )
+
 export const handleChat = (
   services: ServerHandlerServices,
   message: ChatMessage,
@@ -340,6 +374,14 @@ export const dispatchMessage = (
       case MessageType.DroppedItemRemove:
         yield* verifyPlayerOwnership(services, connection.id, message.playerId)
         yield* handleDroppedItemMessage(services, message)
+        return
+      case MessageType.ParkedVehicleUpdate:
+        yield* verifyPlayerOwnership(services, connection.id, message.playerId)
+        yield* handleParkedVehicleUpdate(services, message)
+        return
+      case MessageType.ParkedVehicleRemove:
+        yield* verifyPlayerOwnership(services, connection.id, message.playerId)
+        yield* handleParkedVehicleRemove(services, message)
         return
       case MessageType.Chat:
         yield* verifyPlayerOwnership(services, connection.id, message.playerId)
