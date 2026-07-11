@@ -56,6 +56,18 @@ export const createTestInputService = (initialState: {
     consumeMouseClick: () => Effect.sync(() => false),
 
     consumeWheelDelta: () => Effect.sync(() => 0),
+
+    setVirtualKey: () => Effect.void,
+
+    pulseVirtualKey: () => Effect.void,
+
+    setVirtualMouseButton: () => Effect.void,
+
+    addVirtualLookDelta: () => Effect.void,
+
+    setVirtualLookActive: () => Effect.void,
+
+    clearVirtualInput: () => Effect.void,
   }
 }
 

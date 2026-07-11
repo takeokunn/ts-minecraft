@@ -24,6 +24,12 @@ const buildInputService = (
     exitPointerLock: () => Effect.void,
     isPointerLocked: () => Effect.succeed(false),
     consumeWheelDelta: () => Effect.succeed(0),
+    setVirtualKey: () => Effect.void,
+    pulseVirtualKey: () => Effect.void,
+    setVirtualMouseButton: () => Effect.void,
+    addVirtualLookDelta: () => Effect.void,
+    setVirtualLookActive: () => Effect.void,
+    clearVirtualInput: () => Effect.void,
   })
 
 /** Creates an input service fake with consumable key presses and inert mouse input. */

@@ -221,6 +221,81 @@ describe('InputService', () => {
     })
   })
 
+  describe('virtual touch input', () => {
+    it.effect('preserves held and rising-edge key semantics', () => {
+      installPointerLockDom()
+      return Effect.scoped(Effect.gen(function* () {
+        const input = yield* InputService
+        yield* input.setVirtualKey(KeyMappings.MOVE_FORWARD, true)
+
+        expect(yield* input.isKeyPressed(KeyMappings.MOVE_FORWARD)).toBe(true)
+        expect(yield* input.consumeKeyPress(KeyMappings.MOVE_FORWARD)).toBe(true)
+        expect(yield* input.consumeKeyPress(KeyMappings.MOVE_FORWARD)).toBe(false)
+
+        yield* input.setVirtualKey(KeyMappings.MOVE_FORWARD, true)
+        expect(yield* input.consumeKeyPress(KeyMappings.MOVE_FORWARD)).toBe(false)
+        yield* input.setVirtualKey(KeyMappings.MOVE_FORWARD, false)
+        expect(yield* input.isKeyPressed(KeyMappings.MOVE_FORWARD)).toBe(false)
+
+        yield* input.pulseVirtualKey(KeyMappings.JUMP)
+        expect(yield* input.isKeyPressed(KeyMappings.JUMP)).toBe(false)
+        expect(yield* input.consumeKeyPress(KeyMappings.JUMP)).toBe(true)
+        expect(yield* input.consumeKeyPress(KeyMappings.JUMP)).toBe(false)
+      }).pipe(Effect.provide(InputService.Default)))
+    })
+
+    it.effect('preserves held and rising-edge mouse semantics', () => {
+      installPointerLockDom()
+      return Effect.scoped(Effect.gen(function* () {
+        const input = yield* InputService
+        yield* input.setVirtualMouseButton(MouseButton.LEFT, true)
+
+        expect(yield* input.isMouseDown(MouseButton.LEFT)).toBe(true)
+        expect(yield* input.consumeMouseClick(MouseButton.LEFT)).toBe(true)
+        expect(yield* input.consumeMouseClick(MouseButton.LEFT)).toBe(false)
+
+        yield* input.setVirtualMouseButton(MouseButton.LEFT, false)
+        expect(yield* input.isMouseDown(MouseButton.LEFT)).toBe(false)
+      }).pipe(Effect.provide(InputService.Default)))
+    })
+
+    it.effect('accumulates look delta and enables look without browser pointer lock', () => {
+      installPointerLockDom()
+      return Effect.scoped(Effect.gen(function* () {
+        const input = yield* InputService
+        expect(yield* input.isPointerLocked()).toBe(false)
+
+        yield* input.setVirtualLookActive(true)
+        yield* input.addVirtualLookDelta(12, -7)
+        yield* input.addVirtualLookDelta(3, 2)
+
+        expect(yield* input.isPointerLocked()).toBe(true)
+        expect(yield* input.getMouseDelta()).toEqual({ x: 15, y: -5 })
+        expect(yield* input.getMouseDelta()).toEqual({ x: 0, y: 0 })
+      }).pipe(Effect.provide(InputService.Default)))
+    })
+
+    it.effect('ignores invalid look deltas and clears every virtual input channel', () => {
+      installPointerLockDom()
+      return Effect.scoped(Effect.gen(function* () {
+        const input = yield* InputService
+        yield* input.setVirtualKey(KeyMappings.JUMP, true)
+        yield* input.setVirtualMouseButton(MouseButton.RIGHT, true)
+        yield* input.setVirtualLookActive(true)
+        yield* input.addVirtualLookDelta(4, 5)
+        yield* input.addVirtualLookDelta(Number.NaN, Number.POSITIVE_INFINITY)
+        yield* input.clearVirtualInput()
+
+        expect(yield* input.isKeyPressed(KeyMappings.JUMP)).toBe(false)
+        expect(yield* input.consumeKeyPress(KeyMappings.JUMP)).toBe(false)
+        expect(yield* input.isMouseDown(MouseButton.RIGHT)).toBe(false)
+        expect(yield* input.consumeMouseClick(MouseButton.RIGHT)).toBe(false)
+        expect(yield* input.isPointerLocked()).toBe(false)
+        expect(yield* input.getMouseDelta()).toEqual({ x: 0, y: 0 })
+      }).pipe(Effect.provide(InputService.Default)))
+    })
+  })
+
   describe('keydown default-action prevention', () => {
     const dispatchKey = (
       fakeDocument: { dispatchEvent: (e: Event) => boolean },
@@ -621,6 +696,12 @@ describe('InputService', () => {
       expect(typeof service.isPointerLocked).toBe('function')
       expect(typeof service.consumeMouseClick).toBe('function')
       expect(typeof service.consumeWheelDelta).toBe('function')
+      expect(typeof service.setVirtualKey).toBe('function')
+      expect(typeof service.pulseVirtualKey).toBe('function')
+      expect(typeof service.setVirtualMouseButton).toBe('function')
+      expect(typeof service.addVirtualLookDelta).toBe('function')
+      expect(typeof service.setVirtualLookActive).toBe('function')
+      expect(typeof service.clearVirtualInput).toBe('function')
     })
 
     it('should return Effect for isMouseDown', () => {

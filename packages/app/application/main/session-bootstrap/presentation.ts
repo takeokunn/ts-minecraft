@@ -20,6 +20,7 @@ import { TradingPresentationService } from '@ts-minecraft/presentation'
 import { ChatPanelService } from '@ts-minecraft/presentation'
 import { ConnectionPanelService } from '@ts-minecraft/presentation'
 import { PlayerListPanelService } from '@ts-minecraft/presentation'
+import { TouchControlsService } from '@ts-minecraft/presentation'
 
 export const buildPresentationBootstrapServices = Effect.gen(function* () {
   const [
@@ -42,6 +43,7 @@ export const buildPresentationBootstrapServices = Effect.gen(function* () {
     chatPanel,
     connectionPanel,
     playerListPanel,
+    touchControls,
   ] = yield* Effect.all([
     CrosshairService,
     DamageOverlayService,
@@ -62,6 +64,7 @@ export const buildPresentationBootstrapServices = Effect.gen(function* () {
     ChatPanelService,
     ConnectionPanelService,
     PlayerListPanelService,
+    TouchControlsService,
   ], { concurrency: 'unbounded' })
 
   return {
@@ -84,6 +87,7 @@ export const buildPresentationBootstrapServices = Effect.gen(function* () {
     chatPanel,
     connectionPanel,
     playerListPanel,
+    touchControls,
   }
 })
 

@@ -2,6 +2,8 @@ import { Effect, Layer, Option, HashMap, HashSet, Schema, MutableRef } from 'eff
 import { KeyMappings } from '@ts-minecraft/entity/domain/key-mappings'
 import { PlayerInputService, type MouseDelta } from '@ts-minecraft/entity/application/player-input-service'
 import { downloadCanvasScreenshot } from './screenshot-service'
+import { createVirtualInputState } from './virtual-input-state'
+import { collectGamepadSnapshot, createGamepadEdgeTracker } from './gamepad-input-state'
 
 export type { MouseDelta } from '@ts-minecraft/entity/application/player-input-service'
 export { MouseDeltaSchema } from '@ts-minecraft/entity/application/player-input-service'
@@ -14,109 +16,20 @@ export const MouseButton = {
   RIGHT: 2,
 } as const
 
-const GAMEPAD_STICK_DEADZONE = 0.15
-const GAMEPAD_TRIGGER_DEADZONE = 0.1
-const GAMEPAD_LOOK_SENSITIVITY = 14
-const GAMEPAD_WHEEL_STEP = 120
-
-const GAMEPAD_KEY_BINDINGS = {
-  forward: KeyMappings.MOVE_FORWARD,
-  backward: KeyMappings.MOVE_BACKWARD,
-  left: KeyMappings.MOVE_LEFT,
-  right: KeyMappings.MOVE_RIGHT,
-  jump: KeyMappings.JUMP,
-  sneak: KeyMappings.SNEAK,
-  sprint: KeyMappings.SPRINT,
-  inventory: KeyMappings.INVENTORY_OPEN,
-  drop: KeyMappings.DROP_ITEM,
-  menu: KeyMappings.ESCAPE,
-  hud: KeyMappings.HUD_TOGGLE,
-  camera: KeyMappings.CAMERA_TOGGLE,
-} as const
-
-const normalizeAxis = (value: number, deadzone: number): number => {
-  const magnitude = Math.abs(value)
-  if (magnitude < deadzone) return 0
-  const scaled = (magnitude - deadzone) / (1 - deadzone)
-  return Math.sign(value) * scaled
-}
-
-const isButtonPressed = (button: GamepadButton | undefined, deadzone = 0.5): boolean =>
-  button !== undefined && (button.pressed || button.value >= deadzone)
-
-const cloneSet = <T>(values: Set<T>): Set<T> => new Set(values)
-const cloneMap = <K, V>(values: Map<K, V>): Map<K, V> => new Map(values)
-
-const readConnectedGamepads = (): Gamepad[] => {
+const readGamepads = (): readonly Gamepad[] => {
   if (typeof navigator === 'undefined' || typeof navigator.getGamepads !== 'function') {
     return []
   }
 
   const gamepads = navigator.getGamepads()
-  const connectedGamepads: Gamepad[] = []
+  const availableGamepads: Gamepad[] = []
 
   for (let index = 0; index < gamepads.length; index += 1) {
     const gamepad = gamepads[index]
-    if (gamepad !== null && gamepad !== undefined && gamepad.connected) {
-      connectedGamepads.push(gamepad)
-    }
+    if (gamepad !== null && gamepad !== undefined) availableGamepads.push(gamepad)
   }
 
-  return connectedGamepads
-}
-
-const collectGamepadState = () => {
-  const pressedKeys = new Set<string>()
-  const mouseButtons = new Map<number, boolean>()
-  const wheelButtons = new Set<number>()
-  let mouseDeltaX = 0
-  let mouseDeltaY = 0
-
-  for (const gamepad of readConnectedGamepads()) {
-    const leftX = normalizeAxis(gamepad.axes[0] ?? 0, GAMEPAD_STICK_DEADZONE)
-    const leftY = normalizeAxis(gamepad.axes[1] ?? 0, GAMEPAD_STICK_DEADZONE)
-    const rightX = normalizeAxis(gamepad.axes[2] ?? 0, GAMEPAD_STICK_DEADZONE)
-    const rightY = normalizeAxis(gamepad.axes[3] ?? 0, GAMEPAD_STICK_DEADZONE)
-
-    if (leftY < 0) pressedKeys.add(GAMEPAD_KEY_BINDINGS.forward)
-    if (leftY > 0) pressedKeys.add(GAMEPAD_KEY_BINDINGS.backward)
-    if (leftX < 0) pressedKeys.add(GAMEPAD_KEY_BINDINGS.left)
-    if (leftX > 0) pressedKeys.add(GAMEPAD_KEY_BINDINGS.right)
-    if (isButtonPressed(gamepad.buttons[12])) pressedKeys.add(GAMEPAD_KEY_BINDINGS.forward)
-    if (isButtonPressed(gamepad.buttons[13])) pressedKeys.add(GAMEPAD_KEY_BINDINGS.backward)
-    if (isButtonPressed(gamepad.buttons[14])) pressedKeys.add(GAMEPAD_KEY_BINDINGS.left)
-    if (isButtonPressed(gamepad.buttons[15])) pressedKeys.add(GAMEPAD_KEY_BINDINGS.right)
-
-    if (isButtonPressed(gamepad.buttons[0])) pressedKeys.add(GAMEPAD_KEY_BINDINGS.jump)
-    if (isButtonPressed(gamepad.buttons[1])) pressedKeys.add(GAMEPAD_KEY_BINDINGS.sneak)
-    if (isButtonPressed(gamepad.buttons[10])) pressedKeys.add(GAMEPAD_KEY_BINDINGS.sprint)
-    if (isButtonPressed(gamepad.buttons[2])) pressedKeys.add(GAMEPAD_KEY_BINDINGS.drop)
-    if (isButtonPressed(gamepad.buttons[3])) pressedKeys.add(GAMEPAD_KEY_BINDINGS.inventory)
-    if (isButtonPressed(gamepad.buttons[8])) pressedKeys.add(GAMEPAD_KEY_BINDINGS.hud)
-    if (isButtonPressed(gamepad.buttons[9])) pressedKeys.add(GAMEPAD_KEY_BINDINGS.menu)
-    if (isButtonPressed(gamepad.buttons[11])) pressedKeys.add(GAMEPAD_KEY_BINDINGS.camera)
-
-    if (isButtonPressed(gamepad.buttons[6], GAMEPAD_TRIGGER_DEADZONE)) {
-      mouseButtons.set(MouseButton.RIGHT, true)
-    }
-
-    if (isButtonPressed(gamepad.buttons[7], GAMEPAD_TRIGGER_DEADZONE)) {
-      mouseButtons.set(MouseButton.LEFT, true)
-    }
-
-    if (isButtonPressed(gamepad.buttons[4])) {
-      wheelButtons.add(4)
-    }
-
-    if (isButtonPressed(gamepad.buttons[5])) {
-      wheelButtons.add(5)
-    }
-
-    mouseDeltaX += rightX * GAMEPAD_LOOK_SENSITIVITY
-    mouseDeltaY += rightY * GAMEPAD_LOOK_SENSITIVITY
-  }
-
-  return { pressedKeys, mouseButtons, wheelButtons, mouseDelta: { x: mouseDeltaX, y: mouseDeltaY } }
+  return availableGamepads
 }
 
 // Scoped: DOM event listeners removed when the scope closes (HMR, test teardown).
@@ -137,50 +50,11 @@ export class InputService extends Effect.Service<InputService>()(
       const wheelDeltaRef = yield* Effect.sync(() => MutableRef.make(0))
       // Fallback pointer-lock state for environments that deny the browser API (eg. MCP)
       const pointerLockFallbackRef = yield* Effect.sync(() => MutableRef.make(false))
-      const gamepadPressedKeysRef = yield* Effect.sync(() => MutableRef.make(new Set<string>()))
-      const gamepadJustPressedKeysRef = yield* Effect.sync(() => MutableRef.make(new Set<string>()))
-      const gamepadMouseButtonsRef = yield* Effect.sync(() => MutableRef.make(new Map<number, boolean>()))
-      const gamepadJustClickedButtonsRef = yield* Effect.sync(() => MutableRef.make(new Set<number>()))
-      const gamepadPreviousPressedKeysRef = yield* Effect.sync(() => MutableRef.make(new Set<string>()))
-      const gamepadPreviousMouseButtonsRef = yield* Effect.sync(() => MutableRef.make(new Map<number, boolean>()))
-      const gamepadPreviousWheelButtonsRef = yield* Effect.sync(() => MutableRef.make(new Set<number>()))
+      const gamepadInput = yield* Effect.sync(createGamepadEdgeTracker)
+      const virtualInput = yield* Effect.sync(createVirtualInputState)
 
       const syncGamepadState = () => {
-        const { pressedKeys, mouseButtons, wheelButtons } = collectGamepadState()
-        const previousPressedKeys = MutableRef.get(gamepadPreviousPressedKeysRef)
-        const previousMouseButtons = MutableRef.get(gamepadPreviousMouseButtonsRef)
-        const previousWheelButtons = MutableRef.get(gamepadPreviousWheelButtonsRef)
-
-        const nextJustPressedKeys = cloneSet(MutableRef.get(gamepadJustPressedKeysRef))
-        for (const key of pressedKeys) {
-          if (!previousPressedKeys.has(key)) {
-            nextJustPressedKeys.add(key)
-          }
-        }
-
-        const nextJustClickedButtons = cloneSet(MutableRef.get(gamepadJustClickedButtonsRef))
-        for (const [button, pressed] of mouseButtons.entries()) {
-          if (pressed && previousMouseButtons.get(button) !== true) {
-            nextJustClickedButtons.add(button)
-          }
-        }
-
-        for (const wheelButton of wheelButtons) {
-          if (!previousWheelButtons.has(wheelButton)) {
-            MutableRef.set(
-              wheelDeltaRef,
-              MutableRef.get(wheelDeltaRef) + (wheelButton === 4 ? -GAMEPAD_WHEEL_STEP : GAMEPAD_WHEEL_STEP),
-            )
-          }
-        }
-
-        MutableRef.set(gamepadPressedKeysRef, cloneSet(pressedKeys))
-        MutableRef.set(gamepadJustPressedKeysRef, nextJustPressedKeys)
-        MutableRef.set(gamepadMouseButtonsRef, cloneMap(mouseButtons))
-        MutableRef.set(gamepadJustClickedButtonsRef, nextJustClickedButtons)
-        MutableRef.set(gamepadPreviousPressedKeysRef, cloneSet(pressedKeys))
-        MutableRef.set(gamepadPreviousMouseButtonsRef, cloneMap(mouseButtons))
-        MutableRef.set(gamepadPreviousWheelButtonsRef, cloneSet(wheelButtons))
+        gamepadInput.update(collectGamepadSnapshot(readGamepads()))
       }
 
       // Keys whose browser default action interferes with gameplay. Keep
@@ -287,13 +161,9 @@ export class InputService extends Effect.Service<InputService>()(
         MutableRef.set(justPressedKeysRef, HashSet.empty<string>())
         MutableRef.set(mouseButtonsRef, HashMap.empty<number, boolean>())
         MutableRef.set(justClickedButtonsRef, HashSet.empty<number>())
-        MutableRef.set(gamepadPressedKeysRef, new Set<string>())
-        MutableRef.set(gamepadJustPressedKeysRef, new Set<string>())
-        MutableRef.set(gamepadMouseButtonsRef, new Map<number, boolean>())
-        MutableRef.set(gamepadJustClickedButtonsRef, new Set<number>())
-        MutableRef.set(gamepadPreviousPressedKeysRef, new Set<string>())
-        MutableRef.set(gamepadPreviousMouseButtonsRef, new Map<number, boolean>())
-        MutableRef.set(gamepadPreviousWheelButtonsRef, new Set<number>())
+        gamepadInput.clear()
+        virtualInput.clear()
+        MutableRef.set(mouseDeltaRef, { x: 0, y: 0 })
         MutableRef.set(wheelDeltaRef, 0)
       }
 
@@ -337,7 +207,10 @@ export class InputService extends Effect.Service<InputService>()(
         isKeyPressed: (key: string): Effect.Effect<boolean, never> =>
           Effect.sync(() => {
             syncGamepadState()
-            return HashSet.has(MutableRef.get(pressedKeysRef), key) || MutableRef.get(gamepadPressedKeysRef).has(key)
+            const gamepadState = gamepadInput.getState()
+            return HashSet.has(MutableRef.get(pressedKeysRef), key) ||
+              gamepadState.snapshot.pressedKeys.has(key) ||
+              virtualInput.isKeyPressed(key)
           }),
 
         consumeKeyPress: (key: string): Effect.Effect<boolean, never> =>
@@ -346,32 +219,34 @@ export class InputService extends Effect.Service<InputService>()(
             const state = MutableRef.get(justPressedKeysRef)
             const next = HashSet.remove(state, key)
             MutableRef.set(justPressedKeysRef, next)
-            const gamepadState = cloneSet(MutableRef.get(gamepadJustPressedKeysRef))
-            const gamepadConsumed = gamepadState.has(key)
-            if (gamepadConsumed) {
-              gamepadState.delete(key)
-              MutableRef.set(gamepadJustPressedKeysRef, gamepadState)
-            }
-            return HashSet.has(state, key) || gamepadConsumed
+            const gamepadConsumed = gamepadInput.consumeKeyPress(key)
+            const virtualConsumed = virtualInput.consumeKeyPress(key)
+            return HashSet.has(state, key) || gamepadConsumed || virtualConsumed
           }),
 
         getMouseDelta: (): Effect.Effect<MouseDelta, never> =>
           Effect.sync(() => {
-            const { mouseDelta } = collectGamepadState()
+            syncGamepadState()
+            const { mouseDelta } = gamepadInput.getState().snapshot
             if (mouseDelta.x !== 0 || mouseDelta.y !== 0) {
               const delta = MutableRef.get(mouseDeltaRef)
               MutableRef.set(mouseDeltaRef, { x: delta.x + mouseDelta.x, y: delta.y + mouseDelta.y })
             }
             const delta = MutableRef.get(mouseDeltaRef)
             MutableRef.set(mouseDeltaRef, { x: 0, y: 0 })
-            return delta
+            const virtualDelta = virtualInput.consumeLookDelta()
+            return { x: delta.x + virtualDelta.x, y: delta.y + virtualDelta.y }
           }),
 
         isMouseDown: (button: number): Effect.Effect<boolean, never> =>
           Effect.sync(() => {
             syncGamepadState()
+            const gamepadMouseDown = button === MouseButton.LEFT || button === MouseButton.RIGHT
+              ? gamepadInput.getState().snapshot.mouseButtons.has(button)
+              : false
             return Option.getOrElse(HashMap.get(MutableRef.get(mouseButtonsRef), button), () => false) ||
-              MutableRef.get(gamepadMouseButtonsRef).get(button) === true
+              gamepadMouseDown ||
+              virtualInput.isMouseDown(button)
           }),
 
         requestPointerLock: (): Effect.Effect<void, never> =>
@@ -405,7 +280,8 @@ export class InputService extends Effect.Service<InputService>()(
           }),
 
         isPointerLocked: (): Effect.Effect<boolean, never> =>
-          Effect.sync(() => document.pointerLockElement instanceof HTMLCanvasElement || MutableRef.get(pointerLockFallbackRef)),
+          Effect.sync(() => document.pointerLockElement instanceof HTMLCanvasElement ||
+            MutableRef.get(pointerLockFallbackRef) || virtualInput.isLookActive()),
 
         consumeMouseClick: (button: number): Effect.Effect<boolean, never> =>
           Effect.sync(() => {
@@ -413,22 +289,36 @@ export class InputService extends Effect.Service<InputService>()(
             const state = MutableRef.get(justClickedButtonsRef)
             const next = HashSet.remove(state, button)
             MutableRef.set(justClickedButtonsRef, next)
-            const gamepadState = cloneSet(MutableRef.get(gamepadJustClickedButtonsRef))
-            const gamepadConsumed = gamepadState.has(button)
-            if (gamepadConsumed) {
-              gamepadState.delete(button)
-              MutableRef.set(gamepadJustClickedButtonsRef, gamepadState)
-            }
-            return HashSet.has(state, button) || gamepadConsumed
+            const gamepadConsumed = gamepadInput.consumeMouseClick(button)
+            const virtualConsumed = virtualInput.consumeMouseClick(button)
+            return HashSet.has(state, button) || gamepadConsumed || virtualConsumed
           }),
 
         consumeWheelDelta: (): Effect.Effect<number, never> =>
           Effect.sync(() => {
             syncGamepadState()
-            const delta = MutableRef.get(wheelDeltaRef)
+            const delta = MutableRef.get(wheelDeltaRef) + gamepadInput.consumeWheelDelta()
             MutableRef.set(wheelDeltaRef, 0)
             return delta
           }),
+
+        setVirtualKey: (key: string, pressed: boolean): Effect.Effect<void, never> =>
+          Effect.sync(() => virtualInput.setKey(key, pressed)),
+
+        pulseVirtualKey: (key: string): Effect.Effect<void, never> =>
+          Effect.sync(() => virtualInput.pulseKey(key)),
+
+        setVirtualMouseButton: (button: number, pressed: boolean): Effect.Effect<void, never> =>
+          Effect.sync(() => virtualInput.setMouseButton(button, pressed)),
+
+        addVirtualLookDelta: (x: number, y: number): Effect.Effect<void, never> =>
+          Effect.sync(() => virtualInput.addLookDelta(x, y)),
+
+        setVirtualLookActive: (active: boolean): Effect.Effect<void, never> =>
+          Effect.sync(() => virtualInput.setLookActive(active)),
+
+        clearVirtualInput: (): Effect.Effect<void, never> =>
+          Effect.sync(() => virtualInput.clear()),
       }
     }),
   }

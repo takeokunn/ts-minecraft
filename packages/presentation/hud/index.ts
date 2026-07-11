@@ -33,6 +33,7 @@ export {
 } from './dimension-fade'
 export { ScreenshotKeyService, screenshotFileName, triggerDownload } from './screenshot-key'
 export { ControlsHintService } from './controls-hint'
+export { TouchControlsService, mountTouchControls } from './touch-controls'
 export { HotbarRendererService } from './hotbar-three'
 export {
   EMPTY_HOTBAR_VALUES,

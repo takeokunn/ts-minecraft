@@ -18,6 +18,7 @@ import {
   type SlotCountBadge,
 } from './hotbar-count-badge'
 import { getHudScale } from './hud-scale'
+import { createFirstPersonHeldItemPresenter } from './first-person-held-item'
 
 const SLOT_SIZE = 60
 const SLOT_GAP = 10
@@ -46,29 +47,6 @@ const ITEM_NAME_LABEL_HEIGHT = 48
 const ITEM_NAME_LABEL_Y_OFFSET = HOTBAR_Y_OFFSET + 62
 const ITEM_NAME_LABEL_DURATION_MS = 1600
 const ITEM_NAME_LABEL_FADE_MS = 400
-const FIRST_PERSON_ITEM_FOV = 50
-const FIRST_PERSON_ITEM_NEAR = 0.1
-const FIRST_PERSON_ITEM_FAR = 10
-const FIRST_PERSON_ITEM_X = 0.72
-const FIRST_PERSON_ITEM_Y = -0.48
-const FIRST_PERSON_ITEM_Z = -1.55
-const FIRST_PERSON_ITEM_ROTATION_X = -0.32
-const FIRST_PERSON_ITEM_ROTATION_Y = -0.54
-const FIRST_PERSON_ITEM_ROTATION_Z = -0.16
-const FIRST_PERSON_BLOCK_SCALE = 0.42
-const FIRST_PERSON_FLAT_ITEM_SIZE = 0.72
-const FIRST_PERSON_NARROW_ASPECT = 0.75
-const FIRST_PERSON_NARROW_ITEM_X = 0.68
-const FIRST_PERSON_NARROW_ITEM_Y = 0.05
-const FIRST_PERSON_NARROW_ITEM_Z = -2.2
-const FIRST_PERSON_NARROW_BLOCK_SCALE = 0.32
-const FIRST_PERSON_NARROW_FLAT_ITEM_SIZE = 0.58
-// Swing arc mirrors the first-person arm (first-person-hand.ts) so the held
-// item chops in phase with the arm and camera bob during an attack.
-const HELD_ITEM_SWING_PITCH_RADS = -1.1
-const HELD_ITEM_SWING_YAW_RADS = 0.35
-const HELD_ITEM_SWING_DROP_UNITS = 0.3
-const HELD_ITEM_SWING_FORWARD_UNITS = 0.25
 
 type ItemNameLabel = {
   readonly mesh: THREE.Mesh
@@ -76,20 +54,6 @@ type ItemNameLabel = {
   readonly texture: THREE.CanvasTexture
   readonly canvas: HTMLCanvasElement
   readonly context: CanvasRenderingContext2D
-}
-
-type FirstPersonHeldItem = {
-  readonly group: THREE.Group
-  readonly mesh: THREE.Mesh
-  readonly isBlock: boolean
-}
-
-type FirstPersonLayout = {
-  readonly x: number
-  readonly y: number
-  readonly z: number
-  readonly blockScale: number
-  readonly flatItemSize: number
 }
 
 export type HotbarViewportLayout = {
@@ -113,148 +77,12 @@ export const resolveHotbarViewportLayout = (
   }
 }
 
-const FIRST_PERSON_BLOCK_ITEMS: ReadonlySet<InventoryItem> = new Set<InventoryItem>([
-  'DIRT',
-  'STONE',
-  'WOOD',
-  'GRASS',
-  'SAND',
-  'WATER',
-  'LEAVES',
-  'GLASS',
-  'SNOW',
-  'GRAVEL',
-  'COBBLESTONE',
-  'GRANITE',
-  'DIORITE',
-  'ANDESITE',
-  'DEEPSLATE',
-  'BEDROCK',
-  'LAVA',
-  'OBSIDIAN',
-  'COAL_ORE',
-  'IRON_ORE',
-  'GOLD_ORE',
-  'DIAMOND_ORE',
-  'REDSTONE_ORE',
-  'LAPIS_ORE',
-  'EMERALD_ORE',
-  'DEEPSLATE_COAL_ORE',
-  'DEEPSLATE_IRON_ORE',
-  'DEEPSLATE_GOLD_ORE',
-  'DEEPSLATE_DIAMOND_ORE',
-  'DEEPSLATE_REDSTONE_ORE',
-  'DEEPSLATE_LAPIS_ORE',
-  'DEEPSLATE_EMERALD_ORE',
-  'COAL_BLOCK',
-  'IRON_BLOCK',
-  'GOLD_BLOCK',
-  'DIAMOND_BLOCK',
-  'REDSTONE_BLOCK',
-  'LAPIS_BLOCK',
-  'EMERALD_BLOCK',
-  'PLANKS',
-  'CRAFTING_TABLE',
-  'FURNACE',
-  'TORCH',
-  'NETHERRACK',
-  'NETHER_PORTAL',
-  'FARMLAND',
-  'WHEAT_CROP',
-  'REDSTONE_WIRE',
-  'REDSTONE_TORCH',
-  'LEVER',
-  'STONE_BUTTON',
-  'REPEATER',
-  'PISTON',
-  'BED',
-  'ENCHANTING_TABLE',
-  'ANVIL',
-  'CAULDRON',
-  'END_STONE',
-  'END_PORTAL_FRAME',
-  'END_PORTAL',
-  'CHORUS_FLOWER',
-  'CHORUS_PLANT',
-  'DRAGON_EGG',
-  'END_CRYSTAL',
-  'END_GATEWAY',
-  'END_ROD',
-  'END_STONE_BRICKS',
-  'ENDER_CHEST',
-  'PURPUR_BLOCK',
-  'PURPUR_PILLAR',
-  'PURPUR_SLAB',
-  'PURPUR_STAIRS',
-  'SHULKER_BOX',
-  'TNT',
-  'CHEST',
-  'DOOR',
-  'DOOR_OPEN',
-  'GLOWSTONE',
-  'LADDER',
-  'COBWEB',
-  'SAPLING',
-  'DANDELION',
-  'POPPY',
-  'BROWN_MUSHROOM',
-  'RED_MUSHROOM',
-  'TALL_GRASS',
-  'FERN',
-  'SUGAR_CANE',
-  'CACTUS',
-  'LILY_PAD',
-  'ICE',
-  'PRESSURE_PLATE',
-  'STONE_SLAB',
-  'OAK_STAIRS',
-])
-
 const formatInventoryItemName = (item: InventoryItem): string => {
   if (item === 'TNT') return 'TNT'
   return item
     .split('_')
     .map((part) => `${part.charAt(0)}${part.slice(1).toLowerCase()}`)
     .join(' ')
-}
-
-const isFirstPersonBlockItem = (item: InventoryItem): boolean =>
-  FIRST_PERSON_BLOCK_ITEMS.has(item)
-
-const mix = (from: number, to: number, amount: number): number =>
-  from + (to - from) * amount
-
-const clamp01 = (value: number): number =>
-  Math.min(1, Math.max(0, value))
-
-const getFirstPersonLayout = (aspect: number): FirstPersonLayout => {
-  const narrowAmount = clamp01((FIRST_PERSON_NARROW_ASPECT - aspect) / FIRST_PERSON_NARROW_ASPECT)
-  return {
-    x: mix(FIRST_PERSON_ITEM_X, FIRST_PERSON_NARROW_ITEM_X, narrowAmount),
-    y: mix(FIRST_PERSON_ITEM_Y, FIRST_PERSON_NARROW_ITEM_Y, narrowAmount),
-    z: mix(FIRST_PERSON_ITEM_Z, FIRST_PERSON_NARROW_ITEM_Z, narrowAmount),
-    blockScale: mix(FIRST_PERSON_BLOCK_SCALE, FIRST_PERSON_NARROW_BLOCK_SCALE, narrowAmount),
-    flatItemSize: mix(FIRST_PERSON_FLAT_ITEM_SIZE, FIRST_PERSON_NARROW_FLAT_ITEM_SIZE, narrowAmount),
-  }
-}
-
-const applyFirstPersonHeldItemLayout = (
-  heldItem: FirstPersonHeldItem,
-  aspect: number,
-  swingAmount = 0,
-): void => {
-  const layout = getFirstPersonLayout(aspect)
-  heldItem.group.position.set(
-    layout.x,
-    layout.y - swingAmount * HELD_ITEM_SWING_DROP_UNITS,
-    layout.z - swingAmount * HELD_ITEM_SWING_FORWARD_UNITS,
-  )
-  heldItem.group.rotation.set(
-    FIRST_PERSON_ITEM_ROTATION_X + swingAmount * HELD_ITEM_SWING_PITCH_RADS,
-    FIRST_PERSON_ITEM_ROTATION_Y + swingAmount * HELD_ITEM_SWING_YAW_RADS,
-    FIRST_PERSON_ITEM_ROTATION_Z,
-  )
-  heldItem.mesh.scale.setScalar(heldItem.isBlock ? layout.blockScale : layout.flatItemSize / FIRST_PERSON_FLAT_ITEM_SIZE)
 }
 
 const applyAtlasUvsToMesh = (mesh: THREE.Mesh, tileIndex: number): boolean => {
@@ -272,49 +100,6 @@ const applyAtlasUvsToMesh = (mesh: THREE.Mesh, tileIndex: number): boolean => {
   }
   uvAttr.needsUpdate = true
   return true
-}
-
-const createFirstPersonHeldItem = (
-  item: InventoryItem,
-  atlasTexture: THREE.Texture,
-  aspect: number,
-): FirstPersonHeldItem | null => {
-  const tileIndex = getItemTileIndex(item)
-  if (tileIndex < 0) return null
-
-  const group = new THREE.Group()
-
-  const isBlock = isFirstPersonBlockItem(item)
-  const geometry = isBlock
-    ? new THREE.BoxGeometry(1, 1, 1)
-    : new THREE.PlaneGeometry(FIRST_PERSON_FLAT_ITEM_SIZE, FIRST_PERSON_FLAT_ITEM_SIZE)
-  const material = new THREE.MeshBasicMaterial({
-    color: 0xffffff,
-    map: atlasTexture,
-    transparent: !isBlock,
-    side: THREE.DoubleSide,
-    // Single-pass: Three.js' two-pass transparent DoubleSide rendering bumps
-    // material.version twice per frame (program-cache thrash; see
-    // chunk-mesh-materials.ts). A flat held-item sprite doesn't need it.
-    forceSinglePass: true,
-  })
-  const mesh = new THREE.Mesh(geometry, material)
-  applyAtlasUvsToMesh(mesh, tileIndex)
-  group.add(mesh)
-
-  const heldItem = { group, mesh, isBlock }
-  applyFirstPersonHeldItemLayout(heldItem, aspect)
-  return heldItem
-}
-
-const disposeFirstPersonHeldItem = (heldItem: FirstPersonHeldItem): void => {
-  heldItem.mesh.geometry.dispose()
-  const material = heldItem.mesh.material
-  if (Array.isArray(material)) {
-    Arr.forEach(material, (entry) => entry.dispose())
-  } else {
-    material.dispose()
-  }
 }
 
 const createItemNameLabel = (initialHeight: number): ItemNameLabel | null => {
@@ -365,9 +150,8 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
     scoped: Effect.gen(function* () {
       const rendererService = yield* RendererService
       const textureService = yield* TextureService
-      const { hudScene, heldItemScene, borderMesh } = yield* Effect.sync(() => {
+      const { hudScene, borderMesh } = yield* Effect.sync(() => {
         const scene = new THREE.Scene()
-        const firstPersonScene = new THREE.Scene()
         const border = new THREE.Mesh(
           new THREE.PlaneGeometry(SELECTED_BORDER_SIZE, SELECTED_BORDER_SIZE),
           new THREE.MeshBasicMaterial({ color: SELECTED_BORDER_COLOR, transparent: true, opacity: SELECTED_BORDER_OPACITY })
@@ -378,7 +162,7 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
         border.position.z = 0.5
         border.visible = false
         scene.add(border)
-        return { hudScene: scene, heldItemScene: firstPersonScene, borderMesh: border }
+        return { hudScene: scene, borderMesh: border }
       })
       const prevStateRef = MutableRef.make<HotbarState>({
         slots: EMPTY_HOTBAR_VALUES,
@@ -389,17 +173,15 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
 
       // Load the shared atlas texture for hotbar item icons
       const atlasTexture = yield* textureService.load('/textures/atlas.png')
+      const heldItemPresenter = createFirstPersonHeldItemPresenter(rendererService, atlasTexture)
       const hudCameraRef = MutableRef.make<Option.Option<THREE.OrthographicCamera>>(Option.none())
-      const heldItemCameraRef = MutableRef.make<Option.Option<THREE.PerspectiveCamera>>(Option.none())
       const slotMeshesRef = MutableRef.make<ReadonlyArray<THREE.Mesh>>([])
       const countBadgesRef = MutableRef.make<ReadonlyArray<SlotCountBadge>>([])
       // Static per-slot frame planes (grey border + inner edge). They live for
       // the session and only need their y re-anchored on resize.
       const frameMeshesRef = MutableRef.make<ReadonlyArray<THREE.Mesh>>([])
-      const heldItemRef = MutableRef.make<Option.Option<FirstPersonHeldItem>>(Option.none())
       const itemNameLabelRef = MutableRef.make<Option.Option<ItemNameLabel>>(Option.none())
       const itemNameLabelShownAtMsRef = MutableRef.make(0)
-      const lastSwingAmountRef = MutableRef.make(0)
       const viewportWidthRef = MutableRef.make(1)
       const viewportHeightRef = MutableRef.make(1)
       const appliedHudScaleRef = MutableRef.make(Number.NaN)
@@ -441,51 +223,13 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
         })
       }
 
-      const makeHeldItemCamera = (w: number, h: number): THREE.PerspectiveCamera => {
-        const cam = new THREE.PerspectiveCamera(
-          FIRST_PERSON_ITEM_FOV,
-          w / Math.max(1, h),
-          FIRST_PERSON_ITEM_NEAR,
-          FIRST_PERSON_ITEM_FAR,
-        )
-        cam.position.z = 0
-        return cam
-      }
-
-      const replaceHeldItemModel = (selectedItem: HotbarSlotValue): void => {
-        const currentHeldItem = Option.getOrNull(MutableRef.get(heldItemRef))
-        if (currentHeldItem !== null) {
-          heldItemScene.remove(currentHeldItem.group)
-          disposeFirstPersonHeldItem(currentHeldItem)
-          MutableRef.set(heldItemRef, Option.none())
-        }
-
-        if (selectedItem === null) return
-
-        const heldItemCamera = Option.getOrNull(MutableRef.get(heldItemCameraRef))
-        const nextHeldItem = createFirstPersonHeldItem(selectedItem.item, atlasTexture, heldItemCamera?.aspect ?? 1)
-        if (nextHeldItem === null) return
-
-        heldItemScene.add(nextHeldItem.group)
-        MutableRef.set(heldItemRef, Option.some(nextHeldItem))
-        // Fresh model starts at rest pose; reset the gate so an in-flight swing re-poses it.
-        MutableRef.set(lastSwingAmountRef, 0)
-      }
-
       // Resize handler — defined here so it can be registered/unregistered via finalizer.
       // Effect.runSync inside a raw DOM callback is intentional: callbacks cannot yield.
       const resizeHandler = () => {
         const w = window.innerWidth
         const h = window.innerHeight
-        const heldItemCamera = MutableRef.get(heldItemCameraRef)
         applyHotbarViewportLayout(w, h)
-        Option.map(heldItemCamera, (cam) => {
-          cam.aspect = w / Math.max(1, h)
-          cam.updateProjectionMatrix()
-          Option.map(MutableRef.get(heldItemRef), (heldItem) => {
-            applyFirstPersonHeldItemLayout(heldItem, cam.aspect)
-          })
-        })
+        heldItemPresenter.resize(w, h)
       }
 
       const showSelectedItemName = (selectedItem: HotbarSlotValue): void => {
@@ -526,6 +270,7 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
       })
       yield* Effect.addFinalizer(() => Effect.sync(() => {
         window.removeEventListener('resize', resizeHandler)
+        heldItemPresenter.dispose()
       }))
 
       return {
@@ -533,7 +278,7 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
           Effect.gen(function* () {
             const cam = makeCamera(initialWidth, initialHeight)
             MutableRef.set(hudCameraRef, Option.some(cam))
-            MutableRef.set(heldItemCameraRef, Option.some(makeHeldItemCamera(initialWidth, initialHeight)))
+            heldItemPresenter.resize(initialWidth, initialHeight)
 
             const meshes = yield* Effect.sync(() => {
               const built = Arr.makeBy(HOTBAR_SLOTS, (i) => {
@@ -612,7 +357,7 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
               showSelectedItemName(decision.selectedItem)
             }
             if (decision.heldItemChanged) {
-              replaceHeldItemModel(decision.selectedItem)
+              heldItemPresenter.replace(decision.selectedItem)
             }
 
             if (decision.unchanged) return
@@ -678,19 +423,9 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
           }
           updateItemNameLabelOpacity()
           const hudCamera = Option.getOrNull(MutableRef.get(hudCameraRef))
-          const heldItemCamera = Option.getOrNull(MutableRef.get(heldItemCameraRef))
-          const heldItem = Option.getOrNull(MutableRef.get(heldItemRef))
           if (hudCamera === null) return Effect.void
           return Effect.gen(function* () {
-            if (heldItemCamera !== null && heldItem !== null) {
-              // Re-pose only while the swing value is actually moving — at rest
-              // this is 0 === 0 and skips the per-frame layout allocation.
-              if (swingAmount !== MutableRef.get(lastSwingAmountRef)) {
-                applyFirstPersonHeldItemLayout(heldItem, heldItemCamera.aspect, swingAmount)
-                MutableRef.set(lastSwingAmountRef, swingAmount)
-              }
-              yield* rendererService.renderOverlay(renderer, heldItemScene, heldItemCamera)
-            }
+            yield* heldItemPresenter.render(renderer, swingAmount)
             yield* rendererService.renderOverlay(renderer, hudScene, hudCamera)
           })
         },

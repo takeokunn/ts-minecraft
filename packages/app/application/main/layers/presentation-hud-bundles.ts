@@ -5,6 +5,7 @@ import { ControlsHintPresentationLayer } from './presentation-hud-controls-hint-
 import { CrosshairPresentationLayer } from './presentation-hud-crosshair-bundles'
 import { AchievementToastPresentationLayer, DamageOverlayPresentationLayer, DimensionFadePresentationLayer, SleepOverlayPresentationLayer } from './presentation-hud-damage-overlay-bundles'
 import { HotbarRendererLayer } from './presentation-hud-hotbar-bundles'
+import { TouchControlsPresentationLayer } from './presentation-hud-touch-controls-bundles'
 
 export const HudPresentationLayers = CrosshairPresentationLayer.pipe(
   Layer.provideMerge(BlockHighlightPresentationLayer),
@@ -14,4 +15,5 @@ export const HudPresentationLayers = CrosshairPresentationLayer.pipe(
   Layer.provideMerge(DimensionFadePresentationLayer),
   Layer.provideMerge(SleepOverlayPresentationLayer),
   Layer.provideMerge(HotbarRendererLayer),
+  Layer.provideMerge(TouchControlsPresentationLayer),
 )
