@@ -66,6 +66,7 @@ export const makeAchievementToast = (dom: DomOperationsService) =>
       const queue = MutableRef.get(queueRef)
       const next = queue[0]
       if (next === undefined) {
+        MutableRef.set(timerRef, null)
         element.style.cssText = toastBaseCss(false)
         return
       }

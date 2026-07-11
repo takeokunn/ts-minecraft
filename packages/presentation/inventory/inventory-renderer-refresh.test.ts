@@ -89,7 +89,7 @@ describe('presentation/inventory/inventory-renderer-refresh', () => {
 
     expect(slotEl.title).toBe('')
     expect(slotEl.dataset['tooltip']).toBeUndefined()
-    expect(slotEl.getAttribute('aria-label')).toBeNull()
+    expect(slotEl.getAttribute('aria-label')).toBe('Empty slot')
   })
 
   it('renders the held cursor stack as a floating slot', () => {

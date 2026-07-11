@@ -39,6 +39,7 @@ export const createMockDomLayer = () => {
         'cssText' | 'display' | 'visibility' | 'background' | 'backgroundImage' | 'backgroundSize' | 'border' | 'transform'
       >
       focus: ReturnType<typeof vi.fn>
+      click: ReturnType<typeof vi.fn>
       setAttribute: ReturnType<typeof vi.fn>
       getAttribute: ReturnType<typeof vi.fn>
       addEventListener: ReturnType<typeof vi.fn>
@@ -68,6 +69,7 @@ export const createMockDomLayer = () => {
       title: '',
       dataset: {} as Record<string, string>,
       focus: vi.fn(),
+      click: vi.fn(),
       setAttribute: vi.fn((name: string, value: string) => {
         attributes[name] = String(value)
       }),

@@ -1,4 +1,4 @@
-import { Effect, MutableRef, Ref } from 'effect'
+import { Effect, MutableRef, Option, Ref } from 'effect'
 import type { DebugFeatureFlags } from '@ts-minecraft/app/application/debug-feature-flags.config'
 import { logErrors } from '@ts-minecraft/app/frame/error-logging'
 import { blockIdAt as blockIdAtCached } from '@ts-minecraft/game'
@@ -7,6 +7,7 @@ import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/t
 import type { FrameStageRefs } from '@ts-minecraft/app/application/frame/types/stage-refs'
 import { runInteractionStageFrame } from '@ts-minecraft/app/frame/stages/interaction-stage-frame'
 import { tickFoodConsumption } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler/food-consumption'
+import { clearBreakProgress } from './interaction-break-handler.shared'
 
 export const interactionStage = (
   deps: Pick<FrameHandlerDeps, 'camera' | 'scene' | 'gamePausedRef' | 'respawnPositionRef' | 'breakProgressElement'>,
@@ -53,7 +54,7 @@ export const interactionStage = (
     const isDead = yield* services.healthService.isDead()
 
     if (isDead) {
-      MutableRef.set(refs.breakProgressRef, null)
+      clearBreakProgress(refs, Option.getOrNull(deps.breakProgressElement))
       MutableRef.set(refs.bowChargeStartRef, null)
       MutableRef.set(refs.isShieldBlockingRef, false)
       yield* services.blockHighlight.setVisible(false)

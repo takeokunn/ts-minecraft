@@ -55,6 +55,34 @@ test.describe('Inventory overlay', () => {
     expect(getFatalErrors().length).toBe(0)
   })
 
+  for (const viewport of [
+    { width: 320, height: 568 },
+    { width: 390, height: 844 },
+  ]) {
+    test(`inventory remains usable at ${viewport.width}px`, async ({ page }) => {
+      await page.setViewportSize(viewport)
+
+      const game = new GamePage(page)
+      await game.toggleOverlayTo('inventory-overlay', 'e', true)
+
+      const overlay = page.locator('#inventory-overlay')
+      await expect(overlay).toBeVisible()
+      const box = await overlay.boundingBox()
+      expect(box).not.toBeNull()
+      expect(box!.x).toBeGreaterThanOrEqual(0)
+      expect(box!.y).toBeGreaterThanOrEqual(0)
+      expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width)
+      expect(box!.y + box!.height).toBeLessThanOrEqual(viewport.height)
+
+      const firstSlot = overlay.locator('[data-slot]').first()
+      await expect(firstSlot).toHaveAttribute('role', 'button')
+      await expect(firstSlot).toHaveAttribute('aria-label', /Inventory slot/)
+      await firstSlot.focus()
+      await expect(firstSlot).toBeFocused()
+      await page.keyboard.press('Space')
+    })
+  }
+
   test('second E key closes inventory overlay', async ({ page }) => {
     const getFatalErrors = attachFatalErrorMonitor(page)
 

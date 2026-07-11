@@ -13,7 +13,7 @@ import { blockIndexForWorldPosition, readChunkBlockId } from '@ts-minecraft/app/
 import { advanceBreakProgress } from '@ts-minecraft/app/frame/stages/interaction-break-progress'
 import { executeBlockBreak } from './interaction-break-handler.execute'
 import type { BreakExecutionServices } from './interaction-break-handler.shared'
-import { toSelectedInventoryItem, updateBreakProgressHud } from './interaction-break-handler.shared'
+import { clearBreakProgress, toSelectedInventoryItem, updateBreakProgressHud } from './interaction-break-handler.shared'
 
 export type BreakProgressServices = BreakExecutionServices & Pick<FrameHandlerServices, 'hotbarService'>
 
@@ -62,11 +62,6 @@ export const resolveEffectiveBreakTicks = (
   underwater: boolean,
   hasAquaAffinity: boolean,
 ): number => underwater && !hasAquaAffinity ? baseBreakTicks * 5 : baseBreakTicks
-
-const clearBreakProgress = (refs: BreakProgressRefs, breakProgressElementOrNull: HTMLElement | null) => {
-  MutableRef.set(refs.breakProgressRef, null)
-  updateBreakProgressHud(breakProgressElementOrNull, null)
-}
 
 export const handleBlockBreakProgress = (
   services: BreakProgressServices,

@@ -53,7 +53,7 @@ export const getTileImageUrl = (item: InventoryItem): string | null => {
 }
 
 export const SLOT_EL_STYLE = [
-  'width:48px', 'height:48px', 'border:2px solid #111',
+  'width:var(--inventory-slot-size,48px)', 'height:var(--inventory-slot-size,48px)', 'border:2px solid #111',
   'background:#8b8b8b',
   'box-shadow:inset 2px 2px #f3f3f3,inset -2px -2px #373737',
   'cursor:pointer', 'position:relative', 'display:flex',
@@ -66,6 +66,12 @@ export const SLOT_EL_STYLE = [
 export const OVERLAY_STYLE = [
   'position:fixed', 'top:50%', 'left:50%',
   'transform:translate(-50%,-50%)',
+  '--inventory-slot-size:clamp(28px,calc((100vw - 64px) / 9),48px)',
+  'box-sizing:border-box', 'width:max-content',
+  'max-width:calc(100vw - 16px)', 'max-height:calc(100vh - 16px)',
+  'max-height:calc(100dvh - 16px)',
+  'overflow:auto', 'overscroll-behavior:contain',
+  'scrollbar-gutter:stable',
   'background:#c6c6c6', 'padding:14px',
   'border:2px solid #111',
   'box-shadow:inset 3px 3px #fff,inset -3px -3px #555,0 12px 0 rgba(0,0,0,0.35)',
@@ -88,9 +94,9 @@ export const INVENTORY_ACTION_BUTTON_STYLE = [
 ].join(';')
 export const CHEST_SECTION_STYLE = 'display:none;margin-bottom:12px'
 export const CHEST_TITLE_STYLE = 'color:#202020;margin-bottom:8px;font-size:13px;text-align:center;font-weight:bold'
-export const CHEST_GRID_STYLE = 'display:grid;grid-template-columns:repeat(9,50px);gap:2px'
-export const MAIN_GRID_STYLE = 'display:grid;grid-template-columns:repeat(9,50px);gap:2px;margin-bottom:8px'
-export const HOTBAR_GRID_STYLE = 'display:grid;grid-template-columns:repeat(9,50px);gap:2px'
+export const CHEST_GRID_STYLE = 'display:grid;grid-template-columns:repeat(9,var(--inventory-slot-size,48px));gap:2px'
+export const MAIN_GRID_STYLE = 'display:grid;grid-template-columns:repeat(9,var(--inventory-slot-size,48px));gap:2px;margin-bottom:8px'
+export const HOTBAR_GRID_STYLE = 'display:grid;grid-template-columns:repeat(9,var(--inventory-slot-size,48px));gap:2px'
 export const SEPARATOR_STYLE = 'border-color:#555;margin:8px 0'
 export const CRAFTING_TITLE_STYLE = 'color:#202020;margin:12px 0 6px;font-size:13px;font-weight:bold'
 export const CRAFTING_PREVIEW_STYLE = 'margin-bottom:10px;padding:8px;background:#d6d6d6;border:1px solid #555;box-shadow:inset 2px 2px #f4f4f4,inset -2px -2px #7b7b7b'

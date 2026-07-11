@@ -154,9 +154,18 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
 
       const { overlayEl, chestContainerEl, chestSlotEls, slotEls, recipeBookEl, recipeBookSearchEl, craftingPreviewEl, craftingListEl, craftGridCellEls, craftGridOutputEl, statusEl, sortButtonEl, cursorEl } = yield* Effect.sync(() => buildOverlayDom(dom))
 
-      // Scans craftingListEl then recipeBookEl for the last focusable button with data-recipe-id.
-      // Uses querySelectorAll in real DOM; falls back to childrenList in test mock DOM.
+      // Finds the last control in DOM order so Tab cannot escape the modal.
+      // The fallback preserves compatibility with the lightweight test DOM.
       const findLastFocusable = (): { focus?: () => void } | null => {
+        const overlay = Option.getOrNull(overlayEl) as (HTMLDivElement & {
+          querySelectorAll?: (selector: string) => NodeListOf<HTMLElement>
+        }) | null
+        if (typeof overlay?.querySelectorAll === 'function') {
+          const controls = (Array.from(
+            overlay.querySelectorAll('button,input,[tabindex="0"]'),
+          ) as HTMLElement[]).filter((control) => control.getAttribute('aria-hidden') !== 'true')
+          if (controls.length > 0) return controls[controls.length - 1] ?? null
+        }
         for (const containerOpt of [craftingListEl, recipeBookEl]) {
           const container = Option.getOrNull(containerOpt)
           if (container === null) continue
@@ -172,7 +181,7 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
             if (children.length > 0) return children[children.length - 1] ?? null
           }
         }
-        return null
+        return Option.getOrNull(recipeBookSearchEl)
       }
 
       /* c8 ignore next */
@@ -482,6 +491,22 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
         // handleEscape owns inventory close (plays the close sound and
         // resumes the game). A second closer here would race it — the key
         // reaches the InputService on `window` and both would toggle.
+        if (event.key === 'Enter' || event.key === ' ') {
+          const active = getActiveDocument()?.activeElement as (HTMLElement & { click?: () => void }) | null
+          const dataset = active?.dataset
+          const isInventoryCell = dataset !== undefined && (
+            dataset['slot'] !== undefined ||
+            dataset['chestSlot'] !== undefined ||
+            dataset['craftCell'] !== undefined ||
+            dataset['craftOutput'] !== undefined
+          )
+          if (isInventoryCell && typeof active?.click === 'function') {
+            event.preventDefault()
+            event.stopPropagation()
+            active.click()
+          }
+          return
+        }
         if (event.key === 'Tab') {
           const doc = getActiveDocument()
           const active = doc?.activeElement

@@ -60,6 +60,10 @@ describe('step 7 — block interaction', () => {
     lastEntityPhysicsChunkCoordRef: Ref.unsafeMake({ cx: NaN, cz: NaN }),
   })
 
+  const makeBreakProgressElement = () => ({
+    style: { display: 'block' },
+  }) as unknown as HTMLElement
+
   it.effect('skips interaction input while the game is paused', () => Effect.gen(function* () {
     const deps = yield* makeDeps(true)
     const services = makeServices({
@@ -107,7 +111,9 @@ describe('step 7 — block interaction', () => {
   }))
 
   it.effect('clears transient interaction state while the player is dead', () => Effect.gen(function* () {
-    const deps = yield* makeDeps(false)
+    const baseDeps = yield* makeDeps(false)
+    const breakProgressElement = makeBreakProgressElement()
+    const deps = { ...baseDeps, breakProgressElement: Option.some(breakProgressElement) }
     const services = makeServices({
       inputService: makeInputService(),
       inventoryRenderer: makeInventoryRenderer({ open: false }),
@@ -124,8 +130,27 @@ describe('step 7 — block interaction', () => {
     yield* interactionStage(deps, services, refs, { debugFlags: DEBUG_FEATURE_FLAG_DEFAULTS })
 
     expect(MutableRef.get(refs.breakProgressRef)).toBeNull()
+    expect(breakProgressElement.style.display).toBe('none')
     expect(MutableRef.get(refs.bowChargeStartRef)).toBeNull()
     expect(MutableRef.get(refs.isShieldBlockingRef)).toBe(false)
+  }))
+
+  it.effect('clears the break progress state and HUD immediately when mining input is released', () => Effect.gen(function* () {
+    const baseDeps = yield* makeDeps(false)
+    const breakProgressElement = makeBreakProgressElement()
+    const deps = { ...baseDeps, breakProgressElement: Option.some(breakProgressElement) }
+    const services = makeServices({
+      inputService: makeInputService(),
+      inventoryRenderer: makeInventoryRenderer({ open: false }),
+      settingsOverlay: makeSettingsOverlay({ open: false }),
+    })
+    const refs = makeInteractionStageRefs()
+    MutableRef.set(refs.breakProgressRef, { blockKey: '0,64,0', ticks: 3, totalTicks: 5 })
+
+    yield* interactionStage(deps, services, refs, { debugFlags: DEBUG_FEATURE_FLAG_DEFAULTS })
+
+    expect(MutableRef.get(refs.breakProgressRef)).toBeNull()
+    expect(breakProgressElement.style.display).toBe('none')
   }))
 
   it.effect('routes redstone key input through the stage flag bundle', () => Effect.gen(function* () {

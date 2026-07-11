@@ -1,5 +1,6 @@
-import { Effect, Option, Schema } from 'effect'
+import { Effect, MutableRef, Option, Schema } from 'effect'
 import type { FrameHandlerServices } from '@ts-minecraft/app/application/frame/types/services'
+import type { FrameStageRefs } from '@ts-minecraft/app/application/frame/types/stage-refs'
 import type { BlockType, InventoryItem } from '@ts-minecraft/core'
 import { InventoryItemSchema } from '@ts-minecraft/core'
 import type { Enchantment } from '@ts-minecraft/inventory/domain/enchantment.types'
@@ -112,6 +113,14 @@ export const updateBreakProgressHud = (
   el.setAttribute('value', String(progress.ticks))
   el.setAttribute('max', String(progress.totalTicks))
   el.style.display = 'block'
+}
+
+export const clearBreakProgress = (
+  refs: Pick<FrameStageRefs, 'breakProgressRef'>,
+  breakProgressElementOrNull: HTMLElement | null,
+): void => {
+  MutableRef.set(refs.breakProgressRef, null)
+  updateBreakProgressHud(breakProgressElementOrNull, null)
 }
 
 export const toSelectedInventoryItem = (item: Option.Option<string>): Option.Option<InventoryItem> =>

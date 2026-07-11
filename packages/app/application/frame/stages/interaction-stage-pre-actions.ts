@@ -5,6 +5,7 @@ import type { FrameStageRefs } from '@ts-minecraft/app/application/frame/types/s
 import { handleBowFire } from '@ts-minecraft/app/frame/stages/interaction-bow-handler'
 import { handleUnequipArmor } from '@ts-minecraft/app/frame/stages/interaction-item-use-handler/unequip-armor'
 import type { InteractionStageSnapshot } from '@ts-minecraft/app/frame/stages/interaction-stage-snapshot'
+import { clearBreakProgress } from './interaction-break-handler.shared'
 
 export const runInteractionStagePreActions = (
   deps: Pick<FrameHandlerDeps, 'camera'>,
@@ -37,7 +38,7 @@ export const runInteractionStagePreActions = (
       yield* handleUnequipArmor(services)
     }
 
-    if (shouldResetBreakProgress) MutableRef.set(refs.breakProgressRef, null)
+    if (shouldResetBreakProgress) clearBreakProgress(refs, snapshot.breakProgressElementOrNull)
     if (shouldResetShieldBlocking) MutableRef.set(refs.isShieldBlockingRef, false)
 
     if (shouldFireBowRelease && snapshot.bowChargeStart !== null) {

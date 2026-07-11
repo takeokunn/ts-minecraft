@@ -376,6 +376,54 @@ describe('presentation/inventory/inventory-renderer', () => {
       }).pipe(Effect.provide(TestLayer))
     })
 
+    it.scoped('activates focused inventory cells with Enter and Space', () => {
+      const mockDocument: {
+        activeElement: unknown
+        addEventListener: ReturnType<typeof vi.fn>
+        removeEventListener: ReturnType<typeof vi.fn>
+      } = {
+        activeElement: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      }
+      vi.stubGlobal('document', mockDocument)
+
+      const mockDom = createMockDomLayer()
+      const TestLayer = buildTestLayer(mockDom, createMockInventoryLayer(), createMockHotbarLayer())
+
+      return Effect.gen(function* () {
+        const renderer = yield* InventoryRendererService
+        yield* renderer.toggle()
+
+        const slot = mockDom.createElement.mock.results
+          .map((result) => result.value)
+          .find((el) => el.dataset?.slot === '0') as
+          | (HTMLElement & { click: ReturnType<typeof vi.fn> })
+          | undefined
+        expect(slot).toBeDefined()
+        if (slot === undefined) return
+
+        const keydown = mockDocument.addEventListener.mock.calls.find(([type]) => type === 'keydown')?.[1] as
+          | ((event: KeyboardEvent) => void)
+          | undefined
+        expect(keydown).toBeDefined()
+        if (keydown === undefined) return
+
+        mockDocument.activeElement = slot
+        for (const key of ['Enter', ' ']) {
+          const event = {
+            key,
+            preventDefault: vi.fn(),
+            stopPropagation: vi.fn(),
+          } as unknown as KeyboardEvent
+          keydown(event)
+          expect(event.preventDefault).toHaveBeenCalledOnce()
+          expect(event.stopPropagation).toHaveBeenCalledOnce()
+        }
+        expect(slot.click).toHaveBeenCalledTimes(2)
+      }).pipe(Effect.provide(TestLayer))
+    })
+
     it.scoped('returns a held cursor stack to inventory before closing', () => {
       vi.stubGlobal('document', {})
       vi.stubGlobal('HTMLElement', class MockHTMLElement {})

@@ -76,6 +76,20 @@ const clearStackVisual = (el: HTMLDivElement): void => {
   el.textContent = ''
 }
 
+const setEmptySlotLabel = (el: HTMLDivElement, fallback: string): void => {
+  const inventorySlot = el.dataset['slot']
+  const chestSlot = el.dataset['chestSlot']
+  const craftCell = el.dataset['craftCell']
+  const label = inventorySlot !== undefined
+    ? `Inventory slot ${Number(inventorySlot) + 1}, empty`
+    : chestSlot !== undefined
+      ? `Chest slot ${Number(chestSlot) + 1}, empty`
+      : craftCell !== undefined
+        ? `Crafting slot ${Number(craftCell) + 1}, empty`
+        : fallback
+  el.setAttribute?.('aria-label', label)
+}
+
 const formatStationLabel = (station: Recipe['station']): string =>
   station === 'crafting_table'
     ? 'Crafting Table'
@@ -126,6 +140,7 @@ export const renderSlotElements = (
       renderStackVisual(el, stack)
     } else {
       clearStackVisual(el)
+      setEmptySlotLabel(el, 'Empty slot')
     }
     el.style.border = i >= HOTBAR_START && i === selectedHotbarIdx
       ? SLOT_BORDER_SELECTED
@@ -143,6 +158,7 @@ export const renderCraftingGridCells = (
       renderStackVisual(el, stack)
     } else {
       clearStackVisual(el)
+      setEmptySlotLabel(el, 'Empty crafting slot')
     }
   })
 }
@@ -157,6 +173,8 @@ export const renderCraftingGridOutput = (
     if (matched === null) {
       clearStackVisual(el)
       el.style.cursor = ''
+      el.setAttribute?.('aria-label', 'Crafting output, no recipe available')
+      el.setAttribute?.('aria-disabled', 'true')
       return
     }
     renderStackVisual(el, {
@@ -166,6 +184,8 @@ export const renderCraftingGridOutput = (
       enchantments: [],
     } as unknown as ItemStack)
     el.title = `Craft ${matched.output.count} ${formatLabel(matched.output.itemType)}`
+    el.setAttribute?.('aria-label', el.title)
+    el.setAttribute?.('aria-disabled', 'false')
     el.style.cursor = 'pointer'
   })
 }

@@ -50,6 +50,9 @@ const OVERLAY_DESCRIPTION_STYLE = 'margin:-6px 0 12px;color:#404040;font-size:12
 export const createSlotEl = (dom: DomOperationsService, index: number): HTMLDivElement => {
   const el = dom.createElement('div')
   el.dataset['slot'] = String(index)
+  el.tabIndex = 0
+  el.setAttribute('role', 'button')
+  el.setAttribute('aria-label', `Inventory slot ${index + 1}, empty`)
   el.draggable = true
   el.style.cssText = `${SLOT_EL_STYLE};background:${DEFAULT_SLOT_COLOR}`
   return el
@@ -59,6 +62,9 @@ export const createSlotEl = (dom: DomOperationsService, index: number): HTMLDivE
 export const createChestSlotEl = (dom: DomOperationsService, index: number): HTMLDivElement => {
   const el = dom.createElement('div')
   el.dataset['chestSlot'] = String(index)
+  el.tabIndex = 0
+  el.setAttribute('role', 'button')
+  el.setAttribute('aria-label', `Chest slot ${index + 1}, empty`)
   el.draggable = true
   el.style.cssText = `${SLOT_EL_STYLE};background:${DEFAULT_SLOT_COLOR}`
   return el
@@ -161,6 +167,9 @@ export const buildOverlayDom = (dom: DomOperationsService): OverlayDom => {
   const craftGridCells = Arr.makeBy(9, (i) => {
     const cell = dom.createElement('div')
     cell.dataset['craftCell'] = String(i)
+    cell.tabIndex = 0
+    cell.setAttribute('role', 'button')
+    cell.setAttribute('aria-label', `Crafting slot ${i + 1}, empty`)
     cell.style.cssText = `${SLOT_EL_STYLE};background:${DEFAULT_SLOT_COLOR}`
     return cell
   })
@@ -172,6 +181,10 @@ export const buildOverlayDom = (dom: DomOperationsService): OverlayDom => {
   dom.appendChildTo(craftGridRow, craftGridArrow)
   const craftGridOutput = dom.createElement('div')
   craftGridOutput.dataset['craftOutput'] = 'true'
+  craftGridOutput.tabIndex = 0
+  craftGridOutput.setAttribute('role', 'button')
+  craftGridOutput.setAttribute('aria-label', 'Crafting output, no recipe available')
+  craftGridOutput.setAttribute('aria-disabled', 'true')
   craftGridOutput.style.cssText = `${SLOT_EL_STYLE};background:${DEFAULT_SLOT_COLOR}`
   dom.appendChildTo(craftGridRow, craftGridOutput)
   dom.appendChildTo(el, craftGridRow)
