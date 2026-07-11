@@ -98,7 +98,11 @@ describe('presentation/menu/confirm-dialog', () => {
   describe('DOM construction (with stubbed document)', () => {
     const installStubDocument = (activeElement: Element | null = null) => {
       const docListeners = new Map<string, EventListener[]>()
-      const stubDoc = {
+      const stubDoc: {
+        addEventListener: ReturnType<typeof vi.fn>
+        removeEventListener: ReturnType<typeof vi.fn>
+        activeElement: Element | null
+      } = {
         addEventListener: vi.fn((type: string, fn: EventListener) => {
           const list = docListeners.get(type) ?? []
           list.push(fn)
@@ -151,6 +155,40 @@ describe('presentation/menu/confirm-dialog', () => {
         yield* Fiber.interrupt(fiber)
         return snapshot
       }).pipe(Effect.provide(ConfirmDialogService.Default.pipe(Layer.provide(mockDom.layer))))
+      return Effect.runPromise(program).finally(() => stub.cleanup())
+    }
+
+    const runDialogInteraction = async (
+      interact: (context: {
+        confirmBtn: StubElement
+        cancelBtn: StubElement
+        documentListeners: Map<string, EventListener[]>
+        documentStub: { activeElement: Element | null }
+      }) => void,
+      onConfirm = vi.fn(),
+    ) => {
+      const stub = installStubDocument()
+      const mockDom = createMockDom()
+      const program = Effect.gen(function* () {
+        const dialog = yield* ConfirmDialogService
+        const fiber = yield* Effect.fork(dialog.show('Proceed?', 'Confirm', 'Cancel', onConfirm))
+        yield* Effect.sleep('1 millis')
+
+        const confirmBtn = mockDom.created.find((el) => el.dataset['role'] === 'confirm')
+        const cancelBtn = mockDom.created.find((el) => el.dataset['role'] === 'cancel')
+        if (confirmBtn === undefined || cancelBtn === undefined) {
+          throw new Error('Dialog buttons were not created')
+        }
+
+        interact({
+          confirmBtn,
+          cancelBtn,
+          documentListeners: stub.docListeners,
+          documentStub: stub.stubDoc,
+        })
+        return yield* Fiber.join(fiber)
+      }).pipe(Effect.provide(ConfirmDialogService.Default.pipe(Layer.provide(mockDom.layer))))
+
       return Effect.runPromise(program).finally(() => stub.cleanup())
     }
 
@@ -232,6 +270,41 @@ describe('presentation/menu/confirm-dialog', () => {
       await runDialogConstruction('Restore focus?', 'OK', undefined, previous)
 
       expect(previous.focus).not.toHaveBeenCalled()
+    })
+
+    it('runs the confirmation callback only once for duplicate click signals', async () => {
+      const onConfirm = vi.fn()
+      const result = await runDialogInteraction(({ confirmBtn }) => {
+        const click = confirmBtn.__listeners.get('click')?.[0]
+        expect(click).toBeDefined()
+        click?.(new Event('click'))
+        click?.(new Event('click'))
+      }, onConfirm)
+
+      expect(result).toBe(true)
+      expect(onConfirm).toHaveBeenCalledOnce()
+    })
+
+    it('keeps Enter as cancel when the cancel button is focused', async () => {
+      const onConfirm = vi.fn()
+      const preventDefault = vi.fn()
+      const result = await runDialogInteraction(({
+        cancelBtn,
+        documentListeners,
+        documentStub,
+      }) => {
+        documentStub.activeElement = cancelBtn
+        const keydown = documentListeners.get('keydown')?.[0]
+        expect(keydown).toBeDefined()
+        keydown?.({ key: 'Enter', preventDefault, stopPropagation: vi.fn() } as unknown as Event)
+
+        // Enter's native button activation produces this click.
+        cancelBtn.__listeners.get('click')?.[0]?.(new Event('click'))
+      }, onConfirm)
+
+      expect(result).toBe(false)
+      expect(preventDefault).not.toHaveBeenCalled()
+      expect(onConfirm).not.toHaveBeenCalled()
     })
   })
 

@@ -126,7 +126,7 @@ describe('ControlsHintService', () => {
       expect(createdElements[0]?.innerHTML).toContain('1-9')
       expect(createdElements[0]?.innerHTML).toContain('mouse wheel')
       expect(createdElements[0]?.innerHTML).toContain('controller bumpers')
-      expect(createdElements[0]?.innerHTML).toContain('Press Esc for pause/settings')
+      expect(createdElements[0]?.innerHTML).toContain('Press Esc to pause and open settings')
       expect(createdElements[1]?.tagName).toBe('BUTTON')
       expect(createdElements[1]?.textContent).toBe('Don\'t show again')
       expect(createdElements[1]?.setAttribute).toHaveBeenCalledWith(

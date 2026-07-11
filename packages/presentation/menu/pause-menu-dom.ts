@@ -2,8 +2,10 @@ import { Option } from 'effect'
 import { DomOperationsService } from '@ts-minecraft/presentation/hud/crosshair'
 import { BACKDROP_STYLE, BUTTON_STYLE, PANEL_STYLE, TITLE_STYLE } from './pause-menu-styles'
 import type { PauseMenuDom } from './pause-menu-types'
+import { detectInputCapabilities, inputGuidance } from '../hud/input-guidance'
 
 export const buildPauseMenuDOM = (dom: DomOperationsService): PauseMenuDom => {
+  const guidance = inputGuidance(detectInputCapabilities())
   if (typeof document === 'undefined') {
     return {
       backdropEl: Option.none(),
@@ -70,8 +72,8 @@ export const buildPauseMenuDOM = (dom: DomOperationsService): PauseMenuDom => {
   howToPlayPanel.setAttribute('role', 'region')
   howToPlayPanel.setAttribute('aria-label', 'How to Play')
   dom.setInnerHTML(howToPlayPanel, `
-    <p style="margin:0 0 8px"><strong>Controls:</strong> Move with WASD or the left stick, look with the mouse or right stick, jump with Space or a gamepad face button, and click or use triggers to break or place blocks.</p>
-    <p style="margin:0 0 8px"><strong>Input:</strong> Keyboard, mouse, and gamepad are supported. Touch controls are not available yet, so mobile browsers are best used with a paired controller or keyboard.</p>
+    <p style="margin:0 0 8px"><strong>Controls:</strong> ${guidance.instructions[0]}</p>
+    <p style="margin:0 0 8px"><strong>More controls:</strong> ${guidance.instructions.slice(1).join(' ')}</p>
     <p style="margin:0 0 8px"><strong>Saving:</strong> Worlds save during play. Use Save &amp; Quit to Title before leaving.</p>
     <p style="margin:0 0 8px"><strong>Crafting:</strong> Open your inventory to combine blocks and items into useful recipes.</p>
     <p style="margin:0"><strong>Multiplayer/Chat:</strong> Join a multiplayer session to see other players and use chat to coordinate.</p>

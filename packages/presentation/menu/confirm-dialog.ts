@@ -130,10 +130,13 @@ export class ConfirmDialogService extends Effect.Service<ConfirmDialogService>()
             // Focus the confirm button by default (Enter activates it).
             confirmBtn.focus()
 
-            // Handlers close over `result` Deferred. Completion is idempotent, so
-            // duplicate click/key signals are ignored after the first value wins.
-            // Use the Effect runtime to resume the fiber waiting on `Deferred.await`.
+            // Deferred completion is idempotent, but the callback is not. Guard the
+            // whole settlement path synchronously so duplicate DOM signals cannot
+            // repeat a destructive action before the Deferred fiber resumes.
+            let settled = false
             const settle = (value: boolean): void => {
+              if (settled) return
+              settled = true
               if (value) onConfirm?.()
               Effect.runFork(Deferred.succeed(result, value).pipe(Effect.asVoid))
             }
@@ -143,6 +146,11 @@ export class ConfirmDialogService extends Effect.Service<ConfirmDialogService>()
 
             const handleKeyDown = (event: KeyboardEvent) => {
               if (event.key === 'Enter') {
+                // Buttons already implement Enter correctly. In particular, a
+                // focused Cancel button must remain a cancel action.
+                if (document.activeElement === cancelBtn || document.activeElement === confirmBtn) {
+                  return
+                }
                 event.preventDefault()
                 event.stopPropagation()
                 settle(true)

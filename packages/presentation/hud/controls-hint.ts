@@ -2,6 +2,7 @@ import { Effect, Option } from 'effect'
 import { MutableRef } from 'effect'
 
 import { DomOperationsService } from './crosshair'
+import { detectInputCapabilities, inputGuidance } from './input-guidance'
 
 const controlsHintDismissedStorageKey = 'minecraft-controls-hint-dismissed'
 
@@ -36,6 +37,7 @@ export class ControlsHintService extends Effect.Service<ControlsHintService>()(
       const dom = yield* DomOperationsService
       const visibleRef = MutableRef.make(false)
       const dismissedRef = MutableRef.make(readDismissedFlag())
+      const guidance = inputGuidance(detectInputCapabilities())
 
       const { element, hideButton } = yield* Effect.acquireRelease(
         Effect.sync(() => {
@@ -66,9 +68,7 @@ export class ControlsHintService extends Effect.Service<ControlsHintService>()(
 
           dom.setInnerHTML(element, `
             <strong style="display:block;margin:0 0 6px;font-size:14px;letter-spacing:0.04em">Quick Controls</strong>
-            <p style="margin:0 0 6px">Move with WASD or the left stick, look with the mouse or right stick, and jump with Space or a face button.</p>
-            <p style="margin:0 0 6px">Break and place blocks with click or triggers. Open inventory with E, then use 1-9, the mouse wheel, or controller bumpers to pick hotbar slots.</p>
-            <p style="margin:0">Press Esc for pause/settings. Keyboard, mouse, and gamepad are supported.</p>
+            ${guidance.quickHelp.map((line, index) => `<p style="margin:0${index < guidance.quickHelp.length - 1 ? ' 0 6px' : ''}">${line}</p>`).join('')}
           `)
 
           const hideButton = dom.createElement('button')
@@ -84,7 +84,9 @@ export class ControlsHintService extends Effect.Service<ControlsHintService>()(
             'border-radius:999px',
             'background:rgba(255,255,255,0.12)',
             'color:#f3f6f8',
-            'padding:4px 10px',
+            'min-width:44px',
+            'min-height:44px',
+            'padding:8px 12px',
             'font-size:12px',
             'line-height:1',
             'cursor:pointer',

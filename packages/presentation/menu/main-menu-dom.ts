@@ -4,6 +4,7 @@ import { WorldId } from '@ts-minecraft/core'
 import { DomOperationsService } from '@ts-minecraft/presentation/hud/crosshair'
 import { overlayBaseStyle, cardStyle, buttonStyle, dangerButtonStyle, inputStyle, menuButtonHoverCss } from './main-menu-styles'
 import { formatLastPlayed, gameModeLabel } from './main-menu-utils'
+import { detectInputCapabilities, inputGuidance } from '../hud/input-guidance'
 
 // --- Shared types ---
 
@@ -41,6 +42,7 @@ export interface MenuDomElements {
 // --- DOM build ---
 
 export const buildMenuDOM = (dom: DomOperationsService): MenuDomElements => {
+  const guidance = inputGuidance(detectInputCapabilities())
   const overlay = dom.createElement('div') as HTMLDivElement
   overlay.id = 'main-menu-overlay'
   overlay.style.cssText = `${overlayBaseStyle};display:none`
@@ -67,8 +69,7 @@ export const buildMenuDOM = (dom: DomOperationsService): MenuDomElements => {
       Pick a world, continue your latest save, or open the controls guide before you start.
     </p>
     <div class="mc-menu-support">
-      <span>Keyboard, mouse, and gamepad are supported.</span>
-      <span>Touch controls are not available yet.</span>
+      ${guidance.supportSummary.map((line) => `<span>${line}</span>`).join('')}
     </div>
       <button type="button" id="mm-new-world" class="mc-menu-btn" style="${buttonStyle}">Create New World</button>
       <button type="button" id="mm-continue-world" class="mc-menu-btn" style="${buttonStyle}">Continue Last World</button>
@@ -150,8 +151,8 @@ export const buildMenuDOM = (dom: DomOperationsService): MenuDomElements => {
   dom.setInnerHTML(howToPlayCard, `
     <h2 style="margin:0 0 8px;font-size:20px">How to Play</h2>
       <div style="display:flex;flex-direction:column;gap:8px;font-size:14px;line-height:1.45;text-align:left">
-        <p style="margin:0"><strong>Controls:</strong> Move with WASD or the left stick, look with the mouse or right stick, jump with Space or a gamepad face button, and click or use triggers to break or place blocks.</p>
-        <p style="margin:0"><strong>Input:</strong> Keyboard, mouse, and gamepad are supported. Touch controls are not available yet, so mobile browsers are best used with a paired controller or keyboard.</p>
+        <p style="margin:0"><strong>Controls:</strong> ${guidance.instructions[0]}</p>
+        <p style="margin:0"><strong>More controls:</strong> ${guidance.instructions.slice(1).join(' ')}</p>
         <p style="margin:0"><strong>Saving:</strong> Worlds save during play. Use Pause &gt; Save &amp; Quit to Title before leaving.</p>
         <p style="margin:0"><strong>Crafting:</strong> Open your inventory to combine blocks and items into useful recipes.</p>
       <p style="margin:0"><strong>Multiplayer/Chat:</strong> Join a multiplayer session to see other players and use chat to coordinate.</p>

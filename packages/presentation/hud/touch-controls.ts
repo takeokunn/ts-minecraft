@@ -17,46 +17,91 @@ type VirtualInput = Pick<InputService,
 
 type PointerCleanup = () => void
 
+export interface ExclusiveMountOwner {
+  readonly claim: (cleanup: PointerCleanup) => PointerCleanup
+  readonly release: PointerCleanup
+}
+
+export const createExclusiveMountOwner = (): ExclusiveMountOwner => {
+  let active: PointerCleanup | undefined
+  const release = () => {
+    const cleanup = active
+    active = undefined
+    cleanup?.()
+  }
+  return {
+    release,
+    claim: (cleanup) => {
+      release()
+      let disposed = false
+      const ownedCleanup = () => {
+        if (disposed) return
+        disposed = true
+        if (active === ownedCleanup) active = undefined
+        cleanup()
+      }
+      active = ownedCleanup
+      return ownedCleanup
+    },
+  }
+}
+
+const touchControlsMountOwner = createExclusiveMountOwner()
+
 const runInput = (effect: Effect.Effect<void, never>): void => Effect.runSync(effect)
 
-const makeButton = (control: string, label: string, accessibleName: string): HTMLButtonElement => {
+const makeButton = (control: string, label: string, accessibleName: string, held = false): HTMLButtonElement => {
   const button = document.createElement('button')
   button.type = 'button'
   button.className = 'touch-button'
   button.dataset['touchControl'] = control
   button.setAttribute('aria-label', accessibleName)
-  button.setAttribute('aria-pressed', 'false')
+  if (held) button.setAttribute('aria-pressed', 'false')
   button.textContent = label
   return button
 }
 
-const bindHeldInput = (
+export const bindHeldInput = (
   button: HTMLButtonElement,
   onChange: (pressed: boolean) => void,
   resets: PointerCleanup[],
 ): PointerCleanup => {
-  const pointers = new Set<number>()
+  const activeSources = new Set<string>()
   const update = () => {
-    const pressed = pointers.size > 0
+    const pressed = activeSources.size > 0
     button.setAttribute('aria-pressed', String(pressed))
     onChange(pressed)
   }
   const down = (event: PointerEvent) => {
     event.preventDefault()
-    pointers.add(event.pointerId)
+    activeSources.add(`pointer:${event.pointerId}`)
     button.setPointerCapture(event.pointerId)
     update()
   }
   const release = (event: PointerEvent) => {
-    if (!pointers.delete(event.pointerId)) return
+    if (!activeSources.delete(`pointer:${event.pointerId}`)) return
+    update()
+  }
+  const keyDown = (event: KeyboardEvent) => {
+    if (event.repeat || (event.key !== ' ' && event.key !== 'Enter')) return
+    event.preventDefault()
+    activeSources.add(`key:${event.key}`)
+    update()
+  }
+  const keyUp = (event: KeyboardEvent) => {
+    if (event.key !== ' ' && event.key !== 'Enter') return
+    event.preventDefault()
+    if (!activeSources.delete(`key:${event.key}`)) return
     update()
   }
   button.addEventListener('pointerdown', down)
   button.addEventListener('pointerup', release)
   button.addEventListener('pointercancel', release)
   button.addEventListener('lostpointercapture', release)
+  button.addEventListener('keydown', keyDown)
+  button.addEventListener('keyup', keyUp)
   resets.push(() => {
-    pointers.clear()
+    activeSources.clear()
     button.setAttribute('aria-pressed', 'false')
   })
   return () => {
@@ -64,26 +109,19 @@ const bindHeldInput = (
     button.removeEventListener('pointerup', release)
     button.removeEventListener('pointercancel', release)
     button.removeEventListener('lostpointercapture', release)
+    button.removeEventListener('keydown', keyDown)
+    button.removeEventListener('keyup', keyUp)
   }
 }
 
-const bindPulseInput = (button: HTMLButtonElement, pulse: () => void): PointerCleanup => {
-  const down = (event: PointerEvent) => {
+export const bindPulseInput = (button: HTMLButtonElement, pulse: () => void): PointerCleanup => {
+  const click = (event: MouseEvent) => {
     event.preventDefault()
-    button.setPointerCapture(event.pointerId)
-    button.setAttribute('aria-pressed', 'true')
     pulse()
   }
-  const release = () => button.setAttribute('aria-pressed', 'false')
-  button.addEventListener('pointerdown', down)
-  button.addEventListener('pointerup', release)
-  button.addEventListener('pointercancel', release)
-  button.addEventListener('lostpointercapture', release)
+  button.addEventListener('click', click)
   return () => {
-    button.removeEventListener('pointerdown', down)
-    button.removeEventListener('pointerup', release)
-    button.removeEventListener('pointercancel', release)
-    button.removeEventListener('lostpointercapture', release)
+    button.removeEventListener('click', click)
   }
 }
 
@@ -177,8 +215,7 @@ const bindLookSurface = (surface: HTMLElement, input: VirtualInput, resets: Poin
 }
 
 export const mountTouchControls = (input: VirtualInput): PointerCleanup => {
-  const previous = document.querySelector<HTMLElement>('[data-touch-controls]')
-  previous?.remove()
+  touchControlsMountOwner.release()
 
   const style = document.createElement('style')
   style.id = TOUCH_CONTROLS_STYLE_ID
@@ -194,14 +231,13 @@ export const mountTouchControls = (input: VirtualInput): PointerCleanup => {
   const look = document.createElement('div')
   look.id = 'touch-look'
   look.dataset['touchControl'] = 'look'
-  look.setAttribute('aria-label', 'Drag to look around')
+  look.setAttribute('aria-hidden', 'true')
   root.appendChild(look)
 
   const move = document.createElement('div')
   move.id = 'touch-move'
   move.dataset['touchControl'] = 'move'
-  move.setAttribute('role', 'application')
-  move.setAttribute('aria-label', 'Movement joystick')
+  move.setAttribute('aria-hidden', 'true')
   const knob = document.createElement('div')
   knob.id = 'touch-move-knob'
   knob.setAttribute('aria-hidden', 'true')
@@ -221,7 +257,7 @@ export const mountTouchControls = (input: VirtualInput): PointerCleanup => {
   const cleanups: PointerCleanup[] = []
   const resets: PointerCleanup[] = []
   for (const [name, label, accessibleName, change] of controls) {
-    const button = makeButton(name, label, accessibleName)
+    const button = makeButton(name, label, accessibleName, true)
     button.id = `touch-${name}`
     actions.appendChild(button)
     cleanups.push(bindHeldInput(button, change, resets))
@@ -270,7 +306,7 @@ export const mountTouchControls = (input: VirtualInput): PointerCleanup => {
   window.addEventListener('pagehide', clear)
   document.addEventListener('visibilitychange', visibility)
 
-  return () => {
+  return touchControlsMountOwner.claim(() => {
     for (const cleanup of cleanups) cleanup()
     window.removeEventListener('blur', clear)
     window.removeEventListener('pagehide', clear)
@@ -278,7 +314,7 @@ export const mountTouchControls = (input: VirtualInput): PointerCleanup => {
     clear()
     root.remove()
     style.remove()
-  }
+  })
 }
 
 export class TouchControlsService extends Effect.Service<TouchControlsService>()(
