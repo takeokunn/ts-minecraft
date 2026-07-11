@@ -391,7 +391,8 @@ describe('presentation/menu/main-menu-handlers', () => {
 
     expect(choices.at(0)).toMatchObject({
       action: 'newWorld',
-      worldId: 'seedless',
+      displayName: 'seedless',
+      worldId: expect.stringMatching(/^world-/),
       gameMode: 'survival',
     })
     expect(choices.at(0)).not.toHaveProperty('seed')
@@ -484,7 +485,8 @@ describe('presentation/menu/main-menu-handlers', () => {
     handlers.onNwConfirmClick()
     expect(choices).toContainEqual({
       action: 'newWorld',
-      worldId: WorldId.make('Named World'),
+      displayName: 'Named World',
+      worldId: expect.stringMatching(/^world-/),
       gameMode: 'creative',
       seed: 1234,
     })

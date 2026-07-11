@@ -278,12 +278,14 @@ export const makeClickHandlers = (
   },
   onNwConfirmClick: () => {
     const trimmed = buttons.nwName.value.trim()
-    const worldId = trimmed.length > 0 ? WorldId.make(trimmed) : generateWorldId()
+    const worldId = generateWorldId()
+    const displayName = trimmed.length > 0 ? trimmed : 'New World'
     const gameMode = MutableRef.get(refs.newWorldModeRef)
     const seed = parseWorldSeedInput(buttons.nwSeed.value)
     completeWith({
       action: 'newWorld',
       worldId,
+      displayName,
       gameMode,
       ...(seed === undefined ? {} : { seed }),
     })

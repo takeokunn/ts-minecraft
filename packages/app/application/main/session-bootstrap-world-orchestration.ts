@@ -14,9 +14,8 @@ export const buildSessionBootstrapWorldOrchestration = ({
   Effect.gen(function* () {
     const {
       bootCtx,
-      worldId,
+      worldOpenRequest,
       initialGameMode,
-      initialSeed,
       chunkManagerService,
       gameModeService,
     } = state
@@ -62,15 +61,13 @@ export const buildSessionBootstrapWorldOrchestration = ({
       spawnPosition,
     } = yield* buildSessionBootstrapWorldState({
       bootCtx,
-      worldId,
+      worldOpenRequest,
       initialGameMode,
-      ...(initialSeed === undefined ? {} : { initialSeed }),
       chunkManagerService,
       gameModeService,
-      ...(initialSeed === undefined ? {} : { initialSeed }),
     })
 
-    yield* chunkManagerService.setActiveWorldId(worldId)
+    yield* chunkManagerService.setActiveWorldId(worldOpenRequest.worldId)
     yield* prepareInitialTerrain({
       chunkManagerService,
       worldRendererService,
@@ -101,7 +98,7 @@ export const buildSessionBootstrapWorldOrchestration = ({
       cropGrowthService,
       entityManager,
       worldBootstrap,
-      worldId,
+      worldId: worldOpenRequest.worldId,
       respawnPositionRef,
     })
 

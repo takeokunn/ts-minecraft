@@ -3,7 +3,7 @@ import { expect, vi } from 'vitest'
 import { Effect, Either, Option } from 'effect'
 import {
   buildRespawnPosition,
-  loadOrCreateWorld,
+  openWorld,
 } from './session-world-loader'
 import { type SavedEntityStates, type SavedFurnaceStates, type SavedPlayerState, type SavedWeatherState } from './session-world-loader-metadata'
 import { GameModeService, type GameMode } from '../../../game'
@@ -155,13 +155,26 @@ const runLoad = (
   noiseService: NoiseService,
   gameModeService: GameModeService,
   initialSeed?: number,
-) => Effect.runPromise(Effect.either(loadOrCreateWorld(worldId, initialGameMode, storageService, noiseService, gameModeService, initialSeed)))
+) => Effect.runPromise(Effect.either(openWorld(
+  worldId === WorldId.make('world-new')
+    ? {
+        _tag: 'CreateWorld',
+        worldId,
+        displayName: 'My World',
+        gameMode: initialGameMode,
+        ...(initialSeed === undefined ? {} : { seed: initialSeed }),
+      }
+    : { _tag: 'LoadWorld', worldId },
+  storageService,
+  noiseService,
+  gameModeService,
+)))
 
 // ---------------------------------------------------------------------------
-// loadOrCreateWorld
+// openWorld
 // ---------------------------------------------------------------------------
 
-describe('loadOrCreateWorld', () => {
+describe('openWorld', () => {
   describe('when world exists in storage (onSome path)', () => {
     it('returns a WorldBootstrap with the stored seed and createdAt', async () => {
       const metadata = makeMetadata({ seed: 777, createdAt: new Date('2023-05-15') })
@@ -358,6 +371,10 @@ describe('loadOrCreateWorld', () => {
       await runLoad(worldId, 'survival', storageService, noiseService, gameModeService)
 
       expect(saveWorldMetadataSpy).toHaveBeenCalledOnce()
+      expect(saveWorldMetadataSpy).toHaveBeenCalledWith(
+        worldId,
+        expect.objectContaining({ displayName: 'My World' }),
+      )
     })
 
     it('returns a WorldBootstrap with savedPlayerState = none() for a new world', async () => {
@@ -456,6 +473,30 @@ describe('loadOrCreateWorld', () => {
   })
 
   describe('error handling', () => {
+    it('rejects a create request when the world already exists', async () => {
+      const worldId = WorldId.make('world-1')
+      const result = await Effect.runPromise(Effect.either(openWorld(
+        { _tag: 'CreateWorld', worldId, displayName: 'Duplicate', gameMode: 'survival' },
+        makeStorageService({ loadWorldMetadata: () => Effect.succeed(Option.some(makeMetadata())) }),
+        makeNoiseService(),
+        makeGameModeService(),
+      )))
+
+      expect(Option.getOrThrow(Either.getLeft(result))._tag).toBe('WorldAlreadyExistsError')
+    })
+
+    it('rejects a load request when the world does not exist', async () => {
+      const worldId = WorldId.make('missing-world')
+      const result = await Effect.runPromise(Effect.either(openWorld(
+        { _tag: 'LoadWorld', worldId },
+        makeStorageService(),
+        makeNoiseService(),
+        makeGameModeService(),
+      )))
+
+      expect(Option.getOrThrow(Either.getLeft(result))._tag).toBe('WorldNotFoundError')
+    })
+
     it('surfaces a StartupError when loadWorldMetadata fails', async () => {
       const storageError = new StorageError({ operation: 'loadWorldMetadata', cause: 'IDB unavailable' })
       const storageService = makeStorageService({

@@ -47,7 +47,7 @@ type MockDocument = {
   readonly listeners: Record<string, Array<(event: KeyboardEvent) => void>>
   addEventListener: (type: string, listener: (event: KeyboardEvent) => void, capture?: boolean) => void
   removeEventListener: (type: string, listener: (event: KeyboardEvent) => void, capture?: boolean) => void
-  dispatchKeyDown: (key: string) => void
+  dispatchKeyDown: (key: string, shiftKey?: boolean) => KeyboardEvent
 }
 
 const makeElement = (tagName: string, documentRef: MockDocument): MockElement => {
@@ -114,15 +114,17 @@ const makeDocument = (): MockDocument => {
       const index = current.indexOf(listener)
       if (index >= 0) current.splice(index, 1)
     },
-    dispatchKeyDown: (key) => {
+    dispatchKeyDown: (key, shiftKey = false) => {
       const event = {
         key,
+        shiftKey,
         preventDefault: vi.fn(),
         stopPropagation: vi.fn(),
       } as unknown as KeyboardEvent
       for (const listener of listeners.keydown ?? []) {
         listener(event)
       }
+      return event
     },
   }
 }
@@ -343,6 +345,50 @@ describe('DeathScreenService', () => {
           expect(yield* service.isOpen()).toBe(false)
           expect(dom.roots[0]?.style.display).toBe('none')
           expect(documentRef.activeElement).toBe(quitBtn ?? null)
+        }).pipe(Effect.provide(layer)),
+      ),
+    )
+  })
+
+  it('traps Tab focus and restores the previously focused element on close', async () => {
+    const documentRef = makeDocument()
+    const previousFocus = makeElement('button', documentRef)
+    documentRef.activeElement = previousFocus
+    vi.stubGlobal('document', documentRef as unknown as Document)
+    const { dom, layer } = makeTestLayer(documentRef, 'survival')
+
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const control = yield* makeSessionControl()
+          const respawnPositionRef = MutableRef.make({ x: 4, y: 70, z: 4 } as Position)
+          const health = yield* HealthService
+          const service = yield* DeathScreenService
+
+          yield* service.attach(control, respawnPositionRef)
+          yield* health.applyDamage(100)
+          yield* Effect.sleep(Duration.millis(1))
+
+          const respawnBtn = dom.created.find((element) => element.dataset.role === 'respawn')
+          const quitBtn = dom.created.find((element) => element.dataset.role === 'quit-to-title')
+          expect(documentRef.activeElement).toBe(respawnBtn ?? null)
+
+          quitBtn?.focus()
+          const forwardEvent = documentRef.dispatchKeyDown('Tab')
+          expect(forwardEvent.preventDefault).toHaveBeenCalledOnce()
+          expect(documentRef.activeElement).toBe(respawnBtn ?? null)
+
+          respawnBtn?.focus()
+          documentRef.dispatchKeyDown('Tab', true)
+          expect(documentRef.activeElement).toBe(quitBtn ?? null)
+
+          documentRef.activeElement = previousFocus
+          documentRef.dispatchKeyDown('Tab')
+          expect(documentRef.activeElement).toBe(respawnBtn ?? null)
+
+          respawnBtn?.click()
+          yield* Effect.sleep(Duration.millis(1))
+          expect(documentRef.activeElement).toBe(previousFocus)
         }).pipe(Effect.provide(layer)),
       ),
     )

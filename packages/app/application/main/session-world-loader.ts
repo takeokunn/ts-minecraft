@@ -1,4 +1,4 @@
-import { Array as Arr, Clock, Duration, Effect, Option, Random } from 'effect'
+import { Array as Arr, Clock, Data, Duration, Effect, Option, Random } from 'effect'
 import { StartupError } from '@ts-minecraft/game'
 import { ChunkManagerService } from '@ts-minecraft/world'
 import { NoiseService, computeColumnY } from '@ts-minecraft/world'
@@ -14,6 +14,29 @@ import {
 } from './session-world-loader-metadata'
 
 const SPAWN_SEARCH_CHUNK_RADIUS = 2
+
+export type WorldOpenRequest =
+  | Readonly<{
+      readonly _tag: 'CreateWorld'
+      readonly worldId: WorldId
+      readonly displayName: string
+      readonly gameMode: GameMode
+      readonly seed?: number
+    }>
+  | Readonly<{
+      readonly _tag: 'LoadWorld'
+      readonly worldId: WorldId
+    }>
+
+export class WorldAlreadyExistsError extends Data.TaggedError('WorldAlreadyExistsError')<{
+  readonly worldId: WorldId
+}> {}
+
+export class WorldNotFoundError extends Data.TaggedError('WorldNotFoundError')<{
+  readonly worldId: WorldId
+}> {}
+
+export type WorldOpenError = StartupError | WorldAlreadyExistsError | WorldNotFoundError
 
 // New worlds: ~60% of seeds put OCEAN at the world origin (median surface y≈56 < SEA_LEVEL),
 // so spawning at (0,0) drops the player into open water. Land is almost always within a few
@@ -123,17 +146,15 @@ const spawnSearchChunkCoords = (
   )
 }
 
-export const loadOrCreateWorld = (
-  worldId: WorldId,
-  initialGameMode: GameMode,
+export const openWorld = (
+  request: WorldOpenRequest,
   storageService: StorageService,
   noiseService: NoiseService,
   gameModeService: GameModeService,
-  initialSeed?: number,
-): Effect.Effect<WorldBootstrap, StartupError> =>
+): Effect.Effect<WorldBootstrap, WorldOpenError> =>
   Effect.gen(function* () {
     const existingMetadata = yield* Effect.raceFirst(
-      storageService.loadWorldMetadata(worldId),
+      storageService.loadWorldMetadata(request.worldId),
       Effect.delay(
         Effect.fail(new Error('Timed out while loading world metadata')),
         Duration.seconds(10),
@@ -144,15 +165,22 @@ export const loadOrCreateWorld = (
 
     const metadata = Option.getOrNull(existingMetadata)
     if (metadata !== null) {
+      if (request._tag === 'CreateWorld') {
+        return yield* new WorldAlreadyExistsError({ worldId: request.worldId })
+      }
       yield* noiseService.setSeed(metadata.seed)
       yield* gameModeService.set(metadata.gameMode)
       yield* Effect.log(
-        `Loaded world '${worldId}' with seed ${metadata.seed} (gameMode=${metadata.gameMode}, saveVersion=${metadata.saveVersion})`,
+        `Loaded world '${request.worldId}' with seed ${metadata.seed} (gameMode=${metadata.gameMode}, saveVersion=${metadata.saveVersion})`,
       )
       return buildLoadedWorldBootstrap(metadata)
     }
 
-    const seed = initialSeed ?? (yield* Random.nextIntBetween(0, MAX_SEED_VALUE))
+    if (request._tag === 'LoadWorld') {
+      return yield* new WorldNotFoundError({ worldId: request.worldId })
+    }
+
+    const seed = request.seed ?? (yield* Random.nextIntBetween(0, MAX_SEED_VALUE))
     const nowMs = yield* Clock.currentTimeMillis
     const now = new Date(nowMs)
     yield* noiseService.setSeed(seed)
@@ -160,13 +188,14 @@ export const loadOrCreateWorld = (
     const land = yield* findLandSpawnXZ(noiseService)
     const pos = { x: land.x, y: 100, z: land.z }
     const freshWorld = buildFreshWorldState({
+      displayName: request.displayName,
       seed,
       createdAt: now,
       baseSpawnPosition: pos,
-      gameMode: initialGameMode,
+      gameMode: request.gameMode,
     })
     yield* Effect.raceFirst(
-      storageService.saveWorldMetadata(worldId, freshWorld.metadata),
+      storageService.saveWorldMetadata(request.worldId, freshWorld.metadata),
       Effect.delay(
         Effect.fail(new Error('Timed out while saving world metadata')),
         Duration.seconds(10),
@@ -174,7 +203,7 @@ export const loadOrCreateWorld = (
     ).pipe(
       Effect.mapError((cause) => new StartupError({ reason: 'Failed to save fresh world metadata', cause })),
     )
-    yield* Effect.log(`Created new world '${worldId}' with seed ${seed} (gameMode=${initialGameMode})`)
+    yield* Effect.log(`Created new world '${request.worldId}' with seed ${seed} (gameMode=${request.gameMode})`)
     return freshWorld.bootstrap
   })
 

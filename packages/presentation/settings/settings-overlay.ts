@@ -1,7 +1,14 @@
 import { Cause, Effect, Match, Option, Ref } from 'effect'
 import { SettingsService } from '@ts-minecraft/game'
 import { DomOperationsService } from '@ts-minecraft/presentation/hud/crosshair'
-import { asFocusableElement, getActiveDocument, currentActiveElement } from '../dom-focus-utils'
+import {
+  currentActiveElement,
+  getActiveDocument,
+  restoreFocusIfConnected,
+  trapDialogFocus,
+  visibleFocusableElements,
+} from '../dom-focus-utils'
+import { isKeyBindingNavigationKey } from './key-binding-navigation'
 import { buildSettingsOverlayDom } from './settings-overlay-dom'
 
 export class SettingsOverlayService extends Effect.Service<SettingsOverlayService>()(
@@ -162,6 +169,7 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
           input.style.cssText = 'width:110px;font-size:11px;text-align:center;cursor:pointer'
           input.value = keyBindingValues.get(action) ?? ''
           input.addEventListener('keydown', (event) => {
+            if (isKeyBindingNavigationKey(event.key)) return
             event.preventDefault()
             event.stopPropagation()
             if (event.code === 'Escape' || event.code === 'Backspace') {
@@ -238,25 +246,25 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
       }
 
       const focusableSettingsControls = (): ReadonlyArray<HTMLElement> =>
-        [
+        visibleFocusableElements([
           Option.getOrNull(qualitySelect),
           Option.getOrNull(adaptivePerformanceInput),
           Option.getOrNull(renderDistanceInput),
           Option.getOrNull(sensitivityInput),
           Option.getOrNull(fovInput),
           Option.getOrNull(dayLengthInput),
+          Option.getOrNull(difficultySelect),
           Option.getOrNull(audioEnabledInput),
+          Option.getOrNull(audioCaptionsInput),
           Option.getOrNull(masterVolumeInput),
           Option.getOrNull(sfxVolumeInput),
           Option.getOrNull(musicVolumeInput),
+          Option.getOrNull(reducedMotionInput),
+          Option.getOrNull(uiScaleInput),
+          Option.getOrNull(colorVisionSelect),
+          ...Array.from(Option.getOrNull(keyBindingsContainer)?.querySelectorAll?.('input') ?? []),
           Option.getOrNull(closeBtn),
-        ].flatMap((element) => {
-          const focusable = asFocusableElement(element)
-          if (focusable === null) return []
-          if ((focusable as { readonly disabled?: boolean }).disabled === true) return []
-          if (focusable.style.display === 'none' || focusable.style.visibility === 'hidden') return []
-          return [focusable]
-        })
+        ])
 
       const focusFirstSettingsControl = (): void => {
         const first = focusableSettingsControls()[0]
@@ -264,20 +272,7 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
       }
 
       const trapSettingsOverlayFocus = (event: KeyboardEvent): void => {
-        const controls = focusableSettingsControls()
-        const first = controls[0]
-        const last = controls[controls.length - 1]
-        const active = currentActiveElement()
-        if (first === undefined || last === undefined || active === null) return
-        if (event.shiftKey && active === first) {
-          event.preventDefault()
-          last.focus()
-          return
-        }
-        if (!event.shiftKey && active === last) {
-          event.preventDefault()
-          first.focus()
-        }
+        trapDialogFocus(event, focusableSettingsControls(), currentActiveElement())
       }
 
       const captureFocusBeforeOpen = (): Effect.Effect<void, never> =>
@@ -288,8 +283,7 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
           const restoreFocus = yield* Ref.get(restoreFocusRef)
           yield* Ref.set(restoreFocusRef, Option.none())
           yield* Effect.sync(() => {
-            const focusable = asFocusableElement(Option.getOrNull(restoreFocus))
-            if (focusable !== null) focusable.focus()
+            restoreFocusIfConnected(Option.getOrNull(restoreFocus))
           })
         })
 

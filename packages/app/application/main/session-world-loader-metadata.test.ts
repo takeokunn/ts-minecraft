@@ -56,6 +56,7 @@ describe('session-world-loader-metadata', () => {
     const baseSpawnPosition = { x: 32, y: 100, z: -16 }
 
     const freshWorld = buildFreshWorldState({
+      displayName: 'My World',
       seed: 1234,
       createdAt,
       baseSpawnPosition,
@@ -63,6 +64,7 @@ describe('session-world-loader-metadata', () => {
     })
 
     expect(freshWorld.metadata).toEqual({
+      displayName: 'My World',
       seed: 1234,
       createdAt,
       lastPlayed: createdAt,

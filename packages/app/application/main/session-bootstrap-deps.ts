@@ -9,10 +9,9 @@ import type { SessionBootstrapStartupMultiplayerConnection } from './session-boo
 
 export const buildSessionBootstrapDeps = (
   bootCtx: import('@ts-minecraft/app/main/boot').BootContext,
-  worldId: import('@ts-minecraft/core').WorldId,
+  worldOpenRequest: import('@ts-minecraft/app/main/session-world-loader').WorldOpenRequest,
   initialGameMode: GameMode,
   startupMultiplayerConnection: SessionBootstrapStartupMultiplayerConnection = Option.none(),
-  initialSeed?: number,
 ) =>
   Effect.gen(function* () {
     const [services, loadingServices, gameLoopService] = yield* Effect.all([
@@ -33,9 +32,9 @@ export const buildSessionBootstrapDeps = (
 
     return {
       bootCtx,
-      worldId,
+      worldId: worldOpenRequest.worldId,
+      worldOpenRequest,
       initialGameMode,
-      ...(initialSeed === undefined ? {} : { initialSeed }),
       gameLoopService,
       startupMultiplayerConnection,
       ...loadingServices,

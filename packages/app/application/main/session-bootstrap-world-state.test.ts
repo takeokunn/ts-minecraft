@@ -3,12 +3,12 @@ import { expect, vi } from 'vitest'
 import { Effect, MutableRef } from 'effect'
 
 import { buildSessionBootstrapWorldState } from './session-bootstrap-world-state'
-import { buildSpawnSelection, loadOrCreateWorld } from '@ts-minecraft/app/main/session-world-loader'
+import { buildSpawnSelection, openWorld, type WorldOpenRequest } from '@ts-minecraft/app/main/session-world-loader'
 import { resolveSessionStartPositions } from '@ts-minecraft/app/main/session-world-loader-state'
 
 vi.mock('@ts-minecraft/app/main/session-world-loader', () => ({
   buildSpawnSelection: vi.fn(),
-  loadOrCreateWorld: vi.fn(),
+  openWorld: vi.fn(),
 }))
 
 vi.mock('@ts-minecraft/app/main/session-world-loader-state', () => ({
@@ -22,6 +22,13 @@ describe('buildSessionBootstrapWorldState', () => {
     const bootCtx = { storageService, noiseService }
     const chunkManagerService = {} as never
     const gameModeService = {} as never
+    const worldOpenRequest = {
+      _tag: 'CreateWorld',
+      worldId: 'world-1' as never,
+      displayName: 'World 1',
+      gameMode: 'survival',
+      seed: 1234,
+    } satisfies WorldOpenRequest
     const worldBootstrap = { baseSpawnPosition: { x: 1, y: 2, z: 3 } } as never
     const initialSpawnSelection = { position: { x: 4, y: 5, z: 6 }, yaw: 135 } as never
     const resolved = {
@@ -30,20 +37,18 @@ describe('buildSessionBootstrapWorldState', () => {
       spawnPosition: { x: 13, y: 14, z: 15 },
     }
 
-    vi.mocked(loadOrCreateWorld).mockReturnValue(Effect.succeed(worldBootstrap))
+    vi.mocked(openWorld).mockReturnValue(Effect.succeed(worldBootstrap))
     vi.mocked(buildSpawnSelection).mockReturnValue(Effect.succeed(initialSpawnSelection))
     vi.mocked(resolveSessionStartPositions).mockReturnValue(resolved)
 
     const result = await Effect.runPromise(buildSessionBootstrapWorldState({
       bootCtx,
-      worldId: 'world-1' as never,
-      initialGameMode: 'survival' as never,
-      initialSeed: 1234,
+      worldOpenRequest,
       chunkManagerService,
       gameModeService,
     }))
 
-    expect(loadOrCreateWorld).toHaveBeenCalledWith('world-1', 'survival', storageService, noiseService, gameModeService, 1234)
+    expect(openWorld).toHaveBeenCalledWith(worldOpenRequest, storageService, noiseService, gameModeService)
     expect(buildSpawnSelection).toHaveBeenCalledWith(worldBootstrap.baseSpawnPosition, chunkManagerService)
     expect(resolveSessionStartPositions).toHaveBeenCalledWith(worldBootstrap, initialSpawnSelection.position)
     expect(MutableRef.get(result.respawnPositionRef)).toEqual(resolved.respawnPosition)

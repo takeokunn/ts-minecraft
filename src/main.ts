@@ -13,6 +13,7 @@ import { installGlobalDebugLogCapture } from '@ts-minecraft/app/main/debug-log-c
 import { installGlobalFrameSpikeMonitor } from '@ts-minecraft/app/main/debug-frame-spikes'
 import type { BootContext } from '@ts-minecraft/app'
 import type { GameMode } from '@ts-minecraft/game'
+import type { WorldOpenRequest } from '@ts-minecraft/app/main/session-world-loader'
 
 // Installed before the Effect program starts so even boot-time failures land in
 // the capture buffers (read back through the QA API's getCapturedLogsForQA /
@@ -52,14 +53,13 @@ const presentStartupFailure = (cause: Cause.Cause<unknown>) =>
 
 const runSessionToTitle = (
   bootCtx: BootContext,
-  worldId: WorldId,
+  worldOpenRequest: WorldOpenRequest,
   gameMode: GameMode,
   startupMultiplayerConnection = Option.none<{ readonly serverUrl: string; readonly playerName: string }>(),
-  initialSeed?: number,
 ) =>
   Effect.gen(function* () {
     const scope = yield* Scope.make()
-    const exit = yield* sessionProgram(bootCtx, worldId, gameMode, startupMultiplayerConnection, initialSeed).pipe(
+    const exit = yield* sessionProgram(bootCtx, worldOpenRequest, gameMode, startupMultiplayerConnection).pipe(
       Scope.extend(scope),
       Effect.exit,
     )
@@ -122,7 +122,7 @@ const mainMenuLoop = (bootCtx: BootContext) =>
       // to the normal title flow instead of auto-restarting the same session.
       yield* Effect.sync(() => clearWorldParam())
       yield* Effect.sync(() => setGameplayHudHidden(false))
-      yield* runSessionToTitle(bootCtx, worldId, urlGameMode).pipe(
+      yield* runSessionToTitle(bootCtx, { _tag: 'LoadWorld', worldId }, urlGameMode).pipe(
         Effect.catchAllCause((cause) => presentSessionFailure(loadingScreen, cause)),
         Effect.asVoid,
       )
@@ -153,9 +153,22 @@ const mainMenuLoop = (bootCtx: BootContext) =>
         : choice.action === 'multiplayer'
           ? 'survival'
           : yield* loadGameModeForWorld(choice.worldId)
-      const initialSeed = choice.action === 'newWorld' ? choice.seed : undefined
+      const metadata = choice.action === 'multiplayer'
+        ? yield* storageService.loadWorldMetadata(worldId)
+        : Option.none()
+      const worldOpenRequest: WorldOpenRequest = choice.action === 'newWorld'
+        ? {
+            _tag: 'CreateWorld',
+            worldId: choice.worldId,
+            displayName: choice.displayName,
+            gameMode: choice.gameMode,
+            ...(choice.seed === undefined ? {} : { seed: choice.seed }),
+          }
+        : choice.action === 'loadWorld' || Option.isSome(metadata)
+          ? { _tag: 'LoadWorld', worldId }
+          : { _tag: 'CreateWorld', worldId, displayName: choice.serverUrl, gameMode: 'survival' }
 
-      yield* runSessionToTitle(bootCtx, worldId, gameMode, startupMultiplayerConnection, initialSeed).pipe(
+      yield* runSessionToTitle(bootCtx, worldOpenRequest, gameMode, startupMultiplayerConnection).pipe(
         Effect.catchAllCause((cause) => presentSessionFailure(loadingScreen, cause)),
         Effect.asVoid,
       )

@@ -9,8 +9,8 @@ export type SessionBootstrapStartupMultiplayerConnection = Option.Option<{
 export type SessionBootstrapCoreDeps = {
   readonly bootCtx: BootContext
   readonly worldId: import('@ts-minecraft/core').WorldId
+  readonly worldOpenRequest: import('@ts-minecraft/app/main/session-world-loader').WorldOpenRequest
   readonly initialGameMode: import('@ts-minecraft/game').GameMode
-  readonly initialSeed?: number
   readonly gameLoopService: import('@ts-minecraft/game').GameLoopService
   readonly startupMultiplayerConnection: SessionBootstrapStartupMultiplayerConnection
 }

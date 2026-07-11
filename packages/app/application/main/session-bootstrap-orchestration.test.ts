@@ -7,6 +7,7 @@ import { buildSessionRuntimeBundle } from '@ts-minecraft/app/main/session-bootst
 import { buildSessionBootstrapWorldOrchestration } from '@ts-minecraft/app/main/session-bootstrap-world-orchestration'
 import { buildSessionBootstrapScene } from '@ts-minecraft/app/main/session-bootstrap-scene'
 import { buildSessionBootstrapStartupState } from '@ts-minecraft/app/main/session-bootstrap/startup'
+import type { WorldOpenRequest } from '@ts-minecraft/app/main/session-world-loader'
 import { buildSessionBootstrapOrchestration } from './session-bootstrap-orchestration'
 
 vi.mock('@ts-minecraft/app/main/session-lighting', () => ({
@@ -57,6 +58,13 @@ describe('buildSessionBootstrapOrchestration', () => {
     const playerListPanel = { id: 'player-list-panel' } as never
     const multiplayerService = Option.some({ id: 'multiplayer', setLocalWorldSeed: () => Effect.void } as never)
     const entityManager = { id: 'entity-manager' } as never
+    const worldOpenRequest = {
+      _tag: 'CreateWorld',
+      worldId: 'world-1' as never,
+      displayName: 'World 1',
+      gameMode: 'survival',
+      seed: 1234,
+    } satisfies WorldOpenRequest
 
     vi.mocked(buildSessionBootstrapStartupState).mockImplementation(() => {
       callOrder.push('startup')
@@ -106,10 +114,10 @@ describe('buildSessionBootstrapOrchestration', () => {
         storageService: { id: 'storage' } as never,
         noiseService: { id: 'noise' } as never,
       },
-      worldId: 'world-1' as never,
+      worldId: worldOpenRequest.worldId,
+      worldOpenRequest,
       initialGameMode: 'survival' as never,
       startupMultiplayerConnection: Option.none(),
-      initialSeed: 1234,
       gameLoopService: { id: 'game-loop' } as never,
       loadingScreen: { id: 'loading' } as never,
       deathScreen: { id: 'death' } as never,
@@ -170,7 +178,7 @@ describe('buildSessionBootstrapOrchestration', () => {
     expect(buildSessionBootstrapWorldOrchestration).toHaveBeenCalledOnce()
     expect(vi.mocked(buildSessionBootstrapWorldOrchestration).mock.calls[0]?.[0].presentation.entityManager).toBe(entityManager)
     expect(buildSessionBootstrapWorldOrchestration).toHaveBeenCalledWith(expect.objectContaining({
-      state: expect.objectContaining({ initialSeed: 1234 }),
+      state: expect.objectContaining({ worldOpenRequest }),
     }))
     expect(buildLighting).toHaveBeenCalledOnce()
     expect(buildSessionRuntimeBundle).toHaveBeenCalledOnce()

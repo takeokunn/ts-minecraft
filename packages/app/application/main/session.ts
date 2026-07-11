@@ -1,6 +1,6 @@
 import { Effect, Option } from 'effect'
-import { WorldId } from '@ts-minecraft/core'
 import { type GameMode } from '@ts-minecraft/game'
+import type { WorldOpenRequest } from '@ts-minecraft/app/main/session-world-loader'
 
 import { runSessionLifecycle } from '@ts-minecraft/app/main/session-lifecycle'
 import { buildSessionBootstrapOrchestration } from '@ts-minecraft/app/main/session-bootstrap-orchestration'
@@ -17,18 +17,16 @@ export type SessionResult = {
 
 export const sessionProgram = (
   bootCtx: BootContext,
-  worldId: WorldId,
+  worldOpenRequest: WorldOpenRequest,
   initialGameMode: GameMode,
   startupMultiplayerConnection: SessionBootstrapStartupMultiplayerConnection = Option.none(),
-  initialSeed?: number,
 ) =>
   Effect.gen(function* () {
     const bootstrapDeps = yield* buildSessionBootstrapDeps(
       bootCtx,
-      worldId,
+      worldOpenRequest,
       initialGameMode,
       startupMultiplayerConnection,
-      initialSeed,
     )
     const bootstrap = yield* buildSessionBootstrapOrchestration(bootstrapDeps)
 

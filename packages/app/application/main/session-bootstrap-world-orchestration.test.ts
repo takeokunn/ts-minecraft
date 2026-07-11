@@ -7,6 +7,7 @@ import { buildPersistSessionState } from '@ts-minecraft/app/main/session-persist
 import { buildSessionBootstrapWorldState } from '@ts-minecraft/app/main/session-bootstrap-world-state'
 import { initializeSessionBootstrapWorldPresentation } from '@ts-minecraft/app/main/session-bootstrap-world-presentation'
 import { prepareInitialTerrain } from '@ts-minecraft/app/main/session-loading-gates-terrain'
+import type { WorldOpenRequest } from '@ts-minecraft/app/main/session-world-loader'
 
 vi.mock('@ts-minecraft/app/main/session-persist', () => ({
   buildPersistSessionState: vi.fn(),
@@ -37,6 +38,13 @@ describe('buildSessionBootstrapWorldOrchestration', () => {
     const initialSpawnSelection = { position: { x: 7, y: 8, z: 9 } } as never
     const initialChunkLoadAnchor = { x: 10, y: 11, z: 12 }
     const spawnPosition = { x: 13, y: 14, z: 15 }
+    const worldOpenRequest = {
+      _tag: 'CreateWorld',
+      worldId: 'world-1' as never,
+      displayName: 'World 1',
+      gameMode: 'survival',
+      seed: 1234,
+    } satisfies WorldOpenRequest
     const gameModeService = {
       set: vi.fn(() => {
         callOrder.push('game-mode')
@@ -55,9 +63,8 @@ describe('buildSessionBootstrapWorldOrchestration', () => {
           storageService: {} as never,
           noiseService: {} as never,
         },
-        worldId: 'world-1' as never,
+        worldOpenRequest,
         initialGameMode: 'survival' as never,
-        initialSeed: 1234,
         chunkManagerService,
         gameModeService,
       },
@@ -129,9 +136,8 @@ describe('buildSessionBootstrapWorldOrchestration', () => {
       'presentation',
     ])
     expect(buildSessionBootstrapWorldState).toHaveBeenCalledWith(expect.objectContaining({
-      worldId: 'world-1',
+      worldOpenRequest,
       initialGameMode: 'survival',
-      initialSeed: 1234,
       chunkManagerService,
       gameModeService,
     }))

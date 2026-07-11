@@ -31,6 +31,7 @@ export type WorldBootstrap = {
 }
 
 export type FreshWorldMetadataInput = {
+  readonly displayName: string
   readonly seed: number
   readonly createdAt: Date
   readonly baseSpawnPosition: { readonly x: number; readonly y: number; readonly z: number }
@@ -112,6 +113,7 @@ export const buildFreshWorldState = (input: FreshWorldMetadataInput): FreshWorld
 
   return {
     metadata: {
+      displayName: input.displayName,
       seed: input.seed,
       createdAt: input.createdAt,
       lastPlayed: input.createdAt,

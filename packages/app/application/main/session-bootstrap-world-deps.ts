@@ -1,6 +1,6 @@
 import type { BootContext } from '@ts-minecraft/app/main/boot'
-import type { WorldId } from '@ts-minecraft/core'
 import type { GameMode, GameModeService, GameStateService, TimeService, WeatherService } from '@ts-minecraft/game'
+import type { WorldOpenRequest } from '@ts-minecraft/app/main/session-world-loader'
 import type { ChestService } from '@ts-minecraft/inventory/application/chest-service'
 import type { EquipmentService } from '@ts-minecraft/inventory/application/equipment-service'
 import type { FurnaceService } from '@ts-minecraft/inventory/application/furnace-service'
@@ -23,9 +23,8 @@ import type { ChunkManagerService, CropGrowthService } from '@ts-minecraft/world
 
 export type SessionBootstrapWorldStateDeps = {
   readonly bootCtx: Pick<BootContext, 'storageService' | 'noiseService'>
-  readonly worldId: WorldId
+  readonly worldOpenRequest: WorldOpenRequest
   readonly initialGameMode: GameMode
-  readonly initialSeed?: number
   readonly chunkManagerService: ChunkManagerService
   readonly gameModeService: GameModeService
 }

@@ -199,5 +199,24 @@ describe('presentation/settings/settings-overlay', () => {
         expect(mockDom.elements.closeBtn.focus).toHaveBeenCalledTimes(1)
       }).pipe(Effect.provide(TestLayer))
     })
+
+    it.scoped('should reclaim Tab focus from outside the settings overlay', () => {
+      const mockDom = createMockDomLayer()
+      const keyboardDocument = stubKeyboardDocument(mockDom.elements.gearBtn as unknown as Element)
+      vi.stubGlobal('document', keyboardDocument.documentStub)
+      const TestLayer = buildTestLayer(mockDom)
+      return Effect.gen(function* () {
+        const overlay = yield* SettingsOverlayService
+        yield* overlay.toggle()
+        keyboardDocument.setActiveElement(mockDom.elements.gearBtn as unknown as Element)
+        mockDom.elements.qualitySelect.focus.mockClear()
+
+        const event = makeKeyboardEvent('Tab')
+        keyboardDocument.getKeydownHandler()(event)
+
+        expect(event.preventDefault).toHaveBeenCalled()
+        expect(mockDom.elements.qualitySelect.focus).toHaveBeenCalledTimes(1)
+      }).pipe(Effect.provide(TestLayer))
+    })
   })
 })

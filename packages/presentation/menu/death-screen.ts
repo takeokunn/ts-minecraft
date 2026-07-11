@@ -14,6 +14,12 @@ import {
 import type { Position } from '@ts-minecraft/core'
 import { buildDeathScreenDOM } from './death-screen-dom'
 import type { DeathScreenDom } from './death-screen-types'
+import {
+  currentActiveElement,
+  restoreFocusIfConnected,
+  trapDialogFocus,
+  visibleFocusableElements,
+} from '../dom-focus-utils'
 
 // FR-1.3 — death screen overlay. Subscribes to healthService.awaitDeath() on attach().
 // Suppressed in CREATIVE: frame-handler auto-respawns before this listener runs.
@@ -40,20 +46,25 @@ export class DeathScreenService extends Effect.Service<DeathScreenService>()(
       )
       {
         const isOpenRef = MutableRef.make(false)
+        const restoreFocusRef = MutableRef.make<HTMLElement | null>(null)
 
-            const showOverlay = (deathMessage: string): void => {
-              const el = Option.getOrNull(backdropEl)
-              const message = Option.getOrNull(messageEl)
-              if (message !== null) message.textContent = deathMessage
-              if (el !== null) el.style.display = 'flex'
-              // Default-focus Respawn so Enter respawns immediately.
-              Option.getOrNull(respawnBtn)?.focus()
-            }
+        const showOverlay = (deathMessage: string): void => {
+          MutableRef.set(restoreFocusRef, currentActiveElement())
+          const el = Option.getOrNull(backdropEl)
+          const message = Option.getOrNull(messageEl)
+          if (message !== null) message.textContent = deathMessage
+          if (el !== null) el.style.display = 'flex'
+          // Default-focus Respawn so Enter respawns immediately.
+          Option.getOrNull(respawnBtn)?.focus()
+        }
 
-            const hideOverlay = (): void => {
-              const el = Option.getOrNull(backdropEl)
-              if (el !== null) el.style.display = 'none'
-            }
+        const hideOverlay = (): void => {
+          const el = Option.getOrNull(backdropEl)
+          if (el !== null) el.style.display = 'none'
+          const restoreFocus = MutableRef.get(restoreFocusRef)
+          MutableRef.set(restoreFocusRef, null)
+          restoreFocusIfConnected(restoreFocus)
+        }
 
             // Snapshot the player's death position. Currently used only for
             // logging; Phase-3 will replace `inventoryService.clear()` (in
@@ -140,8 +151,15 @@ export class DeathScreenService extends Effect.Service<DeathScreenService>()(
                           handleRespawnClick()
                         }
                       } else if (event.key === 'Tab') {
-                        // Browser-native tab cycle between visible buttons.
                         event.stopPropagation()
+                        trapDialogFocus(
+                          event,
+                          visibleFocusableElements([
+                            Option.getOrNull(respawnBtn),
+                            Option.getOrNull(quitBtn),
+                          ]),
+                          currentActiveElement(),
+                        )
                       }
                     }
 
