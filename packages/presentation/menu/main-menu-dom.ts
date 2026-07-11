@@ -58,13 +58,15 @@ export const buildMenuDOM = (dom: DomOperationsService): MenuDomElements => {
   // ROOT card
   const rootCard = dom.createElement('div') as HTMLDivElement
   rootCard.id = 'main-menu-root'
-  rootCard.style.cssText = `${cardStyle};max-height:calc(100vh - 32px);overflow-y:auto`
+  rootCard.className = 'mc-menu-card'
+  rootCard.style.cssText = `${cardStyle};max-height:calc(100dvh - max(36px,env(safe-area-inset-top) + env(safe-area-inset-bottom)));overflow-y:auto`
   dom.setInnerHTML(rootCard, `
-    <h1 style="margin:0 0 18px;text-align:center;font-size:40px;font-weight:900;letter-spacing:3px;color:#fff;text-shadow:2px 2px 0 #3f3f3f;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif">ts-minecraft</h1>
-    <p style="margin:-4px 0 4px;font-size:14px;line-height:1.45;text-align:center">
+    <p class="mc-menu-eyebrow">A world built in TypeScript</p>
+    <h1 class="mc-menu-title">TS<span>·</span>Minecraft</h1>
+    <p class="mc-menu-copy">
       Pick a world, continue your latest save, or open the controls guide before you start.
     </p>
-    <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:4px;font-size:12px;line-height:1.35;color:#c8c8c8;text-align:center">
+    <div class="mc-menu-support">
       <span>Keyboard, mouse, and gamepad are supported.</span>
       <span>Touch controls are not available yet.</span>
     </div>
@@ -79,7 +81,8 @@ export const buildMenuDOM = (dom: DomOperationsService): MenuDomElements => {
   // NEW_WORLD card
   const newWorldCard = dom.createElement('div') as HTMLDivElement
   newWorldCard.id = 'main-menu-new-world'
-  newWorldCard.style.cssText = `${cardStyle};max-height:calc(100vh - 32px);overflow-y:auto;display:none`
+  newWorldCard.className = 'mc-menu-card'
+  newWorldCard.style.cssText = `${cardStyle};max-height:calc(100dvh - 36px);overflow-y:auto;display:none`
   dom.setInnerHTML(newWorldCard, `
     <h2 style="margin:0 0 8px;font-size:20px">Create New World</h2>
     <p style="margin:0 0 4px;font-size:13px;line-height:1.45">
@@ -97,7 +100,7 @@ export const buildMenuDOM = (dom: DomOperationsService): MenuDomElements => {
       <span>Game mode</span>
       <button type="button" id="mm-nw-mode" class="mc-menu-btn" style="${buttonStyle}">Survival</button>
     </label>
-    <div style="display:flex;gap:8px;margin-top:8px">
+    <div class="mc-menu-actions">
       <button type="button" id="mm-nw-cancel" class="mc-menu-btn" style="${buttonStyle};flex:1">Cancel</button>
       <button type="button" id="mm-nw-confirm" class="mc-menu-btn" style="${buttonStyle};flex:1">Confirm</button>
     </div>
@@ -106,11 +109,12 @@ export const buildMenuDOM = (dom: DomOperationsService): MenuDomElements => {
   // LOAD_WORLD card
   const loadWorldCard = dom.createElement('div') as HTMLDivElement
   loadWorldCard.id = 'main-menu-load-world'
-  loadWorldCard.style.cssText = `${cardStyle};width:min(560px,calc(100vw - 32px));max-height:80vh;display:none`
+  loadWorldCard.className = 'mc-menu-card'
+  loadWorldCard.style.cssText = `${cardStyle};width:min(600px,100%);max-height:min(80dvh,720px);display:none`
   dom.setInnerHTML(loadWorldCard, `
     <h2 style="margin:0 0 8px;font-size:20px">Load World</h2>
     <div id="mm-lw-list" style="display:flex;flex-direction:column;gap:8px;min-height:60px;flex:1;overflow-y:auto"></div>
-    <div style="display:flex;gap:8px;margin-top:8px">
+    <div class="mc-menu-actions">
       <button type="button" id="mm-lw-back" class="mc-menu-btn" style="${buttonStyle};flex:1">Back</button>
     </div>
     `)
@@ -118,7 +122,8 @@ export const buildMenuDOM = (dom: DomOperationsService): MenuDomElements => {
     // MULTIPLAYER card
     const multiplayerCard = dom.createElement('div') as HTMLDivElement
     multiplayerCard.id = 'main-menu-multiplayer'
-    multiplayerCard.style.cssText = `${cardStyle};max-height:calc(100vh - 32px);overflow-y:auto;display:none`
+    multiplayerCard.className = 'mc-menu-card'
+    multiplayerCard.style.cssText = `${cardStyle};max-height:calc(100dvh - 36px);overflow-y:auto;display:none`
     dom.setInnerHTML(multiplayerCard, `
       <h2 style="margin:0 0 8px;font-size:20px">Join Multiplayer</h2>
       <p style="margin:0 0 4px;font-size:13px;line-height:1.45">
@@ -132,7 +137,7 @@ export const buildMenuDOM = (dom: DomOperationsService): MenuDomElements => {
         <span>Player name</span>
         <input type="text" id="mm-mp-player-name" style="${inputStyle}" placeholder="Player" />
       </label>
-      <div style="display:flex;gap:8px;margin-top:8px">
+      <div class="mc-menu-actions">
         <button type="button" id="mm-mp-cancel" class="mc-menu-btn" style="${buttonStyle};flex:1">Cancel</button>
         <button type="button" id="mm-mp-confirm" class="mc-menu-btn" style="${buttonStyle};flex:1">Confirm</button>
       </div>
@@ -140,7 +145,8 @@ export const buildMenuDOM = (dom: DomOperationsService): MenuDomElements => {
 
     const howToPlayCard = dom.createElement('div') as HTMLDivElement
     howToPlayCard.id = 'main-menu-how-to-play'
-    howToPlayCard.style.cssText = `${cardStyle};width:min(520px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow-y:auto;display:none`
+    howToPlayCard.className = 'mc-menu-card'
+    howToPlayCard.style.cssText = `${cardStyle};width:min(540px,100%);max-height:calc(100dvh - 36px);overflow-y:auto;display:none`
   dom.setInnerHTML(howToPlayCard, `
     <h2 style="margin:0 0 8px;font-size:20px">How to Play</h2>
       <div style="display:flex;flex-direction:column;gap:8px;font-size:14px;line-height:1.45;text-align:left">
@@ -207,6 +213,7 @@ export const renderValidRow = (
   onDelete: () => void,
 ): void => {
   const row = dom.createElement('div')
+  row.className = 'mc-world-row'
   row.style.cssText = rowBaseStyle
   const info = dom.createElement('div')
   info.style.cssText = 'flex:1;display:flex;flex-direction:column;gap:2px;min-width:0'
@@ -258,6 +265,7 @@ export const renderCorruptRow = (
   onDelete: () => void,
 ): void => {
   const row = dom.createElement('div')
+  row.className = 'mc-world-row'
   row.style.cssText = `${rowBaseStyle};background:#7a4545`
   const info = dom.createElement('div')
   info.style.cssText = 'flex:1;display:flex;flex-direction:column;gap:2px;min-width:0'

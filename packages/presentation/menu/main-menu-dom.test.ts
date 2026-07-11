@@ -4,6 +4,7 @@ import { Option } from 'effect'
 import { WorldId } from '@ts-minecraft/core'
 import { DomOperationsService } from '../hud/crosshair'
 import { buildMenuDOM, renderCorruptRow, renderValidRow } from './main-menu-dom'
+import { menuButtonHoverCss, overlayBaseStyle } from './main-menu-styles'
 import type { WorldMetadata } from '@ts-minecraft/world'
 
 type ClickHandler = () => void
@@ -129,18 +130,18 @@ describe('presentation/menu/main-menu-dom', () => {
     expect(elements.overlay.getAttribute('aria-modal')).toBe('true')
     expect(elements.overlay.getAttribute('aria-label')).toBe('Main Menu')
     expect(elements.rootCard.id).toBe('main-menu-root')
-    expect(elements.rootCard.style.cssText).toContain('max-height:calc(100vh - 32px)')
+    expect(elements.rootCard.style.cssText).toContain('100dvh')
     expect(elements.rootCard.style.cssText).toContain('overflow-y:auto')
     expect(elements.newWorldCard.id).toBe('main-menu-new-world')
-    expect(elements.newWorldCard.style.cssText).toContain('max-height:calc(100vh - 32px)')
+    expect(elements.newWorldCard.style.cssText).toContain('100dvh')
     expect(elements.loadWorldCard.id).toBe('main-menu-load-world')
     expect(elements.howToPlayCard.id).toBe('main-menu-how-to-play')
-    expect(elements.howToPlayCard.style.cssText).toContain('max-height:calc(100vh - 32px)')
+    expect(elements.howToPlayCard.style.cssText).toContain('100dvh')
     expect(elements.rootCard.innerHTML).toContain('Pick a world, continue your latest save, or open the controls guide before you start.')
     expect(elements.rootCard.innerHTML).toContain('Keyboard, mouse, and gamepad are supported.')
     expect(elements.rootCard.innerHTML).toContain('Touch controls are not available yet.')
     expect(elements.multiplayerCard.id).toBe('main-menu-multiplayer')
-    expect(elements.multiplayerCard.style.cssText).toContain('max-height:calc(100vh - 32px)')
+    expect(elements.multiplayerCard.style.cssText).toContain('100dvh')
     expect(elements.multiplayerCard.style.cssText).toContain('display:none')
     expect(elements.multiplayerCard.innerHTML).toContain('Join Multiplayer')
     expect(elements.multiplayerCard.innerHTML).toContain('Enter the server address and your player name')
@@ -160,6 +161,14 @@ describe('presentation/menu/main-menu-dom', () => {
     expect(elements.buttons.mpConfirm.id).toBe('mm-mp-confirm')
     expect(elements.buttons.howToPlayClose.id).toBe('mm-how-to-play-close')
     expect(appended).toHaveLength(1)
+  })
+
+  it('includes responsive, keyboard-focus, motion, and safe-area styling', () => {
+    expect(overlayBaseStyle).toContain('height:100dvh')
+    expect(overlayBaseStyle).toContain('env(safe-area-inset-top)')
+    expect(menuButtonHoverCss).toContain('@media (max-width:420px)')
+    expect(menuButtonHoverCss).toContain(':focus-visible')
+    expect(menuButtonHoverCss).toContain('@media (prefers-reduced-motion:reduce)')
   })
 
   it('returns undefined when a required element is missing', () => {

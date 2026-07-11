@@ -32,6 +32,7 @@ const makeStubElement = (): StubElement => {
     setAttribute: vi.fn(),
     appendChild: vi.fn(),
     focus: vi.fn(function (this: StubElement) { this.__focused = true }),
+    isConnected: true,
     remove: vi.fn(),
   }
   ;(el as StubElement).__listeners = listeners
@@ -95,7 +96,7 @@ describe('presentation/menu/confirm-dialog', () => {
   // `Deferred.await`. Production behavior (click → resolve, Enter/Esc, focus)
   // was manually verified via Playwright MCP.
   describe('DOM construction (with stubbed document)', () => {
-    const installStubDocument = () => {
+    const installStubDocument = (activeElement: Element | null = null) => {
       const docListeners = new Map<string, EventListener[]>()
       const stubDoc = {
         addEventListener: vi.fn((type: string, fn: EventListener) => {
@@ -108,7 +109,7 @@ describe('presentation/menu/confirm-dialog', () => {
           const i = list.indexOf(fn)
           if (i >= 0) list.splice(i, 1)
         }),
-        activeElement: null as Element | null,
+        activeElement,
       }
       Reflect.set(globalThis as object, 'document', stubDoc)
       return {
@@ -129,8 +130,9 @@ describe('presentation/menu/confirm-dialog', () => {
       message: string,
       confirmLabel: string,
       cancelLabel?: string,
+      activeElement: StubElement | null = null,
     ) => {
-      const stub = installStubDocument()
+      const stub = installStubDocument(activeElement)
       const mockDom = createMockDom()
       const program = Effect.gen(function* () {
         const dialog = yield* ConfirmDialogService
@@ -196,6 +198,40 @@ describe('presentation/menu/confirm-dialog', () => {
       )
       expect(panel).toBeDefined()
       expect(panel?.setAttribute).toHaveBeenCalledWith('aria-modal', 'true')
+      expect(messageEl?.id).toMatch(/^confirm-dialog-message-\d+$/)
+      expect(panel?.setAttribute).toHaveBeenCalledWith('aria-labelledby', messageEl?.id)
+    })
+
+    it('fits the panel within narrow viewports and accounts for safe areas', async () => {
+      const snap = await runDialogConstruction('Narrow viewport?', 'OK')
+      const backdrop = snap.created.find((el) => el.className === 'confirm-dialog-backdrop')
+      const panel = snap.created.find((el) =>
+        (el.setAttribute as ReturnType<typeof vi.fn>).mock.calls.some(
+          (args: unknown[]) => args[0] === 'role' && args[1] === 'dialog',
+        ),
+      )
+
+      expect(backdrop?.style.cssText).toContain('box-sizing:border-box')
+      expect(backdrop?.style.cssText).toContain('env(safe-area-inset-left)')
+      expect(panel?.style.cssText).toContain('box-sizing:border-box')
+      expect(panel?.style.cssText).toContain('width:100%')
+      expect(panel?.style.cssText).toContain('min-width:0')
+      expect(panel?.style.cssText).not.toContain('min-width:320px')
+    })
+
+    it('restores focus to the previously focused connected element on close', async () => {
+      const previous = makeStubElement()
+      await runDialogConstruction('Restore focus?', 'OK', undefined, previous)
+
+      expect(previous.focus).toHaveBeenCalledOnce()
+    })
+
+    it('does not restore focus to an element removed while the dialog is open', async () => {
+      const previous = makeStubElement()
+      Object.defineProperty(previous, 'isConnected', { value: false })
+      await runDialogConstruction('Restore focus?', 'OK', undefined, previous)
+
+      expect(previous.focus).not.toHaveBeenCalled()
     })
   })
 

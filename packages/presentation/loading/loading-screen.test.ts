@@ -80,6 +80,17 @@ const buildTestLayer = (mockDom = createMockDomLayer()) =>
     Layer.provide(mockDom.MockDomLayer),
   )
 
+type MockElement = HTMLElement & { children: MockElement[]; textContent: string }
+
+const findElement = (element: MockElement, predicate: (node: MockElement) => boolean): MockElement | undefined => {
+  if (predicate(element)) return element
+  for (const child of element.children) {
+    const match = findElement(child, predicate)
+    if (match) return match
+  }
+  return undefined
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -111,16 +122,21 @@ describe('presentation/loading/loading-screen', () => {
       expect(appendToHead).toHaveBeenCalledTimes(1)
       expect(mockDom.overlayEl.id).toBe('loading-screen')
       expect(mockDom.overlayEl.style.cssText).toContain('position:fixed')
-      expect(mockDom.overlayEl.style.display).toBe('flex')
-      expect(mockDom.overlayEl.children).toHaveLength(3)
-      expect(mockDom.overlayEl.getAttribute('role')).toBe('status')
-      expect(mockDom.overlayEl.getAttribute('aria-live')).toBe('polite')
+      expect(mockDom.overlayEl.style.cssText).toContain('min-height:100dvh')
+      expect(mockDom.overlayEl.style.cssText).toContain('safe-area-inset-top')
+      expect(mockDom.overlayEl.style.display).toBe('grid')
+      expect(mockDom.overlayEl.children).toHaveLength(1)
+      expect(mockDom.overlayEl.getAttribute('role')).toBeNull()
+      expect(mockDom.overlayEl.getAttribute('aria-live')).toBeNull()
       expect(mockDom.overlayEl.getAttribute('aria-busy')).toBe('true')
-      expect(mockDom.overlayEl.getAttribute('aria-label')).toBe('Loading ts-minecraft')
+      expect(mockDom.overlayEl.getAttribute('aria-label')).toBe('Preparing your Minecraft world')
       expect(mockDom.overlayEl.getAttribute('aria-modal')).toBeNull()
-      const loadingTextNode = mockDom.overlayEl.children[2] as HTMLElement & { textContent: string }
-      expect(loadingTextNode.getAttribute('role')).toBe('status')
-      expect(loadingTextNode.getAttribute('aria-live')).toBe('polite')
+      const status = findElement(mockDom.overlayEl as MockElement, node => node.getAttribute('role') === 'status')
+      expect(status?.getAttribute('aria-live')).toBe('polite')
+      expect(status?.getAttribute('aria-atomic')).toBe('true')
+      const styles = appendToHead.mock.calls[0]?.[0] as { textContent: string }
+      expect(styles.textContent).toContain('@media (max-width:320px)')
+      expect(styles.textContent).toContain('@media (prefers-reduced-motion:reduce)')
     }).pipe(Effect.provide(TestLayer), Effect.ensuring(Effect.sync(() => {
       Reflect.deleteProperty(globalThis as object, 'document')
     })))
@@ -143,17 +159,19 @@ describe('presentation/loading/loading-screen', () => {
       const payload = '<img src=x onerror=alert(1) />'
       yield* loading.showError(payload)
 
-      expect(mockDom.overlayEl.children).toHaveLength(3)
+      expect(mockDom.overlayEl.children).toHaveLength(1)
       expect(mockDom.overlayEl.getAttribute('role')).toBe('alertdialog')
       expect(mockDom.overlayEl.getAttribute('aria-modal')).toBe('true')
-      expect(mockDom.overlayEl.getAttribute('aria-live')).toBe('assertive')
+      expect(mockDom.overlayEl.getAttribute('aria-live')).toBeNull()
       expect(mockDom.overlayEl.getAttribute('aria-busy')).toBe('false')
-      expect(mockDom.overlayEl.getAttribute('aria-label')).toBe('Game session error')
+      expect(mockDom.overlayEl.getAttribute('aria-label')).toBeNull()
+      expect(mockDom.overlayEl.getAttribute('aria-labelledby')).toBe('loading-error-title')
+      expect(mockDom.overlayEl.getAttribute('aria-describedby')).toBe('loading-error-message loading-error-detail')
       expect(mockDom.overlayEl.tabIndex).toBe(-1)
       expect(mockDom.overlayEl.focus).toHaveBeenCalledWith({ preventScroll: true })
-      const messageNode = mockDom.overlayEl.children[1] as HTMLElement & { textContent: string }
-      expect(messageNode.textContent).toBe(payload)
-      expect(messageNode.getAttribute('role')).toBe('alert')
+      const messageNode = findElement(mockDom.overlayEl as MockElement, node => node.id === 'loading-error-message')
+      expect(messageNode?.textContent).toBe(payload)
+      expect(messageNode?.getAttribute('role')).toBeNull()
     }).pipe(Effect.provide(TestLayer), Effect.ensuring(Effect.sync(() => {
       Reflect.deleteProperty(globalThis as object, 'document')
     })))
@@ -178,9 +196,8 @@ describe('presentation/loading/loading-screen', () => {
         'Refresh the page or check the browser console for details.',
       )
 
-      expect(mockDom.overlayEl.children).toHaveLength(3)
-      const detailNode = mockDom.overlayEl.children[2] as { textContent: string }
-      expect(detailNode.textContent).toBe('Refresh the page or check the browser console for details.')
+      const detailNode = findElement(mockDom.overlayEl as MockElement, node => node.id === 'loading-error-detail')
+      expect(detailNode?.textContent).toBe('Refresh the page or check the browser console for details.')
     }).pipe(Effect.provide(TestLayer), Effect.ensuring(Effect.sync(() => {
       Reflect.deleteProperty(globalThis as object, 'document')
     })))
@@ -203,13 +220,14 @@ describe('presentation/loading/loading-screen', () => {
       yield* loading.showError('broken')
       yield* loading.show()
 
-      expect(mockDom.overlayEl.style.display).toBe('flex')
-      expect(mockDom.overlayEl.children).toHaveLength(3)
-      expect(mockDom.overlayEl.getAttribute('role')).toBe('status')
+      expect(mockDom.overlayEl.style.display).toBe('grid')
+      expect(mockDom.overlayEl.children).toHaveLength(1)
+      expect(mockDom.overlayEl.getAttribute('role')).toBeNull()
       expect(mockDom.overlayEl.getAttribute('aria-busy')).toBe('true')
       expect(mockDom.overlayEl.getAttribute('aria-modal')).toBeNull()
-      const loadingTextNode = mockDom.overlayEl.children[2] as { textContent: string }
-      expect(loadingTextNode.textContent).toBe('Loading...')
+      expect(mockDom.overlayEl.getAttribute('aria-labelledby')).toBeNull()
+      const title = findElement(mockDom.overlayEl as MockElement, node => node.className === 'loading-title')
+      expect(title?.textContent).toBe('Preparing your world')
     }).pipe(Effect.provide(TestLayer), Effect.ensuring(Effect.sync(() => {
       Reflect.deleteProperty(globalThis as object, 'document')
     })))

@@ -4,6 +4,7 @@ import { DomOperationsService } from '@ts-minecraft/presentation/hud/crosshair'
 // Each show() builds a fresh DOM overlay (no collision with concurrent dialogs).
 // Higher z-index (6000) than main menu overlay (5000) and pause menu (1050) so dialogs always stack above their caller.
 const DIALOG_Z_INDEX = 6000
+let nextDialogId = 0
 
 // Same classic-Minecraft treatment as the main menu (see main-menu-styles.ts):
 // dark panel, bevelled buttons, system-ui.
@@ -11,10 +12,9 @@ const SANS_FONT = 'system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,san
 
 const BACKDROP_STYLE = [
   'position:fixed',
-  'top:0',
-  'left:0',
-  'width:100vw',
-  'height:100vh',
+  'inset:0',
+  'box-sizing:border-box',
+  'padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left))',
   'background:rgba(0,0,0,0.6)',
   'display:flex',
   'align-items:center',
@@ -24,11 +24,15 @@ const BACKDROP_STYLE = [
 ].join(';')
 
 const PANEL_STYLE = [
+  'box-sizing:border-box',
+  'width:100%',
   'background:rgba(30,30,30,0.96)',
   'color:#e0e0e0',
   'padding:24px 28px',
-  'min-width:320px',
+  'min-width:0',
   'max-width:480px',
+  'max-height:100%',
+  'overflow:auto',
   'border:2px solid #000',
   'box-shadow:inset 2px 2px 0 rgba(255,255,255,0.15),inset -2px -2px 0 rgba(0,0,0,0.5),0 12px 28px rgba(0,0,0,0.55)',
   'text-shadow:1px 1px 0 #1a1a1a',
@@ -85,6 +89,7 @@ export class ConfirmDialogService extends Effect.Service<ConfirmDialogService>()
             }
 
             const result = yield* Deferred.make<boolean, never>()
+            const previouslyFocused = document.activeElement as HTMLElement | null
 
             // Build DOM ----------------------------------------------------
             const backdrop = dom.createElement('div')
@@ -97,8 +102,10 @@ export class ConfirmDialogService extends Effect.Service<ConfirmDialogService>()
             panel.setAttribute('aria-modal', 'true')
 
             const messageEl = dom.createElement('div')
+            messageEl.id = `confirm-dialog-message-${nextDialogId++}`
             messageEl.style.cssText = MESSAGE_STYLE
             messageEl.textContent = message
+            panel.setAttribute('aria-labelledby', messageEl.id)
             dom.appendChildTo(panel, messageEl)
 
             const row = dom.createElement('div')
@@ -175,6 +182,7 @@ export class ConfirmDialogService extends Effect.Service<ConfirmDialogService>()
                   backdrop.removeEventListener('click', handleBackdropClick)
                   document.removeEventListener('keydown', handleKeyDown, true)
                   Option.map(dom.getParentNode(backdrop), () => dom.removeChild(backdrop))
+                  if (previouslyFocused?.isConnected !== false) previouslyFocused?.focus()
                 }),
             )
             return yield* Deferred.await(result)
