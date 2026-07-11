@@ -19,6 +19,34 @@ export const getHudContainer = (el: HTMLElement | null, selector: string): HTMLE
   return el.closest(selector) as HTMLElement | null
 }
 
+export type VitalHudState = 'normal' | 'warning' | 'critical'
+
+export const getVitalHudState = (value: number, max: number): VitalHudState => {
+  const ratio = max > 0 ? clamp(value / max, 0, 1) : 0
+  if (ratio <= 0.25) return 'critical'
+  if (ratio <= 0.5) return 'warning'
+  return 'normal'
+}
+
+export const updateVitalMeterAccessibility = (
+  valueElement: HTMLElement | null,
+  containerSelector: string,
+  value: number,
+  max: number,
+): void => {
+  const container = getHudContainer(valueElement, containerSelector)
+  if (container === null || max <= 0) return
+
+  const clamped = clamp(value, 0, max)
+  const state = getVitalHudState(clamped, max)
+  container.setAttribute('data-state', state)
+  container.setAttribute('role', 'meter')
+  container.setAttribute('aria-valuemin', '0')
+  container.setAttribute('aria-valuemax', String(max))
+  container.setAttribute('aria-valuenow', String(clamped))
+  container.setAttribute('aria-valuetext', `${clamped} of ${max}, ${state}`)
+}
+
 export const updateIconMeter = (
   valueElement: HTMLElement | null,
   containerSelector: string,
@@ -110,6 +138,7 @@ const syncHealthHud = (
         writeHudText(inputs.healthValueElementOrNull, health.current)
         writeHudText(inputs.healthMaxElementOrNull, health.max)
         updateIconMeter(inputs.healthValueElementOrNull, '#health-display', health.current, health.max)
+        updateVitalMeterAccessibility(inputs.healthValueElementOrNull, '#health-display', health.current, health.max)
         renderAbsorptionHearts(getAbsorptionContainer(inputs.healthValueElementOrNull), absorption)
       })
     }
@@ -129,6 +158,7 @@ const syncHungerHud = (
         writeHudText(inputs.hungerValueElementOrNull, hunger.foodLevel)
         writeHudText(inputs.hungerMaxElementOrNull, MAX_FOOD_LEVEL)
         updateIconMeter(inputs.hungerValueElementOrNull, '#hunger-display', hunger.foodLevel, MAX_FOOD_LEVEL)
+        updateVitalMeterAccessibility(inputs.hungerValueElementOrNull, '#hunger-display', hunger.foodLevel, MAX_FOOD_LEVEL)
       })
     }
   })

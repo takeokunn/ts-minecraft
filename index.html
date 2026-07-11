@@ -212,6 +212,8 @@
       }
 
       #survival-hud {
+        --vital-icon-size: clamp(12px, 4vw, 16px);
+        --vital-icon-gap: clamp(1px, 0.45vw, 2px);
         position: fixed;
         left: 50%;
         /* Clear the THREE.js hotbar strip (slot centres sit 50px from the
@@ -238,15 +240,15 @@
 
       #survival-hud .hud-meter {
         display: grid;
-        grid-template-columns: repeat(10, 16px);
-        gap: 2px;
-        height: 16px;
+        grid-template-columns: repeat(10, var(--vital-icon-size));
+        gap: var(--vital-icon-gap);
+        height: var(--vital-icon-size);
       }
 
       #survival-hud .hud-meter-icon {
         position: relative;
-        width: 16px;
-        height: 16px;
+        width: var(--vital-icon-size);
+        height: var(--vital-icon-size);
         filter: drop-shadow(1px 1px 0 #1b1b1b);
       }
 
@@ -298,10 +300,22 @@
         --icon-fill: #ff5a3d;
       }
 
+      #health-display[data-state="warning"],
+      #hunger-display[data-state="warning"] {
+        outline: 2px dashed currentColor;
+        outline-offset: 2px;
+      }
+
       #health-display[data-state="critical"] .hud-meter-icon {
         --icon-fill: #ff2424;
         --vital-glow: rgba(255, 36, 36, 0.85);
         animation: hud-vital-critical 0.7s steps(2, end) infinite;
+      }
+
+      #health-display[data-state="critical"],
+      #hunger-display[data-state="critical"] {
+        outline: 3px double currentColor;
+        outline-offset: 2px;
       }
 
       #hunger-display .hud-meter-icon::before,
@@ -461,11 +475,11 @@
       </div>
       <div id="absorption-display" class="hud-meter" aria-label="Absorption hearts" hidden></div>
       <div class="hud-row">
-        <div id="health-display" class="hud-meter" data-state="normal" aria-label="Health">
+        <div id="health-display" class="hud-meter" data-state="normal" role="meter" aria-label="Health" aria-valuemin="0" aria-valuemax="20" aria-valuenow="20" aria-valuetext="20 of 20, normal">
           <span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span>
           <span id="health-value" class="hud-numeric">20</span><span id="health-max" class="hud-numeric">20</span>
         </div>
-        <div id="hunger-display" class="hud-meter" data-state="normal" aria-label="Hunger">
+        <div id="hunger-display" class="hud-meter" data-state="normal" role="meter" aria-label="Hunger" aria-valuemin="0" aria-valuemax="20" aria-valuenow="20" aria-valuetext="20 of 20, normal">
           <span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span><span class="hud-meter-icon" data-hud-icon data-fill="full"></span>
           <span id="hunger-value" class="hud-numeric">20</span><span id="hunger-max" class="hud-numeric">20</span>
         </div>

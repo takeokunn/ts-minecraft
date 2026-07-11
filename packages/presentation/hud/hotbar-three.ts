@@ -17,11 +17,13 @@ import {
   updateSlotCountBadge,
   type SlotCountBadge,
 } from './hotbar-count-badge'
+import { getHudScale } from './hud-scale'
 
 const SLOT_SIZE = 60
 const SLOT_GAP = 10
 const SLOT_STRIDE = SLOT_SIZE + SLOT_GAP
 const TOTAL_WIDTH = HOTBAR_SLOTS * SLOT_SIZE + (HOTBAR_SLOTS - 1) * SLOT_GAP
+const HOTBAR_HORIZONTAL_SAFE_AREA = 16
 const HOTBAR_Y_OFFSET = 50 // pixels from bottom edge of viewport to center of hotbar strip
 // Vanilla-style slot cell: a dark translucent square framed by a light-grey
 // outer border and a darker inner edge. The frame is built from two planes
@@ -88,6 +90,27 @@ type FirstPersonLayout = {
   readonly z: number
   readonly blockScale: number
   readonly flatItemSize: number
+}
+
+export type HotbarViewportLayout = {
+  readonly zoom: number
+  readonly y: number
+  readonly itemNameY: number
+}
+
+export const resolveHotbarViewportLayout = (
+  width: number,
+  height: number,
+  uiScale: number,
+): HotbarViewportLayout => {
+  const safeWidth = Math.max(1, width - HOTBAR_HORIZONTAL_SAFE_AREA * 2)
+  const requestedScale = Number.isFinite(uiScale) && uiScale > 0 ? uiScale : 1
+  const zoom = Math.min(requestedScale, safeWidth / TOTAL_WIDTH)
+  return {
+    zoom,
+    y: -height / (2 * zoom) + HOTBAR_Y_OFFSET,
+    itemNameY: -height / (2 * zoom) + ITEM_NAME_LABEL_Y_OFFSET,
+  }
 }
 
 const FIRST_PERSON_BLOCK_ITEMS: ReadonlySet<InventoryItem> = new Set<InventoryItem>([
@@ -377,11 +400,45 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
       const itemNameLabelRef = MutableRef.make<Option.Option<ItemNameLabel>>(Option.none())
       const itemNameLabelShownAtMsRef = MutableRef.make(0)
       const lastSwingAmountRef = MutableRef.make(0)
+      const viewportWidthRef = MutableRef.make(1)
+      const viewportHeightRef = MutableRef.make(1)
+      const appliedHudScaleRef = MutableRef.make(Number.NaN)
 
       const makeCamera = (w: number, h: number): THREE.OrthographicCamera => {
         const cam = new THREE.OrthographicCamera(-w / 2, w / 2, h / 2, -h / 2, 0, 100)
         cam.position.z = 10
         return cam
+      }
+
+      const applyHotbarViewportLayout = (w: number, h: number): void => {
+        MutableRef.set(viewportWidthRef, w)
+        MutableRef.set(viewportHeightRef, h)
+        const uiScale = getHudScale()
+        MutableRef.set(appliedHudScaleRef, uiScale)
+        const layout = resolveHotbarViewportLayout(w, h, uiScale)
+        const hudCamera = MutableRef.get(hudCameraRef)
+
+        Option.map(hudCamera, (cam) => {
+          cam.left = -w / 2
+          cam.right = w / 2
+          cam.top = h / 2
+          cam.bottom = -h / 2
+          cam.zoom = layout.zoom
+          cam.updateProjectionMatrix()
+        })
+        Arr.forEach(MutableRef.get(slotMeshesRef), (mesh) => {
+          mesh.position.y = layout.y
+        })
+        Arr.forEach(MutableRef.get(frameMeshesRef), (mesh) => {
+          mesh.position.y = layout.y
+        })
+        Arr.forEach(MutableRef.get(countBadgesRef), (badge) => {
+          badge.mesh.position.y = badgeAnchorY(layout.y, SLOT_SIZE)
+        })
+        borderMesh.position.y = layout.y
+        Option.map(MutableRef.get(itemNameLabelRef), (label) => {
+          label.mesh.position.y = layout.itemNameY
+        })
       }
 
       const makeHeldItemCamera = (w: number, h: number): THREE.PerspectiveCamera => {
@@ -420,38 +477,14 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
       const resizeHandler = () => {
         const w = window.innerWidth
         const h = window.innerHeight
-        const hudCamera = MutableRef.get(hudCameraRef)
         const heldItemCamera = MutableRef.get(heldItemCameraRef)
-        const slotMeshes = MutableRef.get(slotMeshesRef)
-
-        Option.map(hudCamera, (cam) => {
-          cam.left = -w / 2
-          cam.right = w / 2
-          cam.top = h / 2
-          cam.bottom = -h / 2
-          cam.updateProjectionMatrix()
-        })
+        applyHotbarViewportLayout(w, h)
         Option.map(heldItemCamera, (cam) => {
           cam.aspect = w / Math.max(1, h)
           cam.updateProjectionMatrix()
           Option.map(MutableRef.get(heldItemRef), (heldItem) => {
             applyFirstPersonHeldItemLayout(heldItem, cam.aspect)
           })
-        })
-
-        const newY = -h / 2 + HOTBAR_Y_OFFSET
-        Arr.forEach(slotMeshes, (m) => {
-          m.position.y = newY
-        })
-        Arr.forEach(MutableRef.get(frameMeshesRef), (m) => {
-          m.position.y = newY
-        })
-        Arr.forEach(MutableRef.get(countBadgesRef), (badge) => {
-          badge.mesh.position.y = badgeAnchorY(newY, SLOT_SIZE)
-        })
-        borderMesh.position.y = newY
-        Option.map(MutableRef.get(itemNameLabelRef), (label) => {
-          label.mesh.position.y = -h / 2 + ITEM_NAME_LABEL_Y_OFFSET
         })
       }
 
@@ -566,6 +599,7 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
               return built
             })
             MutableRef.set(slotMeshesRef, meshes)
+            applyHotbarViewportLayout(initialWidth, initialHeight)
           }),
 
         update: (slots: ReadonlyArray<Option.Option<HotbarSlotStack>>, selectedSlot: SlotIndex): Effect.Effect<void, never> =>
@@ -636,6 +670,12 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
           }),
 
         render: (renderer: THREE.WebGLRenderer, swingAmount = 0): Effect.Effect<void, never> => {
+          if (getHudScale() !== MutableRef.get(appliedHudScaleRef)) {
+            applyHotbarViewportLayout(
+              MutableRef.get(viewportWidthRef),
+              MutableRef.get(viewportHeightRef),
+            )
+          }
           updateItemNameLabelOpacity()
           const hudCamera = Option.getOrNull(MutableRef.get(hudCameraRef))
           const heldItemCamera = Option.getOrNull(MutableRef.get(heldItemCameraRef))

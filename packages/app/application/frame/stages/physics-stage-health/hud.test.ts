@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { clamp, getHudContainer, renderAbsorptionHearts, renderStatusEffectChips, statusEffectsSignature, updateIconMeter, updateXpBar, writeHudText } from './hud'
+import { clamp, getHudContainer, getVitalHudState, renderAbsorptionHearts, renderStatusEffectChips, statusEffectsSignature, updateIconMeter, updateVitalMeterAccessibility, updateXpBar, writeHudText } from './hud'
 
 const makeEl = (textContent = '') => ({ textContent, style: { display: '' } } as unknown as HTMLElement)
 const makeIcon = () => ({ setAttribute: vi.fn() } as unknown as HTMLElement)
@@ -160,6 +160,40 @@ describe('updateIconMeter', () => {
       'data-fill',
       'full',
     )
+  })
+})
+
+describe('vital meter accessibility', () => {
+  it('classifies normal, warning, and critical states at their boundaries', () => {
+    expect(getVitalHudState(11, 20)).toBe('normal')
+    expect(getVitalHudState(10, 20)).toBe('warning')
+    expect(getVitalHudState(5, 20)).toBe('critical')
+    expect(getVitalHudState(0, 0)).toBe('critical')
+  })
+
+  it('updates state and meter attributes using a clamped value', () => {
+    const container = { setAttribute: vi.fn() }
+    const el = {
+      closest: vi.fn().mockReturnValue(container),
+    } as unknown as HTMLElement
+
+    updateVitalMeterAccessibility(el, '#health-display', 999, 20)
+
+    expect(container.setAttribute).toHaveBeenCalledWith('data-state', 'normal')
+    expect(container.setAttribute).toHaveBeenCalledWith('role', 'meter')
+    expect(container.setAttribute).toHaveBeenCalledWith('aria-valuemin', '0')
+    expect(container.setAttribute).toHaveBeenCalledWith('aria-valuemax', '20')
+    expect(container.setAttribute).toHaveBeenCalledWith('aria-valuenow', '20')
+    expect(container.setAttribute).toHaveBeenCalledWith('aria-valuetext', '20 of 20, normal')
+  })
+
+  it('does nothing without a container or a positive maximum', () => {
+    expect(() => updateVitalMeterAccessibility(null, '#health-display', 5, 20)).not.toThrow()
+
+    const container = { setAttribute: vi.fn() }
+    const el = { closest: vi.fn().mockReturnValue(container) } as unknown as HTMLElement
+    updateVitalMeterAccessibility(el, '#health-display', 0, 0)
+    expect(container.setAttribute).not.toHaveBeenCalled()
   })
 })
 

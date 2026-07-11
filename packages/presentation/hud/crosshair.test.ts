@@ -2,6 +2,7 @@ import { describe, it } from '@effect/vitest'
 import { Array as Arr, Effect, Option } from 'effect'
 import { expect, vi } from 'vitest'
 import { CrosshairService } from '@ts-minecraft/presentation/hud/crosshair'
+import { applyHudScale } from '@ts-minecraft/presentation/hud/hud-scale'
 import { createMockDomLayer } from './crosshair-test-utils'
 
 describe('CrosshairService', () => {
@@ -196,6 +197,32 @@ describe('CrosshairService', () => {
           expect(element.style.cssText).toContain('scale(1)')
           expect(element.style.cssText).not.toContain('scale(1.45)')
         }).pipe(Effect.provide(TestLayer))
+      })
+
+      it.effect('should preserve the current HUD scale after pulse reset', () => {
+        vi.useFakeTimers()
+        applyHudScale(0.75)
+        const { TestLayer, getCreatedElements } = createMockDomLayer()
+
+        return Effect.gen(function* () {
+          const crosshair = yield* CrosshairService
+          yield* crosshair.show()
+          yield* crosshair.pulse()
+
+          const element = Option.getOrThrow(Arr.get(getCreatedElements(), 0))
+          expect(element.style.cssText).toContain('scale(1.0875)')
+
+          vi.advanceTimersByTime(120)
+
+          expect(element.style.cssText).toContain('scale(0.75)')
+        }).pipe(
+          Effect.provide(TestLayer),
+          Effect.ensuring(Effect.sync(() => {
+            applyHudScale(1)
+            vi.clearAllTimers()
+            vi.useRealTimers()
+          }))
+        )
       })
     })
 
